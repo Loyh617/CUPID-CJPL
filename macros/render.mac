@@ -1,0 +1,16 @@
+# Headless geometry image: run with --serial --vis.
+# Writes geometry.png in the current working directory.
+# Based on the installed Geant4 11.4.1 B5 offscreen example.
+/control/execute geometry.mac
+/run/initialize
+/vis/open TSG_OFFSCREEN 800x1000
+/vis/tsg/offscreen/set/format zb_png
+/vis/tsg/offscreen/set/file geometry.png
+/vis/drawVolume
+/vis/viewer/set/viewpointVector 1 0.25 1
+/vis/viewer/set/upVector 0 1 0
+/vis/viewer/set/targetPoint 0 0.12 0 m
+/vis/viewer/set/background white
+/vis/viewer/set/style surface
+/vis/viewer/zoomTo 0.9
+/vis/viewer/rebuild

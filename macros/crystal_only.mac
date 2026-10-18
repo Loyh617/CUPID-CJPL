@@ -1,0 +1,14 @@
+/control/verbose 1
+/run/verbose 1
+/random/setSeeds 12345 67890
+/cupid/geometry/enable CrystalArray
+/cupid/geometry/crystalCount 2
+/run/initialize
+/cupid/geometry/check 10000
+/gun/particle gamma
+/gun/energy 1 MeV
+# Aim at the left crystal, avoiding the gap between the two crystals.
+/gun/position -25 -350 -100 mm
+/gun/direction 0 0 1
+/run/beamOn 1000
+

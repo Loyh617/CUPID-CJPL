@@ -1,0 +1,12 @@
+/control/verbose 1
+/run/verbose 1
+/random/setSeeds 12345 67890
+/control/execute geometry.mac
+/run/initialize
+/gun/particle gamma
+/gun/energy 1 MeV
+/gun/position 0 -350 -100 mm
+/gun/direction 0 0 1
+/tracking/verbose 0
+/run/beamOn 1000
+

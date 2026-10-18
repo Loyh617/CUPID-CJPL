@@ -1,0 +1,9 @@
+/build*/
+*.root
+*.log
+__pycache__/
+.DS_Store
+/geometry.png
+/g4tsg_offscreen_*.png
+CMakeUserPresets.json
+

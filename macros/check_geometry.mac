@@ -1,0 +1,6 @@
+/control/verbose 1
+/random/setSeeds 12345 67890
+/control/execute geometry.mac
+/run/initialize
+/cupid/geometry/check 20000
+
