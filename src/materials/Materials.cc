@@ -93,11 +93,7 @@ void Materials::Build() {
 }
 
 G4Material* Materials::Get(const G4String& name) const {
-  // Reference-library lookup names and the original framework crystal name.
-  G4String materialName = name;
-  if (name == "WorldAir") materialName = "Air";
-  if (name == "LMO_Crystal" || name == "CUPID.LMO.Natural") materialName = "Li2MoO4";
-  auto* material = G4Material::GetMaterial(materialName, false);
+  auto* material = G4Material::GetMaterial(name, false);
   if (!material) throw std::runtime_error("Undefined material: " + name);
   return material;
 }

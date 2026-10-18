@@ -12,7 +12,7 @@ void CrystalArray::Build(G4LogicalVolume* mother, const Materials& materials,
                         const GeometryParameters& p) const {
   const auto half = p.crystalSide/2.;
   auto* solid = new G4Box("CrystalArray.LMO.Solid", half, half, half);
-  auto* logical = new G4LogicalVolume(solid, materials.Get("CUPID.LMO.Natural"),
+  auto* logical = new G4LogicalVolume(solid, materials.Get("Li2MoO4"),
                                     "CrystalArray.LMO.Logical");
   logical->SetVisAttributes(G4VisAttributes(G4Colour(0.1, 0.8, 0.95)));
   for (G4int id = 0; id < p.crystalCount; ++id) {

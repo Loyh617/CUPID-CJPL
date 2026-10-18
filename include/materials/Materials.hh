@@ -8,7 +8,7 @@ class Materials {
   // Call during master-thread geometry initialization, before worker transport.
   // Geant4 owns the elements/materials; repeated calls reuse existing entries.
   void Build();
-  // Accepts material names plus WorldAir, LMO_Crystal and CUPID.LMO.Natural aliases.
+  // Requires the exact G4Material name; unknown names throw an exception.
   G4Material* Get(const G4String& name) const;
 };
 }

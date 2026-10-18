@@ -1,6 +1,9 @@
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
-#include "FTFP_BERT.hh"
+// 2026-10-18: retired the transport-only baseline for explicit physics modules.
+// Restore the old include and initialization together only to reproduce that baseline.
+// #include "FTFP_BERT.hh"
+#include "PhysicsList.hh"
 #include "G4RunManager.hh"
 #include "G4RunManagerFactory.hh"
 #include "G4UImanager.hh"
@@ -73,10 +76,13 @@ int main(int argc, char** argv) {
         options.serial ? G4RunManagerType::SerialOnly : G4RunManagerType::MTOnly));
     if (!options.serial) runManager->SetNumberOfThreads(options.threads);
     runManager->SetUserInitialization(new cupid::DetectorConstruction);
+    // 2026-10-18: retain the old baseline as comments per repository policy.
+    // Restore only when deliberately reproducing the previous physics setup.
     // Transport baseline only: not a validated radioactive calibration physics model.
-    auto* physics = new FTFP_BERT;
-    physics->SetVerboseLevel(0);
-    runManager->SetUserInitialization(physics);
+    // auto* physics = new FTFP_BERT;
+    // physics->SetVerboseLevel(0);
+    // runManager->SetUserInitialization(physics);
+    runManager->SetUserInitialization(new cupid::PhysicsList(0));
     runManager->SetUserInitialization(new cupid::ActionInitialization);
 
 #if CUPID_WITH_VIS
@@ -91,7 +97,9 @@ int main(int argc, char** argv) {
     auto* ui = G4UImanager::GetUIpointer();
     ui->SetMacroSearchPath(".:" + macro.parent_path().string() + ":" + CUPID_MACRO_DIR);
     ui->ParseMacroSearchPath();
-    G4cout << "CUPID_ENV " << G4Version << " physics=FTFP_BERT mode="
+    // 2026-10-18: retired the old physics label; restore only with the old list.
+    // G4cout << "CUPID_ENV " << G4Version << " physics=FTFP_BERT mode="
+    G4cout << "CUPID_ENV " << G4Version << " physics=CUPIDPhysicsList-v1 mode="
            << (options.serial ? "serial" : "MT") << " threads="
            << (options.serial ? 1 : options.threads) << G4endl;
     ui->ExecuteMacroFile(macro.string().c_str());

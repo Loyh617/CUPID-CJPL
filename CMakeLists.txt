@@ -14,6 +14,7 @@ add_executable(cupid-sim
   src/DetectorConstruction.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
+  src/PhysicsList.cc
   src/RunAction.cc
   src/geometry/GeometryManager.cc
   src/geometry/GeometryMessenger.cc
@@ -54,5 +55,9 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_framework.py
       $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/test-results ${test_vis_argument})
   set_tests_properties(framework-checks PROPERTIES TIMEOUT 240)
+  add_test(NAME physics-checks
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_physics.py
+      $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/physics-test-results)
+  set_tests_properties(physics-checks PROPERTIES TIMEOUT 240)
 endif()
 

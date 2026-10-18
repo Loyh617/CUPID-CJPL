@@ -110,11 +110,12 @@ CUPID_RUN_SUMMARY run=0 events=1000 aborted=0
 ## 4. 文件职责
 
 ```text
-main.cc                         程序入口、运行模式、参考物理列表
+main.cc                         程序入口、运行模式、物理列表注册
 include/ + src/                 头文件和实现一一对应
   DetectorConstruction          世界创建和整体构造入口
   ActionInitialization          创建线程局部的用户 actions
   PrimaryGeneratorAction        G4ParticleGun，支持 /gun/ 命令
+  PhysicsList                   逐项注册物理构造器和设置参数
   RunAction                     结束时输出完成事件数
   geometry/
     GeometryManager             组件登记、开关、装配、重叠检查
@@ -127,6 +128,7 @@ include/ + src/                 头文件和实现一一对应
 macros/                         几何选择、显示、检查和运行示例
 tests/check_framework.py        小规模端到端检查
 tests/check_materials.cc        材料配方与查询一致性检查
+tests/check_physics.py          过程注册、衰变与输运冒烟检查
 ```
 
 ## 5. 几何事实与暂定假设
@@ -163,12 +165,12 @@ tests/check_materials.cc        材料配方与查询一致性检查
 | 查询名称 | 密度（g/cm³） | 组成及说明 |
 | --- | --- | --- |
 | `Vacuum` | `CLHEP::universe_mean_density`，按 Geant4 单位使用 | 氢气近似；2.73 K、3×10⁻¹⁸ Pa |
-| `WorldAir` / `Air` | 0.00129 | N 70%、O 30%，质量分数；简化空气 |
+| `Air` | 0.00129 | N 70%、O 30%，质量分数；简化空气 |
 | `Copper` | 8.96 | 天然铜 |
 | `Lead` | 11.35 | 天然铅 |
 | `Steel` | 7.874 | Fe 96%、C 4%，质量分数；参考配方，不能视为真实不锈钢牌号 |
 | `PTFE` | 2.2 | C₂F₄，原子数比 |
-| `LMO_Crystal` / `Li2MoO4` / `CUPID.LMO.Natural` | 3.07 | 天然 Li₂MoO₄，固态，0.01 K |
+| `Li2MoO4` | 3.07 | 天然 Li₂MoO₄，固态，0.01 K |
 | `NTD_Ge` | 5.323 | 纯天然锗近似；未定义掺杂 |
 
 配方参考 [SimulationTool 的 MaterialLibrary.cc](https://github.com/Loyh617/SimulationTool/blob/main/src/materials/MaterialLibrary.cc)，
@@ -178,22 +180,52 @@ tests/check_materials.cc        材料配方与查询一致性检查
 这些配方是当前参考输入，尚未逐项与实际装置的材料检测或采购规格确认。
 
 原几何的 `G4_Galactic`、`G4_Cu`、`G4_Al`、`G4_STAINLESS-STEEL` 继续单独构建，
-保留 Geant4 标准定义。`Steel` 不会替换冷板的不锈钢，`WorldAir` 也不会自动替换真空世界。
-原晶体查询名 `CUPID.LMO.Natural` 现在映射到 `Li2MoO4`：密度和天然元素组成不变，
+保留 Geant4 标准定义。`Steel` 不会替换冷板的不锈钢，`Air` 也不会自动替换真空世界。
+晶体直接使用材料名 `Li2MoO4`：密度和天然元素组成不变，
 温度从原先 Geant4 默认值改为参考库的 10 mK。设置温度本身不计算热收缩或探测器响应。
 
 `Materials::Build()` 在主线程几何初始化阶段调用，重复调用复用已有材料；
-材料由 Geant4 管理，几何组件不自行删除。`Get()` 支持上表别名，未知名称抛出异常。
-新增材料只需在元素段补充需要的元素，再添加一个独立材料段；只有确有需要时才添加查询别名。
-`tests/check_materials.cc` 检查材料是否齐全、密度/配比/温度、别名及重复初始化。
+材料由 Geant4 管理，几何组件不自行删除。`Get()` 只接受材料的实际名称，未知名称抛出异常。
+新增材料只需在元素段补充需要的元素，再添加一个独立材料段；调用时直接使用构造该材料时指定的名称。
+`tests/check_materials.cc` 检查材料是否齐全、密度/配比/温度、实际名称查询、旧别名拒绝及重复初始化。
 
 ## 6. 当前物理与事件范围
 
-使用 Geant4 11.4.1 自带 `FTFP_BERT` 作为测试输运基线。
-它尚未被验证为本实验的最终刻度/低本底物理配置。
-当前一个事件为粒子枪的一次发射及其后续输运。
-程序没有实现 Th-232 整链源、单次核素衰变策略、衰变时间整理或 ROOT 计分。
-这些将在几何版本确认后逐步加入，不能把当前示例当作 Th-232 刻度模拟。
+`PhysicsList` 直接继承 `G4VModularPhysicsList`，不继承完整的 `Shielding`。
+以下 Geant4 11.4.1 构造器在 `src/PhysicsList.cc` 中逐项包含和注册：
+
+| 构造器 | 用途 |
+| --- | --- |
+| `G4EmLivermorePhysics` | 低能电磁与带电粒子输运 |
+| `G4EmExtraPhysics` | 默认开启的光核、电子/正电子核和 μ 子核反应 |
+| `G4DecayPhysics` | 普通不稳定粒子衰变 |
+| `G4RadioactiveDecayPhysics` | 放射性核素衰变 |
+| `G4HadronElasticPhysicsHP` | 强子弹性及低能中子 HP 模型 |
+| `G4HadronPhysicsShielding` | 强子非弹性及中子俘获、裂变；这是单个构造器 |
+| `G4StoppingPhysics` | 停止粒子核俘获等过程 |
+| `G4IonElasticPhysics` | 离子弹性核反应 |
+| `G4IonQMDPhysics` | 离子非弹性核反应 |
+
+显式开启荧光、Auger 电子、原子退激忽略产生阈值和中子诱发裂变碎片。
+暂定 γ/e-/e+ 产生长度阈值为 0.1 mm，proton 为 0 mm；这些不是步长或跟踪截断值。
+放射性衰变时间限制为 `1e60 year`，以允许长寿命核素及子核继续衰变，
+不改变核素真实半衰期，也不是探测器积分时间窗。
+这组参数尚需 cut 收敛、刻度数据和中子/μ 子基准验证。
+
+运行环境须提供 11.4.1 对应的数据，包括 G4LEDATA、G4RADIOACTIVEDATA、
+G4LEVELGAMMADATA 和 HP 中子所需的 G4NEUTRONHPDATA；请使用本机 Geant4 环境脚本。
+普通 HP 配置未额外启用材料相关的热中子束缚散射模型。
+
+当前一个事件为粒子枪的一次发射及其后续输运；可用 `/gun/particle ion` 和
+`/gun/ion Z A 0 0` 注入静止核素来检查衰变。已具备核素衰变输运能力，
+但尚未实现专用 Th-232/Co-56 源的空间分布、归一化、仅衰变一次的选择策略、
+衰变时间整理或 ROOT 计分。整链沉积总和不能直接当作单次探测器脉冲能量。
+宇宙线通量/角分布和双贝塔衰变末态发生器也尚未实现。
+本版不包含光学光子、声子、电荷收集或电子学响应。
+
+`tests/check_physics.py` 通过过程列表及真实跟踪日志检查注册、μ 子/中子输运、
+Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件冒烟检查，
+不是分支比、能谱、中子产额或信号效率的物理验证。
 
 多线程采用 Geant4 事件并行；几何在初始化后共享，粒子枪和用户 actions 在线程内分别创建。
 几何宏命令只由主线程处理，不广播到工作线程。
@@ -250,5 +282,14 @@ Geant4 11.4.1 Release / MT / C++17。
 - 已在上述 WSL / Geant4 11.4.1 环境重新编译可视化版本。
 - CTest 的 `material-checks` 和 `framework-checks` 均通过。
 - 新增材料检查覆盖 8 种参考材料的密度、配比、同位素条目、显式温度/压力、
-  查询别名、未知名称拒绝，以及重复初始化不新增材料/元素。
+  材料名称查询、未知名称拒绝，以及重复初始化不新增材料/元素。
 - 原有 21 项端到端检查全部通过，包括串行/双线程输运和无窗口渲染。
+
+### PhysicsList 接入验证（2026-10-18）
+
+- 在本地工程 `/home/loyh/simulation/CUPID-CJPL` 编译成功。
+- CTest 的材料、框架和物理接入三组检查全部通过。
+- 原有 21 项框架检查通过，包括串行/双线程输运与无窗口渲染。
+- 新增 3 项物理冒烟检查通过：实际过程列表和 μ 子/中子输运、
+  单事件 Th-232 子核链到 Pb-208、双工作线程下 4 个 Co-56 衰变事件。
+- 日志：`build/physics-test-results/`。本记录不代表已完成物理精度验证。
