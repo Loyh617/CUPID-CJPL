@@ -4,7 +4,9 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 
 这是独立的新工程。参考工程只用于理解尺寸和装置关系，没有作为构建依赖。
 当前不包含晶体能量 ROOT 输出、Th-232/Co-56 源模型、岩石、大厅、电子学或波形。
-`RunAction` 只在运行结束输出实际完成的事件数。
+`RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
+`StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
+`include/` 与 `src/` 下的 `generator/`、`record/` 目录暂为空；现有粒子枪继续可用。
 
 ## 1. 在 WSL Ubuntu 中构建
 
@@ -53,10 +55,11 @@ cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
 
-成功运行后应看到类似：
+宏中设置 `/run/verbose 1` 后，成功运行应看到 Geant4 自带摘要，例如：
 
 ```text
-CUPID_RUN_SUMMARY run=0 events=1000 aborted=0
+Run Summary
+  Number of events processed : 1000
 ```
 
 这表示完成了粒子输运，不代表通过物理验证或已经得到能谱。
@@ -70,6 +73,7 @@ CUPID_RUN_SUMMARY run=0 events=1000 aborted=0
 
 ```text
 /random/setSeeds 12345 67890
+/run/verbose 1
 /cupid/geometry/enable Cryostat
 /cupid/geometry/enable InnerShielding
 /cupid/geometry/enable CrystalArray
@@ -116,7 +120,13 @@ include/ + src/                 头文件和实现一一对应
   ActionInitialization          创建线程局部的用户 actions
   PrimaryGeneratorAction        G4ParticleGun，支持 /gun/ 命令
   PhysicsList                   逐项注册物理构造器和设置参数
-  RunAction                     结束时输出完成事件数
+  RunAction                     运行开始/结束接口，暂为空
+  EventAction                   事件开始/结束接口，暂为空
+  SteppingAction                每步处理接口，暂为空
+  TrackingAction                轨迹开始/结束接口，暂为空
+  StackingAction                新轨迹分类、新阶段、事件准备接口
+  generator/                    空目录，预留事件发生器模块
+  record/                       空目录，预留数据记录模块
   geometry/
     GeometryManager             组件登记、开关、装配、重叠检查
     GeometryMessenger           /cupid/geometry/ 命令
@@ -229,6 +239,10 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 
 多线程采用 Geant4 事件并行；几何在初始化后共享，粒子枪和用户 actions 在线程内分别创建。
 几何宏命令只由主线程处理，不广播到工作线程。
+`ActionInitialization::BuildForMaster()` 只注册 `RunAction`；
+`Build()` 为串行执行或每个工作线程分别注册粒子枪与上述五个 actions。
+当前接口不累计能量、不筛选轨迹、不保存记录；`StackingAction` 也不推迟轨迹到后续事件。
+空目录不含占位文件，Git 不跟踪空目录；新检出时需自行建立这些目录。
 
 ## 7. 添加组件
 
@@ -293,3 +307,13 @@ Geant4 11.4.1 Release / MT / C++17。
 - 新增 3 项物理冒烟检查通过：实际过程列表和 μ 子/中子输运、
   单事件 Th-232 子核链到 Pb-208、双工作线程下 4 个 Co-56 衰变事件。
 - 日志：`build/physics-test-results/`。本记录不代表已完成物理精度验证。
+
+
+### Action 接口占位验证（2026-10-21）
+
+- 已核对本机 Geant4 11.4.1 的五种用户 Action 头文件接口并编译成功。
+- `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction` 的回调暂为空。
+- `StackingAction` 默认返回 `fUrgent`，其余回调为空。
+- CTest 三组检查全部通过：材料、21 项框架检查、3 项物理冒烟检查。
+- 事件完成数检查使用 `/run/verbose 1` 的 Geant4 原生摘要，包含串行、双线程及重复运行。
+- `include/` 和 `src/` 下的 `generator/`、`record/` 均已建立且为空。

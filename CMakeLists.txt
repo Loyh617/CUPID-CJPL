@@ -16,6 +16,10 @@ add_executable(cupid-sim
   src/PrimaryGeneratorAction.cc
   src/PhysicsList.cc
   src/RunAction.cc
+  src/EventAction.cc
+  src/SteppingAction.cc
+  src/TrackingAction.cc
+  src/StackingAction.cc
   src/geometry/GeometryManager.cc
   src/geometry/GeometryMessenger.cc
   src/geometry/Cryostat.cc

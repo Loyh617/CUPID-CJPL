@@ -14,7 +14,10 @@ passed = 0
 def run(name, commands, arguments=('--serial',), expected=None, fail=False):
     global passed
     macro = output / (name + '.mac')
-    macro.write_text('/random/setSeeds 12345 67890\n' + commands + '\n', encoding='utf-8')
+    # Retired 2026-10-21: actions are placeholders; use native run summaries.
+    # Restore only if CUPID_RUN_SUMMARY is reintroduced.
+    # macro.write_text('/random/setSeeds 12345 67890\n' + commands + '\n', encoding='utf-8')
+    macro.write_text('/random/setSeeds 12345 67890\n/run/verbose 1\n' + commands + '\n', encoding='utf-8')
     completed = subprocess.run([str(executable), str(macro), *arguments], cwd=output,
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                text=True, timeout=45)
@@ -26,6 +29,7 @@ def run(name, commands, arguments=('--serial',), expected=None, fail=False):
         assert completed.returncode == 0, f'{name}: exit {completed.returncode}; see {name}.log'
         assert 'GeomVol1002' not in log and 'GeomNav' not in log, f'{name}: geometry warning'
         assert 'result=FAIL' not in log, f'{name}: overlap failure'
+        assert 'Run Aborted after' not in log and 'Event Must Be Aborted' not in log, f'{name}: aborted transport'
     if expected:
         assert re.search(expected, log), f'{name}: missing {expected!r}; see {name}.log'
     passed += 1
@@ -43,9 +47,14 @@ for index, flags in enumerate(itertools.product((False, True), repeat=3)):
 full = '\n'.join('/cupid/geometry/enable ' + c for c in components)
 transport = ('\n/run/initialize\n/gun/particle gamma\n/gun/energy 1 MeV'
              '\n/gun/position 0 -350 -100 mm\n/gun/direction 0 0 1\n/run/beamOn 100')
-run('transport_serial', full + transport, expected=r'CUPID_RUN_SUMMARY run=0 events=100 aborted=0')
+# Retired 2026-10-21: actions are placeholders; use native run summaries.
+# Restore only if CUPID_RUN_SUMMARY is reintroduced.
+# run('transport_serial', full + transport, expected=r'CUPID_RUN_SUMMARY run=0 events=100 aborted=0')
+# run('transport_mt', full + transport, arguments=('--threads', '2'),
+#     expected=r'CUPID_RUN_SUMMARY run=0 events=100 aborted=0')
+run('transport_serial', full + transport, expected=r'(?m)^  Number of events processed : 100$')
 run('transport_mt', full + transport, arguments=('--threads', '2'),
-    expected=r'CUPID_RUN_SUMMARY run=0 events=100 aborted=0')
+    expected=r'(?m)^  Number of events processed : 100$')
 run('two_crystals', full + '\n/cupid/geometry/crystalCount 2\n/run/initialize'
     '\n/cupid/geometry/check 10000', expected=r'CUPID_CRYSTAL id=1 position_mm=')
 run('disable_component', '/cupid/geometry/enable Cryostat\n/cupid/geometry/disable Cryostat'
@@ -57,8 +66,13 @@ run('invalid_count', '/cupid/geometry/crystalCount 0', fail=True)
 run('late_change', '/run/initialize\n/cupid/geometry/enable Cryostat', fail=True)
 run('unknown_command', '/cupid/doesNotExist', fail=True)
 run('nested_failure', '/control/execute invalid_component.mac', fail=True)
+# Retired 2026-10-21: actions are placeholders; use native run summaries.
+# Restore only if CUPID_RUN_SUMMARY is reintroduced.
+# run('repeated_run', '/cupid/geometry/enable CrystalArray\n/run/initialize'
+#     '\n/run/beamOn 3\n/run/beamOn 7', expected=r'CUPID_RUN_SUMMARY run=1 events=7 aborted=0')
 run('repeated_run', '/cupid/geometry/enable CrystalArray\n/run/initialize'
-    '\n/run/beamOn 3\n/run/beamOn 7', expected=r'CUPID_RUN_SUMMARY run=1 events=7 aborted=0')
+    '\n/run/beamOn 3\n/run/beamOn 7',
+    expected=r'(?ms)^  Number of events processed : 3$.*^  Number of events processed : 7$')
 # A charged test particle starts in LMO: the tracking log must show actual steps there.
 run('crystal_transport', '/cupid/geometry/enable CrystalArray\n/run/initialize'
     '\n/gun/particle e-\n/gun/energy 100 keV\n/gun/position 0 -350 0 mm'
