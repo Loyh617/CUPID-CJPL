@@ -1,0 +1,11 @@
+2026-10-21 | Crystal volume names and editing conventions
+- src/geometry/CrystalArray.cc: name each PhysicalVolume Crystal[id], matching its independent LogicalVolume and copy number; remove the retired shared-logical-volume code and its change-history comments.
+- tests/check_framework.py, tests/check_physics.py: update existing crystal transport checks to match the Crystal0 physical volume name.
+- README.md: document matching physical and logical crystal volume names.
+- AGENTS.md: persist the user's direct-edit and history.log conventions, overriding the parent rule that required commenting out old code.
+- Validation: pending rebuild and existing CTest checks; results will be appended below.
+- Validation result: build passed; material-checks, framework-checks (21 checks), and physics-checks (3 smoke checks) all passed; the two-crystal geometry log contains Crystal0 and Crystal1; git diff --check passed.
+
+2026-10-22 | Baseline before generator development
+- .gitignore: track history.log while keeping generated logs ignored.
+- Save the current independent crystal volume names, checks and editing conventions in Git before generator changes.

@@ -76,7 +76,7 @@ run('repeated_run', '/cupid/geometry/enable CrystalArray\n/run/initialize'
 # A charged test particle starts in LMO: the tracking log must show actual steps there.
 run('crystal_transport', '/cupid/geometry/enable CrystalArray\n/run/initialize'
     '\n/gun/particle e-\n/gun/energy 100 keV\n/gun/position 0 -350 0 mm'
-    '\n/tracking/verbose 1\n/run/beamOn 1', expected=r'CrystalArray\.LMO.*(?:eIoni|msc)')
+    '\n/tracking/verbose 1\n/run/beamOn 1', expected=r'Crystal0\b.*(?:eIoni|msc)')
 
 missing = subprocess.run([str(executable), str(output/'missing.mac')],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

@@ -6,20 +6,22 @@
 #include "G4PVPlacement.hh"
 #include "G4VisAttributes.hh"
 #include "G4ios.hh"
+#include <string>
 
 namespace cupid {
 void CrystalArray::Build(G4LogicalVolume* mother, const Materials& materials,
                         const GeometryParameters& p) const {
   const auto half = p.crystalSide/2.;
   auto* solid = new G4Box("CrystalArray.LMO.Solid", half, half, half);
-  auto* logical = new G4LogicalVolume(solid, materials.Get("Li2MoO4"),
-                                    "CrystalArray.LMO.Logical");
-  logical->SetVisAttributes(G4VisAttributes(G4Colour(0.1, 0.8, 0.95)));
   for (G4int id = 0; id < p.crystalCount; ++id) {
+    // Match both volume names to the zero-based crystal copy number.
+    const G4String crystalName = "Crystal" + std::to_string(id);
+    auto* logical = new G4LogicalVolume(solid, materials.Get("Li2MoO4"), crystalName);
+    logical->SetVisAttributes(G4VisAttributes(G4Colour(0.1, 0.8, 0.95)));
     const auto offset = (id - (p.crystalCount-1)/2.) * (p.crystalSide+p.crystalGap);
     const auto position = p.crystalCenter + G4ThreeVector(offset, 0., 0.);
     // Copy numbers are crystal IDs within this single array in v0.1.
-    new G4PVPlacement(nullptr, position, logical, "CrystalArray.LMO", mother, false, id);
+    new G4PVPlacement(nullptr, position, logical, crystalName, mother, false, id);
     G4cout << "CUPID_CRYSTAL id=" << id << " position_mm=" << position/mm
            << " side_mm=" << p.crystalSide/mm << G4endl;
   }

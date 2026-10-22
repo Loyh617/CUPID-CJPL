@@ -160,6 +160,8 @@ tests/check_physics.py          过程注册、衰变与输运冒烟检查
 - LMO 采用自然元素组成 Li2MoO4，密度 3.07 g/cm³，边长 45 mm。
   单晶体中心为 `(0,-350,0) mm`。双晶体中心为 `(-25,-350,0)` 和 `(25,-350,0) mm`；
   **双晶体排列是测试布局**。当前 copy number 0、1 只在这个单一阵列内作为晶体编号。
+  每颗晶体具有独立的 LogicalVolume，名称为 `Crystal0`、`Crystal1`，数字与 copy number 一致。
+  它们共用相同尺寸的 Solid 和 `Li2MoO4` 材料；每颗晶体的 PhysicalVolume 与 LogicalVolume 同名，均为 `Crystal` 加编号。
 - 本版没有支撑框架、外屏蔽、源杯或钨钍丝，也没有由参考 STL 隐式加载任何结构。
 
 ### 材料库

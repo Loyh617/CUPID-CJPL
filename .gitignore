@@ -7,3 +7,4 @@ __pycache__/
 /g4tsg_offscreen_*.png
 CMakeUserPresets.json
 
+!/history.log
