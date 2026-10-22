@@ -1,19 +1,24 @@
 #include "PrimaryGeneratorAction.hh"
-#include "G4Gamma.hh"
-#include "G4ParticleGun.hh"
-#include "G4SystemOfUnits.hh"
+#include "generator/GeneratorManager.hh"
+#include "G4RunManager.hh"
+#include "G4ios.hh"
+#include <exception>
 
 namespace cupid {
-PrimaryGeneratorAction::PrimaryGeneratorAction()
-    : gun_(std::make_unique<G4ParticleGun>(1)) {
-  gun_->SetParticleDefinition(G4Gamma::GammaDefinition());
-  gun_->SetParticleEnergy(1.*MeV);
-  gun_->SetParticlePosition({0., -350.*mm, -100.*mm});
-  gun_->SetParticleMomentumDirection({0., 0., 1.});
-}
+PrimaryGeneratorAction::PrimaryGeneratorAction(const GeneratorConfig& config,
+                                               std::atomic_bool& failed)
+    : fGenerator(std::make_unique<GeneratorManager>(config)), fFailed(failed) {}
 PrimaryGeneratorAction::~PrimaryGeneratorAction() = default;
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
-  gun_->GeneratePrimaryVertex(event);
+  if (fFailed.load()) {
+    G4RunManager::GetRunManager()->AbortRun(true);
+    return;
+  }
+  try {
+    fGenerator->Generate(event);
+  } catch (const std::exception& error) {
+    if (!fFailed.exchange(true)) G4cerr << "CUPID_GENERATOR_ERROR: " << error.what() << G4endl;
+    G4RunManager::GetRunManager()->AbortRun(true);
+  }
 }
 }
-

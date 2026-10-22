@@ -8,43 +8,43 @@
 #include <stdexcept>
 
 namespace cupid {
-GeometryMessenger::GeometryMessenger(GeometryManager& manager) : manager_(manager) {
-  root_ = std::make_unique<G4UIdirectory>("/cupid/");
-  directory_ = std::make_unique<G4UIdirectory>("/cupid/geometry/");
-  directory_->SetGuidance("Select prototype components before /run/initialize.");
-  enable_ = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/enable", this);
-  disable_ = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/disable", this);
-  for (auto* command : {enable_.get(), disable_.get()}) {
+GeometryMessenger::GeometryMessenger(GeometryManager& manager) : fManager(manager) {
+  fRoot = std::make_unique<G4UIdirectory>("/cupid/");
+  fDirectory = std::make_unique<G4UIdirectory>("/cupid/geometry/");
+  fDirectory->SetGuidance("Select prototype components before /run/initialize.");
+  fEnable = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/enable", this);
+  fDisable = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/disable", this);
+  for (auto* command : {fEnable.get(), fDisable.get()}) {
     command->SetParameterName("component", false);
     command->SetGuidance("Component: Cryostat, InnerShielding or CrystalArray (case sensitive).");
     command->AvailableForStates(G4State_PreInit);
     command->SetToBeBroadcasted(false);
   }
-  list_ = std::make_unique<G4UIcmdWithoutParameter>("/cupid/geometry/list", this);
-  list_->AvailableForStates(G4State_PreInit, G4State_Idle);
-  list_->SetToBeBroadcasted(false);
-  count_ = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/crystalCount", this);
-  count_->SetParameterName("count", false);
-  count_->SetRange("count>=1 && count<=2");
-  count_->SetGuidance("One centered crystal or two along X; does not enable CrystalArray.");
-  count_->AvailableForStates(G4State_PreInit);
-  count_->SetToBeBroadcasted(false);
-  check_ = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/check", this);
-  check_->SetParameterName("samples", true);
-  check_->SetDefaultValue(10000);
-  check_->SetRange("samples>=100");
-  check_->SetGuidance("Check each placed volume; fail the macro if overlaps are found.");
-  check_->AvailableForStates(G4State_Idle);
-  check_->SetToBeBroadcasted(false);
+  fList = std::make_unique<G4UIcmdWithoutParameter>("/cupid/geometry/list", this);
+  fList->AvailableForStates(G4State_PreInit, G4State_Idle);
+  fList->SetToBeBroadcasted(false);
+  fCount = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/crystalCount", this);
+  fCount->SetParameterName("count", false);
+  fCount->SetRange("count>=1 && count<=2");
+  fCount->SetGuidance("One centered crystal or two along X; does not enable CrystalArray.");
+  fCount->AvailableForStates(G4State_PreInit);
+  fCount->SetToBeBroadcasted(false);
+  fCheck = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/check", this);
+  fCheck->SetParameterName("samples", true);
+  fCheck->SetDefaultValue(10000);
+  fCheck->SetRange("samples>=100");
+  fCheck->SetGuidance("Check each placed volume; fail the macro if overlaps are found.");
+  fCheck->AvailableForStates(G4State_Idle);
+  fCheck->SetToBeBroadcasted(false);
 }
 GeometryMessenger::~GeometryMessenger() = default;
 void GeometryMessenger::SetNewValue(G4UIcommand* command, G4String value) {
   try {
-    if (command == enable_.get()) manager_.SetEnabled(value, true);
-    else if (command == disable_.get()) manager_.SetEnabled(value, false);
-    else if (command == list_.get()) manager_.List();
-    else if (command == count_.get()) manager_.SetCrystalCount(count_->GetNewIntValue(value));
-    else if (command == check_.get() && !manager_.CheckOverlaps(check_->GetNewIntValue(value))) {
+    if (command == fEnable.get()) fManager.SetEnabled(value, true);
+    else if (command == fDisable.get()) fManager.SetEnabled(value, false);
+    else if (command == fList.get()) fManager.List();
+    else if (command == fCount.get()) fManager.SetCrystalCount(fCount->GetNewIntValue(value));
+    else if (command == fCheck.get() && !fManager.CheckOverlaps(fCheck->GetNewIntValue(value))) {
       throw std::runtime_error("Geometry overlap check failed. Inspect the reported volumes.");
     }
   } catch (const std::exception& error) {

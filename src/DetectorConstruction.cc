@@ -8,18 +8,18 @@
 
 namespace cupid {
 DetectorConstruction::DetectorConstruction()
-    : geometry_(std::make_unique<GeometryManager>()) {}
+    : fGeometry(std::make_unique<GeometryManager>()) {}
 DetectorConstruction::~DetectorConstruction() = default;
 
 G4VPhysicalVolume* DetectorConstruction::Construct() {
   Materials materials;
   materials.Build();
-  const auto half = geometry_->Parameters().worldHalfLength;
+  const auto half = fGeometry->Parameters().worldHalfLength;
   auto* solid = new G4Box("World.Solid", half, half, half);
   auto* logical = new G4LogicalVolume(solid, materials.Get("G4_Galactic"), "World.Logical");
   logical->SetVisAttributes(G4VisAttributes::GetInvisible());
   auto* world = new G4PVPlacement(nullptr, {}, logical, "World", nullptr, false, 0);
-  geometry_->Build(logical, materials);
+  fGeometry->Build(logical, materials);
   return world;
 }
 }

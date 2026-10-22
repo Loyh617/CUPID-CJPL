@@ -16,14 +16,14 @@ class GeometryMessenger final : public G4UImessenger {
   void SetNewValue(G4UIcommand*, G4String) override;
 
  private:
-  GeometryManager& manager_;
-  std::unique_ptr<G4UIdirectory> root_;
-  std::unique_ptr<G4UIdirectory> directory_;
-  std::unique_ptr<G4UIcmdWithAString> enable_;
-  std::unique_ptr<G4UIcmdWithAString> disable_;
-  std::unique_ptr<G4UIcmdWithoutParameter> list_;
-  std::unique_ptr<G4UIcmdWithAnInteger> count_;
-  std::unique_ptr<G4UIcmdWithAnInteger> check_;
+  GeometryManager& fManager;
+  std::unique_ptr<G4UIdirectory> fRoot;
+  std::unique_ptr<G4UIdirectory> fDirectory;
+  std::unique_ptr<G4UIcmdWithAString> fEnable;
+  std::unique_ptr<G4UIcmdWithAString> fDisable;
+  std::unique_ptr<G4UIcmdWithoutParameter> fList;
+  std::unique_ptr<G4UIcmdWithAnInteger> fCount;
+  std::unique_ptr<G4UIcmdWithAnInteger> fCheck;
 };
 }
 

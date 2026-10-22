@@ -14,6 +14,14 @@ add_executable(cupid-sim
   src/DetectorConstruction.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
+  src/generator/common/VertexSampler.cc
+  src/generator/common/IonEmitter.cc
+  src/generator/calibration/th232/Th232Generator.cc
+  src/generator/calibration/co56/Co56Generator.cc
+  src/generator/crystal_signal/double_beta_decay/TwoNuDoubleBetaDecayGenerator.cc
+  src/generator/crystal_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.cc
+  src/generator/GeneratorManager.cc
+  src/generator/GeneratorMessenger.cc
   src/PhysicsList.cc
   src/RunAction.cc
   src/EventAction.cc
@@ -44,6 +52,11 @@ foreach(name geometry run crystal_only check_geometry vis draw render)
   configure_file(macros/${name}.mac macros/${name}.mac COPYONLY)
 endforeach()
 
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/macros/generator")
+foreach(name calibration_th232 calibration_co56)
+  configure_file(macros/generator/${name}.mac macros/generator/${name}.mac COPYONLY)
+endforeach()
+
 include(CTest)
 if(BUILD_TESTING)
   add_executable(check-materials tests/check_materials.cc src/materials/Materials.cc)
@@ -63,5 +76,14 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_physics.py
       $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/physics-test-results)
   set_tests_properties(physics-checks PROPERTIES TIMEOUT 240)
+  add_test(NAME generator-checks
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_generators.py
+      $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/generator-test-results)
+  set_tests_properties(generator-checks PROPERTIES TIMEOUT 240)
+  add_executable(check-vertex-sampler tests/check_vertex_sampler.cc src/generator/common/VertexSampler.cc)
+  target_compile_features(check-vertex-sampler PRIVATE cxx_std_17)
+  target_include_directories(check-vertex-sampler PRIVATE include)
+  target_link_libraries(check-vertex-sampler PRIVATE ${Geant4_LIBRARIES})
+  add_test(NAME vertex-sampler-checks COMMAND check-vertex-sampler)
 endif()
 

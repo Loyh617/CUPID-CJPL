@@ -13,7 +13,7 @@ class DetectorConstruction final : public G4VUserDetectorConstruction {
   G4VPhysicalVolume* Construct() override;
 
  private:
-  std::unique_ptr<GeometryManager> geometry_;
+  std::unique_ptr<GeometryManager> fGeometry;
 };
 }  // namespace cupid
 

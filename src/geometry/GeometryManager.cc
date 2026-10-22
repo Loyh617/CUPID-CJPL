@@ -10,15 +10,15 @@
 
 namespace cupid {
 GeometryManager::GeometryManager()
-    : components_{{
+    : fComponents{{
           {"Cryostat", false, [](auto* m, const auto& a, const auto& p) { Cryostat{}.Build(m,a,p); }},
           {"InnerShielding", false, [](auto* m, const auto& a, const auto& p) { InnerShielding{}.Build(m,a,p); }},
           {"CrystalArray", false, [](auto* m, const auto& a, const auto& p) { CrystalArray{}.Build(m,a,p); }}
-      }}, messenger_(std::make_unique<GeometryMessenger>(*this)) {}
+      }}, fMessenger(std::make_unique<GeometryMessenger>(*this)) {}
 GeometryManager::~GeometryManager() = default;
 
 void GeometryManager::SetEnabled(const G4String& name, G4bool enabled) {
-  for (auto& component : components_) {
+  for (auto& component : fComponents) {
     if (name == component.name) { component.enabled = enabled; return; }
   }
   throw std::invalid_argument("Unknown geometry component '" + name +
@@ -26,21 +26,21 @@ void GeometryManager::SetEnabled(const G4String& name, G4bool enabled) {
 }
 void GeometryManager::SetCrystalCount(G4int count) {
   if (count < 1 || count > 2) throw std::invalid_argument("crystalCount must be 1 or 2 in v0.1");
-  parameters_.crystalCount = count;
+  fParameters.crystalCount = count;
 }
 void GeometryManager::List() const {
   G4cout << "CUPID_GEOMETRY model=prototype-v0.1 environment=vacuum axis=Y" << G4endl;
-  for (const auto& component : components_) {
+  for (const auto& component : fComponents) {
     G4cout << "  " << component.name << "=" << (component.enabled ? "on" : "off") << G4endl;
   }
-  G4cout << "  crystalCount=" << parameters_.crystalCount << G4endl;
+  G4cout << "  crystalCount=" << fParameters.crystalCount << G4endl;
 }
 void GeometryManager::Build(G4LogicalVolume* mother, const Materials& materials) {
   List();
   G4int enabled = 0;
-  for (const auto& component : components_) {
+  for (const auto& component : fComponents) {
     if (component.enabled) {
-      component.build(mother, materials, parameters_);
+      component.build(mother, materials, fParameters);
       ++enabled;
     }
   }

@@ -9,3 +9,34 @@
 2026-10-22 | Baseline before generator development
 - .gitignore: track history.log while keeping generated logs ignored.
 - Save the current independent crystal volume names, checks and editing conventions in Git before generator changes.
+
+2026-10-22 | Scenario-based generator integration
+- Add common generator interfaces/configuration/selection commands, geometric vertex sampling and neutral ground-state ion emission.
+- Add separate calibration/th232 and calibration/co56 generators; reserve background and crystal_signal directories.
+- ActionInitialization owns master-only PreInit configuration commands; PrimaryGeneratorAction dispatches to a worker-local manager and reports source failures to main.
+- Preserve the existing /gun/ test source as the default. Calibration sources generate one resting parent per event and retain full-chain transport; no activity, equilibrium, single-decay or detector-response model is implied.
+- Add point-source example macros and update CMake. Validation pending.
+- Add generator integration checks and a geometry sampling check covering nested rotations, Boolean holes, daughter exclusion and ambiguous names; fix explicit UI command pointer-array typing found during the first build.
+- README.md: document scenario boundaries, commands, full-chain event semantics, sampling limitations and example use.
+- Validation result: Geant4 11.4.1 build passed; all five CTest groups passed (material, 21 framework checks, 3 physics smoke checks, 10 generator checks, and the geometric vertex sampler check).
+- Verified Th-232 chain reaches Pb-208, Co-56 decays reach Fe-56 in two worker threads, all 24 sampled vertices lie in Crystal1, repeated runs succeed, and invalid source geometry exits nonzero in serial and MT.
+- Nested rotations, Boolean holes, daughter exclusion and missing/ambiguous volume names were checked with the actual geometry navigator. These are software and sampling checks, not a calibration-spectrum or branching-ratio validation.
+- Baseline commit: bbcf4b4. Generator changes remain uncommitted for review.
+
+2026-10-22 | Geant4-style member names
+- Rename trailing-underscore class members to f-prefixed names throughout geometry, generator and initialization code; preserve macro commands, public configuration fields and runtime behavior.
+- AGENTS.md and README.md: persist the naming convention for future changes.
+- Files: include/ActionInitialization.hh, include/DetectorConstruction.hh, include/PrimaryGeneratorAction.hh, include/generator/GeneratorManager.hh, include/generator/GeneratorMessenger.hh, include/generator/calibration/co56/Co56Generator.hh, include/generator/calibration/th232/Th232Generator.hh, include/generator/common/VertexSampler.hh, include/geometry/GeometryManager.hh, include/geometry/GeometryMessenger.hh, src/ActionInitialization.cc, src/DetectorConstruction.cc, src/PrimaryGeneratorAction.cc, src/generator/GeneratorManager.cc, src/generator/GeneratorMessenger.cc, src/generator/calibration/co56/Co56Generator.cc, src/generator/calibration/th232/Th232Generator.cc, src/generator/common/VertexSampler.cc, src/geometry/GeometryManager.cc, src/geometry/GeometryMessenger.cc, AGENTS.md, README.md.
+- Validation: pending build and existing regression checks.
+- Validation result: rebuild passed; all five existing CTest groups passed (materials, framework, physics, generators and vertex sampling); no trailing-underscore member identifiers remain in include/src; git diff --check passed.
+
+2026-10-22 | Split crystal signal source directories
+- include/generator/crystal_signal and src/generator/crystal_signal: add crystal_radioactivity and double_beta_decay directories; move empty-directory markers to crystal_radioactivity.
+- Add TwoNuDoubleBetaDecayGenerator and ZeroNuDoubleBetaDecayGenerator headers and sources as separate VGenerator placeholders; Generate explicitly rejects use until a physical model is implemented.
+- CMakeLists.txt: compile the two interfaces; README.md: describe the updated structure and unavailable model status. Neither placeholder is registered as a selectable source.
+- Validation: pending compilation.
+- Validation result: both new generator classes compiled and linked successfully; git diff --check passed. No transport logic changed; no new physics validation is claimed.
+
+2026-10-22 | Generator milestone Git checkpoint
+- Commit the scenario-based generator integration, Geant4-style member naming, and separate crystal_radioactivity/double_beta_decay directories with TwoNu/ZeroNu generator placeholders.
+- Validation already completed: all five CTest groups passed after member renaming; the subsequently added unregistered double-beta placeholders compiled and linked successfully.

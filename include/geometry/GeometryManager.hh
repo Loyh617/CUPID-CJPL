@@ -18,7 +18,7 @@ class GeometryManager {
   void List() const;
   void Build(G4LogicalVolume* mother, const Materials& materials);
   G4bool CheckOverlaps(G4int samples) const;
-  const GeometryParameters& Parameters() const { return parameters_; }
+  const GeometryParameters& Parameters() const { return fParameters; }
 
  private:
   using Builder = void (*)(G4LogicalVolume*, const Materials&, const GeometryParameters&);
@@ -27,9 +27,9 @@ class GeometryManager {
     G4bool enabled;
     Builder build;
   };
-  std::array<Component, 3> components_;
-  GeometryParameters parameters_;
-  std::unique_ptr<GeometryMessenger> messenger_;
+  std::array<Component, 3> fComponents;
+  GeometryParameters fParameters;
+  std::unique_ptr<GeometryMessenger> fMessenger;
 };
 }
 

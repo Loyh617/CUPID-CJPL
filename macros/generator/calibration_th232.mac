@@ -1,0 +1,12 @@
+# Ideal point source; no source capsule or activity normalization is included.
+/random/setSeeds 12345 67890
+/run/verbose 1
+/cupid/geometry/enable CrystalArray
+/cupid/geometry/crystalCount 2
+/cupid/generator/select calibration/th232
+/cupid/generator/position point
+/cupid/generator/point -25 -350 -100 mm
+/cupid/generator/list
+/run/initialize
+/cupid/generator/check
+/run/beamOn 10

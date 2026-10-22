@@ -83,7 +83,8 @@ int main(int argc, char** argv) {
     // physics->SetVerboseLevel(0);
     // runManager->SetUserInitialization(physics);
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    runManager->SetUserInitialization(new cupid::ActionInitialization);
+    auto* actions = new cupid::ActionInitialization;
+    runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS
     std::unique_ptr<G4UIExecutive> session;
@@ -103,12 +104,14 @@ int main(int argc, char** argv) {
            << (options.serial ? "serial" : "MT") << " threads="
            << (options.serial ? 1 : options.threads) << G4endl;
     ui->ExecuteMacroFile(macro.string().c_str());
+    if (actions->HasGeneratorError()) return 1;
     if (ui->GetLastReturnCode() != 0) {
       G4cerr << "CUPID_ERROR: macro failed, Geant4 status=" << ui->GetLastReturnCode() << G4endl;
       return 1;
     }
 #if CUPID_WITH_VIS
     if (session) session->SessionStart();
+    if (actions->HasGeneratorError()) return 1;
 #endif
     return 0;
   } catch (const std::exception& error) {

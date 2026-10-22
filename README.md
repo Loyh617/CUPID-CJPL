@@ -3,10 +3,11 @@
 v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行测试粒子输运。
 
 这是独立的新工程。参考工程只用于理解尺寸和装置关系，没有作为构建依赖。
-当前不包含晶体能量 ROOT 输出、Th-232/Co-56 源模型、岩石、大厅、电子学或波形。
+当前支持 Th-232/Co-56 的理想点源及指定体积内均匀核素源；尚无真实源封装、活度或源平衡模型。
+当前不包含晶体能量 ROOT 输出、岩石、大厅、电子学或波形。
 `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
-`include/` 与 `src/` 下的 `generator/`、`record/` 目录暂为空；现有粒子枪继续可用。
+`generator/` 已按场景接入公共组件和两个刻度源；`record/` 暂为空，现有粒子枪继续可用。
 
 ## 1. 在 WSL Ubuntu 中构建
 
@@ -118,14 +119,14 @@ main.cc                         程序入口、运行模式、物理列表注册
 include/ + src/                 头文件和实现一一对应
   DetectorConstruction          世界创建和整体构造入口
   ActionInitialization          创建线程局部的用户 actions
-  PrimaryGeneratorAction        G4ParticleGun，支持 /gun/ 命令
+  PrimaryGeneratorAction        调用 GeneratorManager，统一传播源错误
   PhysicsList                   逐项注册物理构造器和设置参数
   RunAction                     运行开始/结束接口，暂为空
   EventAction                   事件开始/结束接口，暂为空
   SteppingAction                每步处理接口，暂为空
   TrackingAction                轨迹开始/结束接口，暂为空
   StackingAction                新轨迹分类、新阶段、事件准备接口
-  generator/                    空目录，预留事件发生器模块
+  generator/                    配置、场景调度、公共组件及专属源目录
   record/                       空目录，预留数据记录模块
   geometry/
     GeometryManager             组件登记、开关、装配、重叠检查
@@ -228,10 +229,11 @@ tests/check_physics.py          过程注册、衰变与输运冒烟检查
 G4LEVELGAMMADATA 和 HP 中子所需的 G4NEUTRONHPDATA；请使用本机 Geant4 环境脚本。
 普通 HP 配置未额外启用材料相关的热中子束缚散射模型。
 
-当前一个事件为粒子枪的一次发射及其后续输运；可用 `/gun/particle ion` 和
-`/gun/ion Z A 0 0` 注入静止核素来检查衰变。已具备核素衰变输运能力，
-但尚未实现专用 Th-232/Co-56 源的空间分布、归一化、仅衰变一次的选择策略、
-衰变时间整理或 ROOT 计分。整链沉积总和不能直接当作单次探测器脉冲能量。
+默认 `gun` 模式仍支持 `/gun/particle ion` 和 `/gun/ion Z A 0 0`。
+专属 Th-232/Co-56 模式每个事件生成一个静止、中性、基态母核，创建时刻为 0，
+由物理列表继续处理完整衰变链；母核及子核的衰变等待时间仍由物理模型决定。
+暂不提供单次衰变截断、源平衡、活度归一化、衰变时间整理或 ROOT 计分。
+整链沉积总和不能直接当作单次探测器脉冲能量。
 宇宙线通量/角分布和双贝塔衰变末态发生器也尚未实现。
 本版不包含光学光子、声子、电荷收集或电子学响应。
 
@@ -244,7 +246,7 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 `ActionInitialization::BuildForMaster()` 只注册 `RunAction`；
 `Build()` 为串行执行或每个工作线程分别注册粒子枪与上述五个 actions。
 当前接口不累计能量、不筛选轨迹、不保存记录；`StackingAction` 也不推迟轨迹到后续事件。
-空目录不含占位文件，Git 不跟踪空目录；新检出时需自行建立这些目录。
+未实现的 generator 场景目录用 `.gitkeep` 保留；`record/` 仍为空，Git 不跟踪该空目录。
 
 ## 7. 添加组件
 
@@ -259,9 +261,11 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 
 ## 8. 小团队协作
 
-几何成员主要修改 `geometry/`；源成员修改 `PrimaryGeneratorAction`；
+几何成员主要修改 `geometry/`；源成员主要修改 `generator/` 中各自的场景目录；
 运行与后续记录成员修改 actions。新增公共命令、坐标或晶体编号需在 README 中同步说明。
 采用个人分支及代码审查；提交前运行上述 CTest 检查。
+类的私有/受保护成员采用 `fGenerator`、`fGeometry` 等命名；局部变量和参数使用普通小写开头名称。
+纯数据配置结构保留 `crystalCount`、`selection` 等字段名，不为公开配置字段额外添加前缀。
 `build/`、输出文件和机器本地路径不提交 Git。
 
 ## 9. 已核对的官方接口资料
@@ -319,3 +323,93 @@ Geant4 11.4.1 Release / MT / C++17。
 - CTest 三组检查全部通过：材料、21 项框架检查、3 项物理冒烟检查。
 - 事件完成数检查使用 `/run/verbose 1` 的 Geant4 原生摘要，包含串行、双线程及重复运行。
 - `include/` 和 `src/` 下的 `generator/`、`record/` 均已建立且为空。
+
+
+## 11. 分场景 generator（2026-10-22）
+
+`PrimaryGeneratorAction` 调用线程内的 `GeneratorManager`。默认源为 `gun`，保持原有
+`/gun/` 用法；选择刻度源后，`/gun/` 参数不参与该源的生成。
+
+```text
+include/generator/                  src/generator/ 有对应实现
+  VGenerator.hh                     每个场景的统一事件生成接口
+  GeneratorConfig.hh                初始化前设置，运行期间只读
+  GeneratorManager.hh               创建并调用选定场景，保留测试粒子枪
+  GeneratorMessenger.hh             主线程宏命令
+  common/VertexSampler.hh           点源、实际物理体积内均匀分布
+  common/IonEmitter.hh              静止基态核素初级粒子
+  calibration/th232/Th232Generator.hh
+  calibration/co56/Co56Generator.hh
+  background/environment/           预留，尚无源实现
+  background/copper_frame/          预留，尚无源实现
+  background/cosmic/                 预留，尚无源实现
+  crystal_signal/
+    crystal_radioactivity/          预留晶体内部放射性源
+    double_beta_decay/
+      TwoNuDoubleBetaDecayGenerator.hh   2νββ 接口占位
+      ZeroNuDoubleBetaDecayGenerator.hh  0νββ 接口占位
+```
+
+### 运行两个理想点源算例
+
+从工程根目录执行；两者均只启用两个测试晶体，不包含刻度源封装：
+
+```bash
+./build/cupid-sim generator/calibration_th232.mac --serial
+./build/cupid-sim generator/calibration_co56.mac --threads 2
+```
+
+这两个示例都生成 10 个事件。更改源文件中的宏后运行 `cmake -S . -B build` 刷新宏副本，
+或直接传入 `macros/generator/calibration_co56.mac` 等源文件路径。
+
+### 在指定晶体内均匀生成
+
+下面是完整宏示例；这是位置采样测试，不代表实际 Co-56 刻度源位于晶体内部：
+
+```text
+/random/setSeeds 12345 67890
+/run/verbose 1
+/cupid/geometry/enable CrystalArray
+/cupid/geometry/crystalCount 2
+/cupid/generator/select calibration/co56
+/cupid/generator/position volume
+/cupid/generator/volume Crystal1
+/cupid/generator/list
+/run/initialize
+/cupid/generator/check
+/run/beamOn 100
+```
+
+| 命令 | 当前取值和含义 |
+| --- | --- |
+| `/cupid/generator/select` | `gun`、`calibration/th232`、`calibration/co56` |
+| `/cupid/generator/position` | `point` 或 `volume`，只用于专属刻度源 |
+| `/cupid/generator/point x y z unit` | 世界坐标，必须在 World 内部；不自动切换 position 模式 |
+| `/cupid/generator/volume NAME` | 唯一的物理放置名称；不自动切换 position 模式 |
+| `/cupid/generator/verbose 0或1` | 1 输出每次生成的初级粒子诊断，仅用于小规模检查 |
+| `/cupid/generator/list` | 输出配置与当前归一化口径；初始化前后均可用 |
+| `/cupid/generator/check` | 初始化后检查源位置，失败时中断宏；不消耗随机数 |
+
+所有源设置命令只允许在 `/run/initialize` 前执行。一个进程选择一个场景，可重复
+`/run/beamOn`，但当前不支持运行间切换场景或重建几何。工作线程分别拥有粒子枪、
+场景发生器和采样导航器；共用配置只在主线程 PreInit 修改，运行时不修改。
+即使没有主动调用 `check`，生成前仍检查配置；源错误使运行停止并返回非零退出码，
+不会回退到 World 或其他源。发生此类错误后应修正宏并重启进程。
+
+`VertexSampler` 根据实际 Solid 在局部包围盒中拒绝采样，再通过完整放置变换转到
+世界坐标，并使用独立导航器排除子体积。普通嵌套和旋转放置受支持。
+物理体名称缺失或对应多个放置时拒绝使用；当前不支持包含复制/参数化放置的体积查询。
+最多尝试 100000 次，极薄、极小填充率或没有可采样区域的形状可能触发明确失败。
+尚未实现指定表面、污染深度、多体积权重和多粒子相关运动学。
+
+Th-232/Co-56 场景只决定初始母核和位置；衰变分支、产物及其输运交给现有 PhysicsList。
+每次生成代表一个初始母核的完整历史，暂不代表某段测量时间或一个实验脉冲。
+没有输入源年龄、活度或平衡假设，因此不能将默认示例当作真实刻度源本底率预测。
+外部核素库、双贝塔模型、宇宙线谱及 ROOT 输出未在此次接入。
+
+新增场景时，在自己的目录实现 `VGenerator`，在 `GeneratorManager` 注册选择，
+同步 messenger 候选项、CMake、使用说明和 `history.log`。只有确有复用需求的算法
+才放入 `common/`；能量、方向等有关联的采样由具体场景统一负责。
+
+两个双贝塔类目前仅提供 `VGenerator` 接口并参与编译；尚未注册为可选源。
+它们的 `Generate()` 会明确报告物理模型未实现，不会生成空事件或近似冒充双贝塔衰变。
