@@ -40,3 +40,17 @@
 2026-10-22 | Generator milestone Git checkpoint
 - Commit the scenario-based generator integration, Geant4-style member naming, and separate crystal_radioactivity/double_beta_decay directories with TwoNu/ZeroNu generator placeholders.
 - Validation already completed: all five CTest groups passed after member renaming; the subsequently added unregistered double-beta placeholders compiled and linked successfully.
+
+2026-10-23 | Geometry-owned source volume registration
+- Add include/geometry/SourceVolumeInfo.hh; GeometryManager owns a construction-time registry with placement pointers and accumulated local-to-world transforms. Begin/register/finish enforce registration order, unique names, actual parents, ordinary placements and unambiguous mother placement paths; finished registry is read-only during runs.
+- Update geometry component headers/sources (Cryostat, InnerShielding, CrystalArray) to receive the physical parent and manager, and register each placement at construction. Preserve existing dimensions, materials, names and positions.
+- Wire the const GeometryManager reference through DetectorConstruction, main.cc, ActionInitialization, PrimaryGeneratorAction, GeneratorManager, GeneratorMessenger, Th232Generator and Co56Generator.
+- VertexSampler queries the registry instead of recursively searching the world. Preserve private navigator ownership checks, Boolean-hole/daughter exclusion and point/volume sampling. Reject stale samplers after registry reconstruction.
+- Update CMakeLists.txt, tests/check_vertex_sampler.cc and README.md for dependencies, nested-transform/sampling/error-path tests and component integration instructions.
+- API verification: installed Geant4 11.4.1 G4VPhysicalVolume.hh object-transform accessors and official v11.4.1 G4Navigator.hh; no ROOT or physics-list changes.
+- Validation: build succeeded; full CTest results pending.
+- Validation result: Geant4 11.4.1 Release build passed; all five CTest groups passed (materials, 21 framework cases, 3 physics smoke cases, 10 generator cases including serial/MT, and expanded vertex/registry checks). Total CTest time 54.72 seconds. git diff --check passed. No physics-accuracy validation is claimed. Changes remain uncommitted.
+
+2026-10-23 | Header include ordering convention
+- AGENTS.md: require project headers first, Geant4 headers second, and all other headers last, with blank lines between groups. Apply to future include additions and edits.
+- Validation: read back the saved rule; documentation-only change, no compilation required.

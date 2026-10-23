@@ -23,18 +23,18 @@ void CheckSelection(const GeneratorConfig& config) {
     throw std::runtime_error("Unsupported generator: " + config.selection);
 }
 }
-GeneratorManager::GeneratorManager(const GeneratorConfig& config)
-    : fConfig(config), fGun(std::make_unique<G4ParticleGun>(1)) {
+GeneratorManager::GeneratorManager(const GeneratorConfig& config, const GeometryManager& geometry)
+    : fGeometry(geometry), fConfig(config), fGun(std::make_unique<G4ParticleGun>(1)) {
   fGun->SetParticleDefinition(G4Gamma::GammaDefinition());
   fGun->SetParticleEnergy(1.*MeV);
   fGun->SetParticlePosition({0., -350.*mm, -100.*mm});
   fGun->SetParticleMomentumDirection({0., 0., 1.});
 }
 GeneratorManager::~GeneratorManager() = default;
-void GeneratorManager::Check(const GeneratorConfig& config) {
+void GeneratorManager::Check(const GeneratorConfig& config, const GeometryManager& geometry) {
   CheckSelection(config);
   if (config.selection != "gun") {
-    VertexSampler sampler(config);
+    VertexSampler sampler(config, geometry);
   }
 }
 void GeneratorManager::List(const GeneratorConfig& config) {
@@ -56,8 +56,8 @@ void GeneratorManager::Generate(G4Event* event) {
     if (!fGenerator) {
       CheckSelection(fConfig);
       if (fConfig.selection == "calibration/th232")
-        fGenerator = std::make_unique<Th232Generator>(fConfig);
-      else fGenerator = std::make_unique<Co56Generator>(fConfig);
+        fGenerator = std::make_unique<Th232Generator>(fConfig, fGeometry);
+      else fGenerator = std::make_unique<Co56Generator>(fConfig, fGeometry);
     }
     fGenerator->Generate(event);
   }

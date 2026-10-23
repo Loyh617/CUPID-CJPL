@@ -1,5 +1,6 @@
 #include "geometry/InnerShielding.hh"
 #include "geometry/GeometryParameters.hh"
+#include "geometry/GeometryManager.hh"
 #include "materials/Materials.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
@@ -8,8 +9,9 @@
 #include "G4VisAttributes.hh"
 
 namespace cupid {
-void InnerShielding::Build(G4LogicalVolume* mother, const Materials& materials,
-                          const GeometryParameters& p) const {
+void InnerShielding::Build(G4VPhysicalVolume* parent, const Materials& materials,
+                          const GeometryParameters& p, GeometryManager& geometry) const {
+  auto* mother = parent->GetLogicalVolume();
   G4RotationMatrix rotation;
   rotation.rotateX(-90.*deg);
   G4int copy = 0;
@@ -19,8 +21,9 @@ void InnerShielding::Build(G4LogicalVolume* mother, const Materials& materials,
                             part.height/2., 0., 360.*deg);
     auto* logical = new G4LogicalVolume(solid, materials.Get("G4_Cu"), name+".Logical");
     logical->SetVisAttributes(G4VisAttributes(G4Colour(0.85, 0.5, 0.2, 0.35)));
-    new G4PVPlacement(G4Transform3D(rotation, {0., part.centerY, 0.}), logical,
+    auto* physical = new G4PVPlacement(G4Transform3D(rotation, {0., part.centerY, 0.}), logical,
                       name, mother, false, copy++);
+    geometry.RegisterSourceVolume(physical, parent);
   }
 }
 }

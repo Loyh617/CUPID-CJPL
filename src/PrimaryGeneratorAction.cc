@@ -6,8 +6,9 @@
 
 namespace cupid {
 PrimaryGeneratorAction::PrimaryGeneratorAction(const GeneratorConfig& config,
+                                               const GeometryManager& geometry,
                                                std::atomic_bool& failed)
-    : fGenerator(std::make_unique<GeneratorManager>(config)), fFailed(failed) {}
+    : fGenerator(std::make_unique<GeneratorManager>(config, geometry)), fFailed(failed) {}
 PrimaryGeneratorAction::~PrimaryGeneratorAction() = default;
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
   if (fFailed.load()) {

@@ -129,7 +129,8 @@ include/ + src/                 头文件和实现一一对应
   generator/                    配置、场景调度、公共组件及专属源目录
   record/                       空目录，预留数据记录模块
   geometry/
-    GeometryManager             组件登记、开关、装配、重叠检查
+    GeometryManager             组件开关、装配、源体积登记与查询、重叠检查
+    SourceVolumeInfo.hh         物理放置指针及局部到世界坐标变换
     GeometryMessenger           /cupid/geometry/ 命令
     GeometryParameters.hh       主要尺寸、坐标和晶体数量
     Cryostat                    冷板、铜罩和铝罩
@@ -251,7 +252,9 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 ## 7. 添加组件
 
 1. 在 `include/geometry/` 和 `src/geometry/` 添加对应 `.hh/.cc`。
-2. 按现有组件提供 `Build(mother, materials, parameters)`，使用传入母体积。
+2. 按现有组件提供 `Build(parent, materials, parameters, geometry)`；`parent` 是母物理体，
+   放置时使用 `parent->GetLogicalVolume()`。创建源体积后调用
+   `geometry.RegisterSourceVolume(physical, parent)`，嵌套放置必须先登记母体。
 3. 在 `GeometryManager` 的组件表中登记名称和构造入口，并更新表的大小及命令帮助。
 4. 在顶层 `CMakeLists.txt` 显式加入源文件。
 5. 增加一个宏算例和几何组合检查。
@@ -398,9 +401,48 @@ include/generator/                  src/generator/ 有对应实现
 
 `VertexSampler` 根据实际 Solid 在局部包围盒中拒绝采样，再通过完整放置变换转到
 世界坐标，并使用独立导航器排除子体积。普通嵌套和旋转放置受支持。
-物理体名称缺失或对应多个放置时拒绝使用；当前不支持包含复制/参数化放置的体积查询。
+目标名称必须已在 `GeometryManager` 登记；未登记的体积不会通过搜索几何树自动补入。
+当前仅支持普通放置；源目标及其祖先不能使用复制/参数化放置，也不支持重复放置母逻辑体造成的多路径目标。
 最多尝试 100000 次，极薄、极小填充率或没有可采样区域的形状可能触发明确失败。
 尚未实现指定表面、污染深度、多体积权重和多粒子相关运动学。
+
+### 几何与源位置的接口
+
+`DetectorConstruction` 创建 World 后调用 `GeometryManager::Build(world, materials)`。
+管理器依次执行 `BeginSourceVolumes(world)`、各组件的 `Build()`、`FinishSourceVolumes()`。
+World 自动登记；当前 Cryostat、InnerShielding、CrystalArray 创建的物理体均显式登记。
+关闭组件后，其体积不会出现在登记表中。
+
+组件中的最小写法如下，`parent` 必须是已登记的实际母物理体：
+
+```cpp
+auto* physical = new G4PVPlacement(nullptr, position, logical, name,
+                                 parent->GetLogicalVolume(), false, id);
+geometry.RegisterSourceVolume(physical, parent);
+```
+
+管理器使用 `GetObjectRotationValue()` 和 `GetObjectTranslation()` 合成放置变换：
+`R_world = R_parent * R_local`，`t_world = t_parent + R_parent * t_local`。
+`FindSourceVolume(name)` 返回只读 `SourceVolumeInfo`，包含物理体指针、世界旋转和平移。
+这些指针不拥有几何，几何生命周期仍由 Geant4 管理。
+
+结束登记时一次性检查物理体表中的名称冲突与重复母逻辑体；不是从 World 递归搜索目标。
+登记未完成或验证失败时不开放查询，完成后禁止继续登记。运行期间管理器只读，
+通过 `DetectorConstruction → ActionInitialization → PrimaryGeneratorAction → GeneratorManager`
+传入具体发生器；每个线程仍独立拥有 `VertexSampler` 和 `G4Navigator`。
+`/cupid/generator/check` 使用同一个几何接口，宏的用法不变。
+
+`VertexSampler` 初始化时查询一次目标及其变换；每次采样只进行局部包围盒采样、
+Solid 内部判断、坐标变换及导航器归属检查。子体积即使未登记为源，也仍然被排除。
+本接口不改变源的空间分布定义：当前为目标自身材料区域内的均匀体积分布。
+
+开始新一轮几何构造会清空登记表并更新代次；旧采样器再次使用会明确报错，
+不会继续解引用旧几何。这是失效保护，不代表已支持运行间自动重建发生器；
+当前更换几何仍应启动新进程。
+
+`tests/check_vertex_sampler.cc` 检查嵌套旋转、布尔孔洞、子体积排除、未登记目标、
+重名、错误母体、重复母逻辑体、复制体拒绝、登记封闭与旧采样器失效。
+这些是接口和采样回归检查，不是物理能谱验证。
 
 Th-232/Co-56 场景只决定初始母核和位置；衰变分支、产物及其输运交给现有 PhysicsList。
 每次生成代表一个初始母核的完整历史，暂不代表某段测量时间或一个实验脉冲。

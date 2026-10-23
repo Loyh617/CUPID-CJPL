@@ -19,7 +19,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct() {
   auto* logical = new G4LogicalVolume(solid, materials.Get("G4_Galactic"), "World.Logical");
   logical->SetVisAttributes(G4VisAttributes::GetInvisible());
   auto* world = new G4PVPlacement(nullptr, {}, logical, "World", nullptr, false, 0);
-  fGeometry->Build(logical, materials);
+  fGeometry->Build(world, materials);
   return world;
 }
 }

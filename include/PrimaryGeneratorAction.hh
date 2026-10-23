@@ -5,9 +5,10 @@
 namespace cupid {
 struct GeneratorConfig;
 class GeneratorManager;
+class GeometryManager;
 class PrimaryGeneratorAction final : public G4VUserPrimaryGeneratorAction {
  public:
-  PrimaryGeneratorAction(const GeneratorConfig&, std::atomic_bool& failed);
+  PrimaryGeneratorAction(const GeneratorConfig&, const GeometryManager&, std::atomic_bool& failed);
   ~PrimaryGeneratorAction() override;
   void GeneratePrimaries(G4Event*) override;
 

@@ -1,12 +1,13 @@
 #pragma once
-class G4LogicalVolume;
+class G4VPhysicalVolume;
 namespace cupid {
 class Materials;
+class GeometryManager;
 struct GeometryParameters;
 class Cryostat {
  public:
-  void Build(G4LogicalVolume* mother, const Materials& materials,
-             const GeometryParameters& parameters) const;
+  void Build(G4VPhysicalVolume* parent, const Materials& materials,
+             const GeometryParameters& parameters, GeometryManager& geometry) const;
 };
 }
 

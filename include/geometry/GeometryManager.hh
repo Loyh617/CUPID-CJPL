@@ -1,8 +1,11 @@
 #pragma once
 #include "geometry/GeometryParameters.hh"
+#include "geometry/SourceVolumeInfo.hh"
 #include "globals.hh"
 #include <array>
 #include <memory>
+#include <map>
+#include <cstddef>
 
 class G4LogicalVolume;
 namespace cupid {
@@ -16,12 +19,19 @@ class GeometryManager {
   void SetEnabled(const G4String& name, G4bool enabled);
   void SetCrystalCount(G4int count);
   void List() const;
-  void Build(G4LogicalVolume* mother, const Materials& materials);
+  void Build(G4VPhysicalVolume* world, const Materials& materials);
+  // Construction-only registration. Register mothers before their children.
+  void BeginSourceVolumes(G4VPhysicalVolume* world);
+  void RegisterSourceVolume(G4VPhysicalVolume* volume, G4VPhysicalVolume* parent);
+  void FinishSourceVolumes();
+  const SourceVolumeInfo& FindSourceVolume(const G4String& name) const;
+  G4VPhysicalVolume* GetWorldVolume() const;
+  std::size_t GetGeometryGeneration() const { return fGeometryGeneration; }
   G4bool CheckOverlaps(G4int samples) const;
   const GeometryParameters& Parameters() const { return fParameters; }
 
  private:
-  using Builder = void (*)(G4LogicalVolume*, const Materials&, const GeometryParameters&);
+  using Builder = void (*)(G4VPhysicalVolume*, const Materials&, const GeometryParameters&, GeometryManager&);
   struct Component {
     const char* name;
     G4bool enabled;
@@ -29,6 +39,11 @@ class GeometryManager {
   };
   std::array<Component, 3> fComponents;
   GeometryParameters fParameters;
+  std::map<G4String, SourceVolumeInfo> fSourceVolumes;
+  G4VPhysicalVolume* fWorld = nullptr;
+  G4bool fRegistering = false;
+  G4bool fSourceVolumesReady = false;
+  std::size_t fGeometryGeneration = 0;
   std::unique_ptr<GeometryMessenger> fMessenger;
 };
 }

@@ -12,7 +12,8 @@
 #include <stdexcept>
 
 namespace cupid {
-GeneratorMessenger::GeneratorMessenger(GeneratorConfig& config) : fConfig(config) {
+GeneratorMessenger::GeneratorMessenger(GeneratorConfig& config, const GeometryManager& geometry)
+    : fGeometry(geometry), fConfig(config) {
   fDirectory = std::make_unique<G4UIdirectory>("/cupid/generator/");
   fDirectory->SetGuidance("Configure one source before initialization; calibration ions use full-chain transport.");
   fSelect = std::make_unique<G4UIcmdWithAString>("/cupid/generator/select", this);
@@ -24,7 +25,7 @@ GeneratorMessenger::GeneratorMessenger(GeneratorConfig& config) : fConfig(config
   fPosition->SetCandidates("point volume");
   fVolume = std::make_unique<G4UIcmdWithAString>("/cupid/generator/volume", this);
   fVolume->SetParameterName("physicalVolume", false);
-  fVolume->SetGuidance("Unique physical placement name; samples its material excluding daughter volumes.");
+  fVolume->SetGuidance("Registered unique physical placement name; samples its material excluding daughter volumes.");
   fPoint = std::make_unique<G4UIcmdWith3VectorAndUnit>("/cupid/generator/point", this);
   fPoint->SetParameterName("x", "y", "z", false);
   fPoint->SetUnitCategory("Length");
@@ -60,7 +61,7 @@ void GeneratorMessenger::SetNewValue(G4UIcommand* command, G4String value) {
       fConfig.point = point;
     } else if (command == fList.get()) GeneratorManager::List(fConfig);
     else if (command == fCheck.get()) {
-      GeneratorManager::Check(fConfig);
+      GeneratorManager::Check(fConfig, fGeometry);
       G4cout << "CUPID_GENERATOR_CHECK result=PASS" << G4endl;
     }
   } catch (const std::exception& error) {

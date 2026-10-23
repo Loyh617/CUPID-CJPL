@@ -80,7 +80,11 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_generators.py
       $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/generator-test-results)
   set_tests_properties(generator-checks PROPERTIES TIMEOUT 240)
-  add_executable(check-vertex-sampler tests/check_vertex_sampler.cc src/generator/common/VertexSampler.cc)
+  add_executable(check-vertex-sampler
+    tests/check_vertex_sampler.cc src/generator/common/VertexSampler.cc
+    src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/CrystalArray.cc
+    src/materials/Materials.cc)
   target_compile_features(check-vertex-sampler PRIVATE cxx_std_17)
   target_include_directories(check-vertex-sampler PRIVATE include)
   target_link_libraries(check-vertex-sampler PRIVATE ${Geant4_LIBRARIES})

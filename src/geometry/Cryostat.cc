@@ -1,5 +1,6 @@
 #include "geometry/Cryostat.hh"
 #include "geometry/GeometryParameters.hh"
+#include "geometry/GeometryManager.hh"
 #include "materials/Materials.hh"
 #include "G4GenericPolycone.hh"
 #include "G4LogicalVolume.hh"
@@ -61,8 +62,9 @@ const std::vector<VesselSection>& Sections() {
 }
 }
 
-void Cryostat::Build(G4LogicalVolume* mother, const Materials& materials,
-                     const GeometryParameters& parameters) const {
+void Cryostat::Build(G4VPhysicalVolume* parent, const Materials& materials,
+                     const GeometryParameters& parameters, GeometryManager& geometry) const {
+  auto* mother = parent->GetLogicalVolume();
   G4RotationMatrix rotation;
   rotation.rotateX(-90.*deg);
   G4int copy = 0;
@@ -75,7 +77,8 @@ void Cryostat::Build(G4LogicalVolume* mother, const Materials& materials,
     attributes.SetForceSolid(true);
     attributes.SetForceLineSegmentsPerCircle(32);
     logical->SetVisAttributes(attributes);
-    new G4PVPlacement(G4Transform3D(rotation, {0.,y,0.}), logical, name, mother, false, copy++);
+    auto* physical = new G4PVPlacement(G4Transform3D(rotation, {0.,y,0.}), logical, name, mother, false, copy++);
+    geometry.RegisterSourceVolume(physical, parent);
   };
 
   for (const auto& plate : parameters.plates) {

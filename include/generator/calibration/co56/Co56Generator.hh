@@ -6,7 +6,7 @@
 namespace cupid {
 class Co56Generator final : public VGenerator {
  public:
-  explicit Co56Generator(const GeneratorConfig&);
+  Co56Generator(const GeneratorConfig&, const GeometryManager&);
   void Generate(G4Event*) override;
 
  private:

@@ -6,7 +6,7 @@
 namespace cupid {
 class Th232Generator final : public VGenerator {
  public:
-  explicit Th232Generator(const GeneratorConfig&);
+  Th232Generator(const GeneratorConfig&, const GeometryManager&);
   void Generate(G4Event*) override;
 
  private:

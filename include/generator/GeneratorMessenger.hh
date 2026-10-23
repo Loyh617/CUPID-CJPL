@@ -8,13 +8,15 @@ class G4UIcmdWithAnInteger;
 class G4UIcmdWithoutParameter;
 namespace cupid {
 struct GeneratorConfig;
+class GeometryManager;
 class GeneratorMessenger final : public G4UImessenger {
  public:
-  explicit GeneratorMessenger(GeneratorConfig&);
+  GeneratorMessenger(GeneratorConfig&, const GeometryManager&);
   ~GeneratorMessenger() override;
   void SetNewValue(G4UIcommand*, G4String) override;
 
  private:
+  const GeometryManager& fGeometry;
   GeneratorConfig& fConfig;
   std::unique_ptr<G4UIdirectory> fDirectory;
   std::unique_ptr<G4UIcmdWithAString> fSelect, fPosition, fVolume;

@@ -75,7 +75,8 @@ int main(int argc, char** argv) {
     std::unique_ptr<G4RunManager> runManager(G4RunManagerFactory::CreateRunManager(
         options.serial ? G4RunManagerType::SerialOnly : G4RunManagerType::MTOnly));
     if (!options.serial) runManager->SetNumberOfThreads(options.threads);
-    runManager->SetUserInitialization(new cupid::DetectorConstruction);
+    auto* detector = new cupid::DetectorConstruction;
+    runManager->SetUserInitialization(detector);
     // 2026-10-18: retain the old baseline as comments per repository policy.
     // Restore only when deliberately reproducing the previous physics setup.
     // Transport baseline only: not a validated radioactive calibration physics model.
@@ -83,7 +84,7 @@ int main(int argc, char** argv) {
     // physics->SetVerboseLevel(0);
     // runManager->SetUserInitialization(physics);
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    auto* actions = new cupid::ActionInitialization;
+    auto* actions = new cupid::ActionInitialization(detector->GetGeometryManager());
     runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS
