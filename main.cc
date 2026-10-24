@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
     // physics->SetVerboseLevel(0);
     // runManager->SetUserInitialization(physics);
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    auto* actions = new cupid::ActionInitialization(detector->GetGeometryManager());
+    auto* actions = new cupid::ActionInitialization;
     runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS

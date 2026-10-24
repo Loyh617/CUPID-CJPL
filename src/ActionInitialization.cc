@@ -8,15 +8,14 @@
 #include "StackingAction.hh"
 
 namespace cupid {
-ActionInitialization::ActionInitialization(const GeometryManager& geometry)
-    : fGeometry(geometry),
-      fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorConfig, geometry)) {}
+ActionInitialization::ActionInitialization()
+    : fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
 ActionInitialization::~ActionInitialization() = default;
 void ActionInitialization::BuildForMaster() const {
   SetUserAction(new RunAction);
 }
 void ActionInitialization::Build() const {
-  SetUserAction(new PrimaryGeneratorAction(fGeneratorConfig, fGeometry, fGeneratorFailed));
+  SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
   SetUserAction(new RunAction);
   SetUserAction(new EventAction);
   SetUserAction(new SteppingAction);

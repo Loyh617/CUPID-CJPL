@@ -1,23 +1,23 @@
 #pragma once
+
+#include "globals.hh"
+
 #include <memory>
+
 class G4Event;
 class G4ParticleGun;
 namespace cupid {
-struct GeneratorConfig;
-class GeometryManager;
-class VGenerator;
 class GeneratorManager {
  public:
-  GeneratorManager(const GeneratorConfig&, const GeometryManager&);
+  GeneratorManager(const G4String& selection, const G4int& verbosity);
   ~GeneratorManager();
   void Generate(G4Event*);
-  static void Check(const GeneratorConfig&, const GeometryManager&);
-  static void List(const GeneratorConfig&);
+  static void Check(const G4String& selection);
+  static void List(const G4String& selection);
 
  private:
-  const GeometryManager& fGeometry;
-  const GeneratorConfig& fConfig;
+  const G4String& fSelection;
+  const G4int& fVerbosity;
   std::unique_ptr<G4ParticleGun> fGun;
-  std::unique_ptr<VGenerator> fGenerator;
 };
 }

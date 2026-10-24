@@ -1,14 +1,16 @@
 #include "PrimaryGeneratorAction.hh"
 #include "generator/GeneratorManager.hh"
+
 #include "G4RunManager.hh"
 #include "G4ios.hh"
+
 #include <exception>
 
 namespace cupid {
-PrimaryGeneratorAction::PrimaryGeneratorAction(const GeneratorConfig& config,
-                                               const GeometryManager& geometry,
+PrimaryGeneratorAction::PrimaryGeneratorAction(const G4String& selection,
+                                               const G4int& verbosity,
                                                std::atomic_bool& failed)
-    : fGenerator(std::make_unique<GeneratorManager>(config, geometry)), fFailed(failed) {}
+    : fGenerator(std::make_unique<GeneratorManager>(selection, verbosity)), fFailed(failed) {}
 PrimaryGeneratorAction::~PrimaryGeneratorAction() = default;
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
   if (fFailed.load()) {

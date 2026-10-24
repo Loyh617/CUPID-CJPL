@@ -54,3 +54,24 @@
 2026-10-23 | Header include ordering convention
 - AGENTS.md: require project headers first, Geant4 headers second, and all other headers last, with blank lines between groups. Apply to future include additions and edits.
 - Validation: read back the saved rule; documentation-only change, no compilation required.
+
+2026-10-23 | Split directly callable point and volume vertex samplers
+- Baseline checkpoint requested by user: cca8850 (geometry-owned source registry and include-order convention), committed before sampler changes.
+- Replace generator/common/VertexSampler with common/sampler/VertexSampler (abstract interface and optional configuration factory), PointVertexSampler and VolumeVertexSampler, with matching include/src files.
+- PointVertexSampler accepts a world-coordinate point; VolumeVertexSampler accepts an explicit volume name. Neither concrete sampler reads GeneratorConfig or selects a target from GeometryParameters. Retain initialized-geometry validation, private navigator daughter exclusion, rejection limits and stale-geometry protection.
+- Update Th232Generator, Co56Generator and GeneratorManager to use MakeVertexSampler for existing macro configuration; update CMakeLists.txt and source tests. Keep existing macro names and physics settings.
+- Extend tests for direct point/volume construction, alternate volume selection, no random-number consumption for fixed points, invalid point inputs, and configured/direct sampler equivalence.
+- Validation: pending compilation and regression checks.
+- README.md: document common/sampler layout, explicit point/volume constructor examples, optional macro configuration adapter and unchanged geometry-registration requirements.
+- Validation result: Geant4 11.4.1 Release build passed; all five CTest groups passed in 52.68 seconds, including serial/MT generator integration and expanded sampler tests. Verified all six new sampler files, removal of old include paths, and no GeneratorConfig/GeometryParameters references in concrete samplers. git diff --check passed. Sampler changes remain uncommitted after baseline cca8850.
+
+2026-10-24 | Remove generic sampler selection
+- PointVertexSampler and VolumeVertexSampler: remove the shared base class; each exposes its own direct constructor and Sample method. Keep world-coordinate validation, volume rejection sampling and stale-geometry guards.
+- tests/check_vertex_sampler.cc: retain concrete sampler and registry tests; remove tests for the configuration factory being retired.
+- Generator configuration and command migration: in progress; validation pending.
+- User clarification: clear both calibration generators instead of assigning a sampler or migrating source-position commands. Th232Generator/Co56Generator now retain only VGenerator placeholders whose Generate reports an unimplemented source model; neither is selectable.
+- Remove GeneratorConfig.hh and common/sampler/VertexSampler.hh/.cc. Retain independent PointVertexSampler and VolumeVertexSampler only. GeneratorManager no longer selects or creates samplers.
+- ActionInitialization, PrimaryGeneratorAction, GeneratorManager and GeneratorMessenger: retain only master-owned source selection and diagnostic verbosity, read-only during runs; gun is the sole implemented source. Remove unused geometry dependencies from this call chain.
+- Remove generic position/point/volume commands and the two calibration example macros (including their current build copies). Keep select/list/check/verbose; check explicitly validates selection only. Update CMakeLists.txt and tests/check_generators.py accordingly.
+- README.md: replace obsolete calibration examples/configuration-factory documentation with the current gun-only runtime, independent sampler APIs, placeholder status, removed commands and future scenario-owned sampling responsibilities.
+- Validation result: Geant4 11.4.1 Release build passed; all five CTest groups passed in 44.95 seconds (materials, 21 framework cases, 3 physics smoke cases, 11 updated generator cases, and independent sampler/registry checks). Source scan found no remaining GeneratorConfig or sampler-base/factory references. git diff --check passed. Changes remain uncommitted.

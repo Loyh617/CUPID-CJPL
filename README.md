@@ -3,11 +3,12 @@
 v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行测试粒子输运。
 
 这是独立的新工程。参考工程只用于理解尺寸和装置关系，没有作为构建依赖。
-当前支持 Th-232/Co-56 的理想点源及指定体积内均匀核素源；尚无真实源封装、活度或源平衡模型。
+当前仅测试粒子枪可运行；Th-232/Co-56 专属发生器保留接口占位，尚未确定源模型。
+公共组件提供独立的固定点采样、体积拒绝采样及核素发射工具，供后续具体发生器自行调用。
 当前不包含晶体能量 ROOT 输出、岩石、大厅、电子学或波形。
 `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
-`generator/` 已按场景接入公共组件和两个刻度源；`record/` 暂为空，现有粒子枪继续可用。
+`generator/` 保留公共组件及各场景目录；`record/` 暂为空。
 
 ## 1. 在 WSL Ubuntu 中构建
 
@@ -126,7 +127,7 @@ include/ + src/                 头文件和实现一一对应
   SteppingAction                每步处理接口，暂为空
   TrackingAction                轨迹开始/结束接口，暂为空
   StackingAction                新轨迹分类、新阶段、事件准备接口
-  generator/                    配置、场景调度、公共组件及专属源目录
+  generator/                    场景调度入口、公共组件及专属源占位目录
   record/                       空目录，预留数据记录模块
   geometry/
     GeometryManager             组件开关、装配、源体积登记与查询、重叠检查
@@ -231,8 +232,8 @@ G4LEVELGAMMADATA 和 HP 中子所需的 G4NEUTRONHPDATA；请使用本机 Geant4
 普通 HP 配置未额外启用材料相关的热中子束缚散射模型。
 
 默认 `gun` 模式仍支持 `/gun/particle ion` 和 `/gun/ion Z A 0 0`。
-专属 Th-232/Co-56 模式每个事件生成一个静止、中性、基态母核，创建时刻为 0，
-由物理列表继续处理完整衰变链；母核及子核的衰变等待时间仍由物理模型决定。
+Th-232/Co-56 专属发生器尚未实现。现有物理冒烟测试使用粒子枪发射初始核素，
+再由物理列表处理其衰变和输运；这不代表已经实现实验刻度源模型。
 暂不提供单次衰变截断、源平衡、活度归一化、衰变时间整理或 ROOT 计分。
 整链沉积总和不能直接当作单次探测器脉冲能量。
 宇宙线通量/角分布和双贝塔衰变末态发生器也尚未实现。
@@ -268,7 +269,7 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 运行与后续记录成员修改 actions。新增公共命令、坐标或晶体编号需在 README 中同步说明。
 采用个人分支及代码审查；提交前运行上述 CTest 检查。
 类的私有/受保护成员采用 `fGenerator`、`fGeometry` 等命名；局部变量和参数使用普通小写开头名称。
-纯数据配置结构保留 `crystalCount`、`selection` 等字段名，不为公开配置字段额外添加前缀。
+纯数据参数结构保留 `crystalCount` 等字段名，不为公开参数字段额外添加前缀。
 `build/`、输出文件和机器本地路径不提交 Git。
 
 ## 9. 已核对的官方接口资料
@@ -328,92 +329,92 @@ Geant4 11.4.1 Release / MT / C++17。
 - `include/` 和 `src/` 下的 `generator/`、`record/` 均已建立且为空。
 
 
-## 11. 分场景 generator（2026-10-22）
+## 11. 分场景 generator 与独立采样器
 
-`PrimaryGeneratorAction` 调用线程内的 `GeneratorManager`。默认源为 `gun`，保持原有
-`/gun/` 用法；选择刻度源后，`/gun/` 参数不参与该源的生成。
+`PrimaryGeneratorAction` 调用线程内的 `GeneratorManager`。当前只有 `gun` 可运行，
+使用原有 `/gun/` 命令设置粒子、位置、能量和方向。
+Th-232、Co-56、2νββ 和 0νββ 的类仅为 `VGenerator` 接口占位，未注册为可选源。
+直接调用这些占位类的 `Generate()` 会报告未实现，而不是产生空事件。
 
 ```text
 include/generator/                  src/generator/ 有对应实现
-  VGenerator.hh                     每个场景的统一事件生成接口
-  GeneratorConfig.hh                初始化前设置，运行期间只读
-  GeneratorManager.hh               创建并调用选定场景，保留测试粒子枪
-  GeneratorMessenger.hh             主线程宏命令
-  common/VertexSampler.hh           点源、实际物理体积内均匀分布
-  common/IonEmitter.hh              静止基态核素初级粒子
-  calibration/th232/Th232Generator.hh
-  calibration/co56/Co56Generator.hh
-  background/environment/           预留，尚无源实现
-  background/copper_frame/          预留，尚无源实现
-  background/cosmic/                 预留，尚无源实现
+  VGenerator.hh                     场景发生器的统一事件生成接口
+  GeneratorManager.hh               发生器调度入口，当前仅测试粒子枪
+  GeneratorMessenger.hh             选择、诊断、列出和检查命令
+  common/IonEmitter.hh               静止基态核素初级粒子工具
+  common/sampler/
+    PointVertexSampler.hh           固定点采样
+    VolumeVertexSampler.hh          均匀体积拒绝采样
+  calibration/th232/Th232Generator.hh   接口占位
+  calibration/co56/Co56Generator.hh     接口占位
+  background/environment/           预留
+  background/copper_frame/          预留
+  background/cosmic/                预留
   crystal_signal/
-    crystal_radioactivity/          预留晶体内部放射性源
+    crystal_radioactivity/         预留
     double_beta_decay/
-      TwoNuDoubleBetaDecayGenerator.hh   2νββ 接口占位
-      ZeroNuDoubleBetaDecayGenerator.hh  0νββ 接口占位
+      TwoNuDoubleBetaDecayGenerator.hh   接口占位
+      ZeroNuDoubleBetaDecayGenerator.hh  接口占位
 ```
 
-### 运行两个理想点源算例
+### 发生器选择与命令
 
-从工程根目录执行；两者均只启用两个测试晶体，不包含刻度源封装：
+`ActionInitialization` 只保存发生器名称和诊断输出级别两个成员，主线程在 PreInit
+阶段设置，工作线程运行期间只读。没有通用的源配置结构，也不集中决定采样算法。
 
-```bash
-./build/cupid-sim generator/calibration_th232.mac --serial
-./build/cupid-sim generator/calibration_co56.mac --threads 2
-```
-
-这两个示例都生成 10 个事件。更改源文件中的宏后运行 `cmake -S . -B build` 刷新宏副本，
-或直接传入 `macros/generator/calibration_co56.mac` 等源文件路径。
-
-### 在指定晶体内均匀生成
-
-下面是完整宏示例；这是位置采样测试，不代表实际 Co-56 刻度源位于晶体内部：
-
-```text
-/random/setSeeds 12345 67890
-/run/verbose 1
-/cupid/geometry/enable CrystalArray
-/cupid/geometry/crystalCount 2
-/cupid/generator/select calibration/co56
-/cupid/generator/position volume
-/cupid/generator/volume Crystal1
-/cupid/generator/list
-/run/initialize
-/cupid/generator/check
-/run/beamOn 100
-```
-
-| 命令 | 当前取值和含义 |
+| 命令 | 当前用途 |
 | --- | --- |
-| `/cupid/generator/select` | `gun`、`calibration/th232`、`calibration/co56` |
-| `/cupid/generator/position` | `point` 或 `volume`，只用于专属刻度源 |
-| `/cupid/generator/point x y z unit` | 世界坐标，必须在 World 内部；不自动切换 position 模式 |
-| `/cupid/generator/volume NAME` | 唯一的物理放置名称；不自动切换 position 模式 |
-| `/cupid/generator/verbose 0或1` | 1 输出每次生成的初级粒子诊断，仅用于小规模检查 |
-| `/cupid/generator/list` | 输出配置与当前归一化口径；初始化前后均可用 |
-| `/cupid/generator/check` | 初始化后检查源位置，失败时中断宏；不消耗随机数 |
+| `/cupid/generator/select gun` | 选择当前唯一已实现的发生器；初始化前设置 |
+| `/cupid/generator/verbose 0或1` | 1 输出逐事件初级粒子诊断；初始化前设置 |
+| `/cupid/generator/list` | 列出当前发生器；初始化前后可用 |
+| `/cupid/generator/check` | 初始化后检查发生器名称是否受支持，不检查粒子枪位置或物理模型 |
 
-所有源设置命令只允许在 `/run/initialize` 前执行。一个进程选择一个场景，可重复
-`/run/beamOn`，但当前不支持运行间切换场景或重建几何。工作线程分别拥有粒子枪、
-场景发生器和采样导航器；共用配置只在主线程 PreInit 修改，运行时不修改。
-即使没有主动调用 `check`，生成前仍检查配置；源错误使运行停止并返回非零退出码，
-不会回退到 World 或其他源。发生此类错误后应修正宏并重启进程。
+通用 `/cupid/generator/position`、`/cupid/generator/point`、
+`/cupid/generator/volume` 命令已移除，旧宏使用它们会明确报错。
+两份刻度源示例宏也已移除；重新构建不会再复制这些宏。
+测试粒子枪的 `/gun/position` 等命令保持可用。
 
-`VertexSampler` 根据实际 Solid 在局部包围盒中拒绝采样，再通过完整放置变换转到
-世界坐标，并使用独立导航器排除子体积。普通嵌套和旋转放置受支持。
-目标名称必须已在 `GeometryManager` 登记；未登记的体积不会通过搜索几何树自动补入。
-当前仅支持普通放置；源目标及其祖先不能使用复制/参数化放置，也不支持重复放置母逻辑体造成的多路径目标。
-最多尝试 100000 次，极薄、极小填充率或没有可采样区域的形状可能触发明确失败。
-尚未实现指定表面、污染深度、多体积权重和多粒子相关运动学。
+### 由具体发生器选择采样方式
+
+采样器没有共同基类，也没有按模式创建采样器的工厂。两个类各自保留 `Sample()`
+作为操作名称，仅为调用习惯一致，不存在多态继承关系。
+后续每种具体发生器自行决定用哪种算法，并直接把位置或体积名称传给它。
+
+下面的 `geometry` 是已完成构造和登记的 `const GeometryManager&`，
+`Crystal1` 必须已启用并登记。示例仅展示接口，不为任何刻度源预设模型。
+
+```cpp
+#include "generator/common/sampler/PointVertexSampler.hh"
+#include "generator/common/sampler/VolumeVertexSampler.hh"
+
+#include "G4SystemOfUnits.hh"
+
+cupid::PointVertexSampler pointSampler({0., -350.*mm, -100.*mm}, geometry);
+const auto fixedPosition = pointSampler.Sample();
+
+const G4String volume = "Crystal1";
+cupid::VolumeVertexSampler volumeSampler(volume, geometry);
+const auto sampledPosition = volumeSampler.Sample();
+```
+
+具体发生器可以把选定采样器作为成员，在几何准备好后构造，随后逐事件调用。
+`PointVertexSampler` 检查输入坐标有限且严格位于 World 内部，每次返回相同世界坐标，
+不创建导航器、不消耗随机数，也不要求位置一定在晶体内部。
+
+`VolumeVertexSampler` 通过显式 `volume` 名称查询已登记的物理体；名称无默认值。
+它在 Solid 的局部包围盒中拒绝采样，转换到世界坐标，并用线程独立的导航器
+排除子体积。目标名称不存在、未登记或对应关闭的组件时会报错。
+最多尝试 100000 次；薄壳、低填充率或没有剩余可采样区域的体积可能耗尽次数。
+指定表面、污染深度和多体积权重尚未实现。
+
+两个类都不读取发生器配置或几何尺寸参数来选择算法、坐标或目标名称。
+`GeometryParameters.hh` 继续负责装置布局，不决定放射源位置。
 
 ### 几何与源位置的接口
 
 `DetectorConstruction` 创建 World 后调用 `GeometryManager::Build(world, materials)`。
-管理器依次执行 `BeginSourceVolumes(world)`、各组件的 `Build()`、`FinishSourceVolumes()`。
-World 自动登记；当前 Cryostat、InnerShielding、CrystalArray 创建的物理体均显式登记。
-关闭组件后，其体积不会出现在登记表中。
-
-组件中的最小写法如下，`parent` 必须是已登记的实际母物理体：
+管理器执行 `BeginSourceVolumes(world)`、各组件构造和 `FinishSourceVolumes()`。
+World 自动登记；Cryostat、InnerShielding 和 CrystalArray 在创建物理体时显式登记：
 
 ```cpp
 auto* physical = new G4PVPlacement(nullptr, position, logical, name,
@@ -421,37 +422,27 @@ auto* physical = new G4PVPlacement(nullptr, position, logical, name,
 geometry.RegisterSourceVolume(physical, parent);
 ```
 
-管理器使用 `GetObjectRotationValue()` 和 `GetObjectTranslation()` 合成放置变换：
-`R_world = R_parent * R_local`，`t_world = t_parent + R_parent * t_local`。
-`FindSourceVolume(name)` 返回只读 `SourceVolumeInfo`，包含物理体指针、世界旋转和平移。
-这些指针不拥有几何，几何生命周期仍由 Geant4 管理。
+`parent` 必须是已登记的实际母物理体，母体应先于子体登记。
+`FindSourceVolume(name)` 返回物理体指针和局部到世界坐标的旋转、平移；这些指针
+不拥有几何。嵌套变换为 `R_world = R_parent * R_local`，
+`t_world = t_parent + R_parent * t_local`。
 
-结束登记时一次性检查物理体表中的名称冲突与重复母逻辑体；不是从 World 递归搜索目标。
-登记未完成或验证失败时不开放查询，完成后禁止继续登记。运行期间管理器只读，
-通过 `DetectorConstruction → ActionInitialization → PrimaryGeneratorAction → GeneratorManager`
-传入具体发生器；每个线程仍独立拥有 `VertexSampler` 和 `G4Navigator`。
-`/cupid/generator/check` 使用同一个几何接口，宏的用法不变。
+结束登记时一次性检查物理体表中的名称冲突和重复母逻辑体。登记完成后只读，
+未完成或失败时不开放查询。当前不支持把复制体、参数化体或重复母逻辑体下的
+多路径目标登记为源；普通嵌套旋转受支持。
 
-`VertexSampler` 初始化时查询一次目标及其变换；每次采样只进行局部包围盒采样、
-Solid 内部判断、坐标变换及导航器归属检查。子体积即使未登记为源，也仍然被排除。
-本接口不改变源的空间分布定义：当前为目标自身材料区域内的均匀体积分布。
+体积采样器构造时查询一次目标及其变换。子体积即使没有登记为源，仍会被导航器排除。
+两种采样器都保存几何代次，几何重新构造后旧采样器会报错。
+这只是失效保护；目前不支持运行间自动重建发生器，更换几何仍应启动新进程。
 
-开始新一轮几何构造会清空登记表并更新代次；旧采样器再次使用会明确报错，
-不会继续解引用旧几何。这是失效保护，不代表已支持运行间自动重建发生器；
-当前更换几何仍应启动新进程。
+### 测试与后续接入
 
-`tests/check_vertex_sampler.cc` 检查嵌套旋转、布尔孔洞、子体积排除、未登记目标、
-重名、错误母体、重复母逻辑体、复制体拒绝、登记封闭与旧采样器失效。
-这些是接口和采样回归检查，不是物理能谱验证。
+`tests/check_vertex_sampler.cc` 独立检查固定点和体积采样、显式选择不同体积、
+固定点不消耗随机数、非法坐标、嵌套旋转、孔洞和子体积排除，及登记表的错误处理。
+`tests/check_generators.py` 检查粒子枪串行/双线程/重复运行、未实现源拒绝，
+以及移除的旧命令不再被接受。物理冒烟测试继续通过粒子枪检查衰变和输运。
+这些检查不构成实验能谱或本底率的物理验证。
 
-Th-232/Co-56 场景只决定初始母核和位置；衰变分支、产物及其输运交给现有 PhysicsList。
-每次生成代表一个初始母核的完整历史，暂不代表某段测量时间或一个实验脉冲。
-没有输入源年龄、活度或平衡假设，因此不能将默认示例当作真实刻度源本底率预测。
-外部核素库、双贝塔模型、宇宙线谱及 ROOT 输出未在此次接入。
-
-新增场景时，在自己的目录实现 `VGenerator`，在 `GeneratorManager` 注册选择，
-同步 messenger 候选项、CMake、使用说明和 `history.log`。只有确有复用需求的算法
-才放入 `common/`；能量、方向等有关联的采样由具体场景统一负责。
-
-两个双贝塔类目前仅提供 `VGenerator` 接口并参与编译；尚未注册为可选源。
-它们的 `Generate()` 会明确报告物理模型未实现，不会生成空事件或近似冒充双贝塔衰变。
+新增场景时，在对应目录实现 `VGenerator`，由具体发生器内部决定采样器及其参数。
+模型确定后再接入 `GeneratorManager`，更新命令候选项、CMake、示例、测试和说明。
+不为尚未确定的 Th-232/Co-56 模型指定位置、采样器或源封装。

@@ -1,24 +1,28 @@
 #pragma once
-#include "generator/GeneratorConfig.hh"
+
 #include "G4RotationMatrix.hh"
-#include <memory>
+#include "G4ThreeVector.hh"
+#include "globals.hh"
+
 #include <cstddef>
+#include <memory>
 
 class G4Navigator;
 class G4VPhysicalVolume;
 class G4VSolid;
 namespace cupid {
 class GeometryManager;
-class VertexSampler {
+// Uniform rejection sampling in one registered placement, excluding daughters.
+class VolumeVertexSampler {
  public:
-  VertexSampler(const GeneratorConfig&, const GeometryManager&);
-  ~VertexSampler();
+  VolumeVertexSampler(const G4String& volume, const GeometryManager& geometry);
+  ~VolumeVertexSampler();
   G4ThreeVector Sample();
 
  private:
   const GeometryManager& fGeometry;
   std::size_t fGeometryGeneration;
-  GeneratorConfig fConfig;
+  G4String fVolume;
   G4VPhysicalVolume* fTarget = nullptr;
   G4VSolid* fSolid = nullptr;
   G4ThreeVector fMinimum, fMaximum, fTranslation;

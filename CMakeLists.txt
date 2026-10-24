@@ -14,7 +14,8 @@ add_executable(cupid-sim
   src/DetectorConstruction.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
-  src/generator/common/VertexSampler.cc
+  src/generator/common/sampler/PointVertexSampler.cc
+  src/generator/common/sampler/VolumeVertexSampler.cc
   src/generator/common/IonEmitter.cc
   src/generator/calibration/th232/Th232Generator.cc
   src/generator/calibration/co56/Co56Generator.cc
@@ -52,11 +53,6 @@ foreach(name geometry run crystal_only check_geometry vis draw render)
   configure_file(macros/${name}.mac macros/${name}.mac COPYONLY)
 endforeach()
 
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/macros/generator")
-foreach(name calibration_th232 calibration_co56)
-  configure_file(macros/generator/${name}.mac macros/generator/${name}.mac COPYONLY)
-endforeach()
-
 include(CTest)
 if(BUILD_TESTING)
   add_executable(check-materials tests/check_materials.cc src/materials/Materials.cc)
@@ -81,7 +77,9 @@ if(BUILD_TESTING)
       $<TARGET_FILE:cupid-sim> ${CMAKE_CURRENT_BINARY_DIR}/generator-test-results)
   set_tests_properties(generator-checks PROPERTIES TIMEOUT 240)
   add_executable(check-vertex-sampler
-    tests/check_vertex_sampler.cc src/generator/common/VertexSampler.cc
+    tests/check_vertex_sampler.cc
+    src/generator/common/sampler/PointVertexSampler.cc
+    src/generator/common/sampler/VolumeVertexSampler.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
     src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/CrystalArray.cc
     src/materials/Materials.cc)

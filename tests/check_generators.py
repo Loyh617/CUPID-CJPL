@@ -29,39 +29,26 @@ def run(name, commands, mt=False, fail=False):
     return log
 
 geometry = '/cupid/geometry/enable CrystalArray\n/cupid/geometry/crystalCount 2\n'
-def source(isotope, mode, position):
-    return (f'/cupid/generator/select calibration/{isotope}\n'
-            f'/cupid/generator/position {mode}\n' + position + '\n/cupid/generator/verbose 1\n')
+gun = (geometry + '/cupid/generator/select gun\n/cupid/generator/verbose 1\n'
+       '/cupid/generator/list\n/run/initialize\n/cupid/generator/check\n'
+       '/gun/particle gamma\n/gun/energy 1 MeV\n/gun/position -25 -350 0 mm\n')
+for mt in (False, True):
+    log = run('gun_' + ('mt' if mt else 'serial'), gun + '/run/beamOn 4', mt=mt)
+    assert 'CUPID_GENERATOR selected=gun configuration=/gun/' in log
+    assert 'CUPID_GENERATOR_CHECK scope=selection result=PASS' in log
+    rows = re.findall(r'CUPID_PRIMARY event=(\d+) source=gun particle=gamma x_mm=-25 y_mm=-350 z_mm=0 kinetic_MeV=1', log)
+    assert sorted(map(int, rows)) == list(range(4))
 
-th = geometry + source('th232', 'point', '/cupid/generator/point -25 -350 0 mm')
-log = run('th232_point', th + '/run/initialize\n/cupid/generator/check\n/tracking/verbose 1\n/run/beamOn 1')
-assert 'source=calibration/th232 particle=Th232 x_mm=-25 y_mm=-350 z_mm=0 kinetic_MeV=0' in log
-assert 'Particle = Pb208' in log
-
-co = geometry + source('co56', 'volume', '/cupid/generator/volume Crystal1')
-log = run('co56_volume_mt', co + '/run/initialize\n/cupid/generator/check\n/tracking/verbose 1\n/run/beamOn 24', mt=True)
-rows = re.findall(r'CUPID_PRIMARY event=(\d+) source=calibration/co56 particle=Co56 x_mm=(\S+) y_mm=(\S+) z_mm=(\S+) kinetic_MeV=0', log)
-assert sorted(int(row[0]) for row in rows) == list(range(24))
-for _, x, y, z in rows:
-    assert 2.5 < float(x) < 47.5 and -372.5 < float(y) < -327.5 and -22.5 < float(z) < 22.5
-assert 'Particle = Fe56' in log
-
-log = run('co56_repeated_runs', co + '/run/initialize\n/run/beamOn 2\n/run/beamOn 3')
+log = run('gun_repeated_runs', gun + '/run/beamOn 2\n/run/beamOn 3')
 assert log.count('CUPID_PRIMARY') == 5
 assert re.search(r'Number of events processed : 2\b', log)
 assert re.search(r'Number of events processed : 3\b', log)
 
-missing = source('co56', 'volume', '/cupid/generator/volume MissingCrystal')
-log = run('missing_volume_check', missing + '/run/initialize\n/cupid/generator/check', fail=True)
-assert 'Source volume not found: MissingCrystal' in log
-for mt in (False, True):
-    log = run('missing_volume_run_' + str(mt), missing + '/run/initialize\n/run/beamOn 4', mt=mt, fail=True)
-    assert 'CUPID_GENERATOR_ERROR: Source volume not found: MissingCrystal' in log
-
-log = run('outside_world', source('co56', 'point', '/cupid/generator/point 3 0 0 m') +
-          '/run/initialize\n/cupid/generator/check', fail=True)
-assert 'Source point must be strictly inside World' in log
-run('unimplemented_source', '/cupid/generator/select crystal_signal/0nubb', fail=True)
-run('late_source_change', '/run/initialize\n/cupid/generator/select calibration/co56', fail=True)
-run('unsupported_surface', '/cupid/generator/position surface', fail=True)
+for source in ('calibration/th232', 'calibration/co56', 'crystal_signal/2nubb', 'crystal_signal/0nubb'):
+    log = run('unimplemented_' + source.replace('/', '_'),
+              '/cupid/generator/select ' + source + '\n/run/initialize\n/run/beamOn 1', fail=True)
+    assert 'CUPID_PRIMARY' not in log
+for name, command in [('position', 'position point'), ('point', 'point 0 0 0 mm'), ('volume', 'volume Crystal1')]:
+    run('removed_' + name, '/cupid/generator/' + command, fail=True)
+run('late_source_change', '/run/initialize\n/cupid/generator/select gun', fail=True)
 print(f'All {passed} generator checks passed.', flush=True)

@@ -1,33 +1,28 @@
-#include "generator/common/VertexSampler.hh"
+#include "generator/common/sampler/VolumeVertexSampler.hh"
 #include "geometry/GeometryManager.hh"
+
 #include "G4LogicalVolume.hh"
 #include "G4Navigator.hh"
 #include "G4VPhysicalVolume.hh"
 #include "G4VSolid.hh"
 #include "Randomize.hh"
+
 #include <cmath>
 #include <stdexcept>
 
 namespace cupid {
-VertexSampler::VertexSampler(const GeneratorConfig& config, const GeometryManager& geometry)
+VolumeVertexSampler::VolumeVertexSampler(
+    const G4String& volume, const GeometryManager& geometry)
     : fGeometry(geometry), fGeometryGeneration(geometry.GetGeometryGeneration()),
-      fConfig(config), fNavigator(std::make_unique<G4Navigator>()) {
+      fVolume(volume), fNavigator(std::make_unique<G4Navigator>()) {
   auto* world = geometry.GetWorldVolume();
   fNavigator->SetWorldVolume(world);
-  if (fConfig.positionMode == "point") {
-    const auto& p = fConfig.point;
-    if (!std::isfinite(p.x()) || !std::isfinite(p.y()) || !std::isfinite(p.z()) ||
-        world->GetLogicalVolume()->GetSolid()->Inside(p) != kInside)
-      throw std::runtime_error("Source point must be strictly inside World.");
-    return;
-  }
-  if (fConfig.positionMode != "volume" || fConfig.volume.empty())
+  if (volume.empty())
     throw std::runtime_error("Volume sampling requires a physical volume name.");
-
-  const auto& volume = geometry.FindSourceVolume(fConfig.volume);
-  fTarget = volume.physicalVolume;
-  fRotation = volume.localToWorldRotation;
-  fTranslation = volume.localToWorldTranslation;
+  const auto& info = geometry.FindSourceVolume(volume);
+  fTarget = info.physicalVolume;
+  fRotation = info.localToWorldRotation;
+  fTranslation = info.localToWorldTranslation;
   fSolid = fTarget->GetLogicalVolume()->GetSolid();
   fSolid->BoundingLimits(fMinimum, fMaximum);
   for (int axis = 0; axis < 3; ++axis) {
@@ -36,12 +31,11 @@ VertexSampler::VertexSampler(const GeneratorConfig& config, const GeometryManage
       throw std::runtime_error("Source volume has invalid sampling bounds.");
   }
 }
-VertexSampler::~VertexSampler() = default;
+VolumeVertexSampler::~VolumeVertexSampler() = default;
 
-G4ThreeVector VertexSampler::Sample() {
+G4ThreeVector VolumeVertexSampler::Sample() {
   if (fGeometry.GetGeometryGeneration() != fGeometryGeneration)
     throw std::runtime_error("Source sampler is stale after geometry reconstruction; recreate the generator.");
-  if (fConfig.positionMode == "point") return fConfig.point;
   for (int attempt = 0; attempt < 100000; ++attempt) {
     G4ThreeVector local;
     for (int axis = 0; axis < 3; ++axis)
@@ -52,6 +46,6 @@ G4ThreeVector VertexSampler::Sample() {
     if (fNavigator->LocateGlobalPointAndSetup(global, nullptr, false) == fTarget)
       return global;
   }
-  throw std::runtime_error("Source rejection sampling exhausted 100000 attempts in " + fConfig.volume);
+  throw std::runtime_error("Source rejection sampling exhausted 100000 attempts in " + fVolume);
 }
 }
