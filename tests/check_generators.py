@@ -28,7 +28,7 @@ def run(name, commands, mt=False, fail=False):
     print('PASS', name, flush=True)
     return log
 
-geometry = '/cupid/geometry/enable CrystalArray\n/cupid/geometry/crystalCount 2\n'
+geometry = '/cupid/geometry/enable LMOArray\n/cupid/geometry/lmoCount 2\n'
 gun = (geometry + '/cupid/generator/select gun\n/cupid/generator/verbose 1\n'
        '/cupid/generator/list\n/run/initialize\n/cupid/generator/check\n'
        '/gun/particle gamma\n/gun/energy 1 MeV\n/gun/position -25 -350 0 mm\n')
@@ -44,11 +44,11 @@ assert log.count('CUPID_PRIMARY') == 5
 assert re.search(r'Number of events processed : 2\b', log)
 assert re.search(r'Number of events processed : 3\b', log)
 
-for source in ('calibration/th232', 'calibration/co56', 'crystal_signal/2nubb', 'crystal_signal/0nubb'):
+for source in ('calibration/th232', 'calibration/co56', 'lmo_signal/2nubb', 'lmo_signal/0nubb'):
     log = run('unimplemented_' + source.replace('/', '_'),
               '/cupid/generator/select ' + source + '\n/run/initialize\n/run/beamOn 1', fail=True)
     assert 'CUPID_PRIMARY' not in log
-for name, command in [('position', 'position point'), ('point', 'point 0 0 0 mm'), ('volume', 'volume Crystal1')]:
+for name, command in [('position', 'position point'), ('point', 'point 0 0 0 mm'), ('volume', 'volume LMO1')]:
     run('removed_' + name, '/cupid/generator/' + command, fail=True)
 run('late_source_change', '/run/initialize\n/cupid/generator/select gun', fail=True)
 print(f'All {passed} generator checks passed.', flush=True)

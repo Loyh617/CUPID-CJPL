@@ -4,7 +4,7 @@ namespace cupid {
 class Materials;
 class GeometryManager;
 struct GeometryParameters;
-class CrystalArray {
+class LMOArray {
  public:
   void Build(G4VPhysicalVolume* parent, const Materials& materials,
              const GeometryParameters& parameters, GeometryManager& geometry) const;

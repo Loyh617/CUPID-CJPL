@@ -8,7 +8,7 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 当前不包含晶体能量 ROOT 输出、岩石、大厅、电子学或波形。
 `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
-`generator/` 保留公共组件及各场景目录；`record/` 暂为空。
+`LMOSensitiveDetector` 与 Action 类位于同一层，提供晶体命中数据；`record/` 预留给不同需求的记录类。
 
 ## 1. 在 WSL Ubuntu 中构建
 
@@ -42,7 +42,7 @@ cmake --build build -j4
 ./build/cupid-sim run.mac --serial
 
 # 只构建两个晶体并检查几何
-./build/cupid-sim crystal_only.mac --threads 2
+./build/cupid-sim lmo_only.mac --threads 2
 
 # 全部组件的重叠检查
 ./build/cupid-sim check_geometry.mac --serial
@@ -78,8 +78,8 @@ Run Summary
 /run/verbose 1
 /cupid/geometry/enable Cryostat
 /cupid/geometry/enable InnerShielding
-/cupid/geometry/enable CrystalArray
-/cupid/geometry/crystalCount 1
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 1
 /cupid/geometry/list
 /run/initialize
 /cupid/geometry/check 10000
@@ -97,10 +97,10 @@ Run Summary
 | `/cupid/geometry/enable NAME` | 启用一个组件，重复启用不会重复构建 |
 | `/cupid/geometry/disable NAME` | 关闭一个组件 |
 | `/cupid/geometry/list` | 列出当前组件状态和晶体数量 |
-| `/cupid/geometry/crystalCount 1` | 一颗居中晶体；也可以设为 2，沿 X 排列 |
+| `/cupid/geometry/lmoCount 1` | 一颗居中晶体；也可以设为 2，沿 X 排列 |
 | `/cupid/geometry/check 10000` | 初始化后对所有放置体积执行重叠检查 |
 
-组件名称区分大小写：`Cryostat`、`InnerShielding`、`CrystalArray`。
+组件名称区分大小写：`Cryostat`、`InnerShielding`、`LMOArray`。
 启用、关闭及晶体数量只允许在 `/run/initialize` 之前设置。
 `list` 在初始化前后均可用。`check` 只能在初始化完成后、运行之外执行。
 输入未知组件、非法参数、错误命令或检测出重叠时，批处理返回非零退出码。
@@ -118,7 +118,8 @@ Run Summary
 ```text
 main.cc                         程序入口、运行模式、物理列表注册
 include/ + src/                 头文件和实现一一对应
-  DetectorConstruction          世界创建和整体构造入口
+  DetectorConstruction          世界创建、整体构造和灵敏探测器挂载
+  LMOSensitiveDetector      接收晶体 step，生成事件内的基础命中集合
   ActionInitialization          创建线程局部的用户 actions
   PrimaryGeneratorAction        调用 GeneratorManager，统一传播源错误
   PhysicsList                   逐项注册物理构造器和设置参数
@@ -128,7 +129,7 @@ include/ + src/                 头文件和实现一一对应
   TrackingAction                轨迹开始/结束接口，暂为空
   StackingAction                新轨迹分类、新阶段、事件准备接口
   generator/                    场景调度入口、公共组件及专属源占位目录
-  record/                       空目录，预留数据记录模块
+  record/                       空目录，预留按需求整理命中数据的记录类
   geometry/
     GeometryManager             组件开关、装配、源体积登记与查询、重叠检查
     SourceVolumeInfo.hh         物理放置指针及局部到世界坐标变换
@@ -136,7 +137,7 @@ include/ + src/                 头文件和实现一一对应
     GeometryParameters.hh       主要尺寸、坐标和晶体数量
     Cryostat                    冷板、铜罩和铝罩
     InnerShielding              三段内铜屏蔽
-    CrystalArray                一颗或两颗 LMO
+    LMOArray                一颗或两颗 LMO
   materials/Materials           统一材料定义
 macros/                         几何选择、显示、检查和运行示例
 tests/check_framework.py        小规模端到端检查
@@ -163,8 +164,8 @@ tests/check_physics.py          过程注册、衰变与输运冒烟检查
 - LMO 采用自然元素组成 Li2MoO4，密度 3.07 g/cm³，边长 45 mm。
   单晶体中心为 `(0,-350,0) mm`。双晶体中心为 `(-25,-350,0)` 和 `(25,-350,0) mm`；
   **双晶体排列是测试布局**。当前 copy number 0、1 只在这个单一阵列内作为晶体编号。
-  每颗晶体具有独立的 LogicalVolume，名称为 `Crystal0`、`Crystal1`，数字与 copy number 一致。
-  它们共用相同尺寸的 Solid 和 `Li2MoO4` 材料；每颗晶体的 PhysicalVolume 与 LogicalVolume 同名，均为 `Crystal` 加编号。
+  每颗晶体具有独立的 LogicalVolume，名称为 `LMO0`、`LMO1`，数字与 copy number 一致。
+  它们共用相同尺寸的 Solid 和 `Li2MoO4` 材料；每颗晶体的 PhysicalVolume 与 LogicalVolume 同名，均为 `LMO` 加编号。
 - 本版没有支撑框架、外屏蔽、源杯或钨钍丝，也没有由参考 STL 隐式加载任何结构。
 
 ### 材料库
@@ -269,7 +270,7 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 运行与后续记录成员修改 actions。新增公共命令、坐标或晶体编号需在 README 中同步说明。
 采用个人分支及代码审查；提交前运行上述 CTest 检查。
 类的私有/受保护成员采用 `fGenerator`、`fGeometry` 等命名；局部变量和参数使用普通小写开头名称。
-纯数据参数结构保留 `crystalCount` 等字段名，不为公开参数字段额外添加前缀。
+纯数据参数结构保留 `lmoCount` 等字段名，不为公开参数字段额外添加前缀。
 `build/`、输出文件和机器本地路径不提交 Git。
 
 ## 9. 已核对的官方接口资料
@@ -292,7 +293,7 @@ Geant4 11.4.1 Release / MT / C++17。
   晶体内部真实输运 step、缺失宏、无窗口 PNG 渲染。
 - 全部组件的 20 个物理放置体积通过每体积 20,000 次抽样重叠检查。
 - `run.mac` 在串行和四工作线程下分别完成 1,000 个事件。
-- `crystal_only.mac` 在双工作线程下完成 1,000 个事件。
+- `lmo_only.mac` 在双工作线程下完成 1,000 个事件。
 - 关闭可视化的版本在双工作线程下完成 1,000 个事件。
 - 已查看 `build/test-results/geometry.png`，确认完整装置可见。
 - 交互式 WSLg/OpenGL 窗口未在本次自动验证中启动；无窗口显示使用 `TSG_OFFSCREEN`。
@@ -352,8 +353,8 @@ include/generator/                  src/generator/ 有对应实现
   background/environment/           预留
   background/copper_frame/          预留
   background/cosmic/                预留
-  crystal_signal/
-    crystal_radioactivity/         预留
+  lmo_signal/
+    lmo_radioactivity/         预留
     double_beta_decay/
       TwoNuDoubleBetaDecayGenerator.hh   接口占位
       ZeroNuDoubleBetaDecayGenerator.hh  接口占位
@@ -383,7 +384,7 @@ include/generator/                  src/generator/ 有对应实现
 自行决定用哪种算法，并直接传入位置、尺寸或体积名称。
 
 下面的 `geometry` 是已完成构造和登记的 `const GeometryManager&`，
-`Crystal1` 必须已启用并登记。示例仅展示接口，不为任何刻度源预设模型。
+`LMO1` 必须已启用并登记。示例仅展示接口，不为任何刻度源预设模型。
 
 ```cpp
 #include "generator/toolkit/sampler/PointSampler.hh"
@@ -394,7 +395,7 @@ include/generator/                  src/generator/ 有对应实现
 cupid::PointSampler pointSampler({0., -350.*mm, -100.*mm}, geometry);
 const auto fixedPosition = pointSampler.Sample();
 
-const G4String volume = "Crystal1";
+const G4String volume = "LMO1";
 cupid::RejectionVolumeSampler volumeSampler(volume, geometry);
 const auto sampledPosition = volumeSampler.Sample();
 ```
@@ -479,7 +480,7 @@ const auto onHemisphere = surface.SampleHemisphere(10.*mm);
 
 `DetectorConstruction` 创建 World 后调用 `GeometryManager::Build(world, materials)`。
 管理器执行 `BeginSourceVolumes(world)`、各组件构造和 `FinishSourceVolumes()`。
-World 自动登记；Cryostat、InnerShielding 和 CrystalArray 在创建物理体时显式登记：
+World 自动登记；Cryostat、InnerShielding 和 LMOArray 在创建物理体时显式登记：
 
 ```cpp
 auto* physical = new G4PVPlacement(nullptr, position, logical, name,
@@ -515,3 +516,48 @@ geometry.RegisterSourceVolume(physical, parent);
 新增场景时，在对应目录实现 `VGenerator`，由具体发生器内部决定采样器及其参数。
 模型确定后再接入 `GeneratorManager`，更新命令候选项、CMake、示例、测试和说明。
 不为尚未确定的 Th-232/Co-56 模型指定位置、采样器或源封装。
+
+## 晶体灵敏探测器
+
+启用 `LMOArray` 后，`LMOArray::Build()` 将晶体登记到 `GeometryManager`。
+`DetectorConstruction::ConstructSDandField()` 取得实际构建的晶体逻辑体，向本线程的
+`G4SDManager` 注册 `LMOSD`，并将它挂载到所有晶体。没有晶体时不会创建探测器。
+几何层只提供体积列表，不依赖 `record`；没有通过材料或体积名称猜测哪些体积是晶体。
+
+`LMOSensitiveDetector` 使用 `G4THitsMap<G4double>`：
+
+- 集合名称为 `LMOSD/Edep`，每个事件创建一个新集合，由事件负责释放。
+- key 是晶体物理体的 copy number，目前对应 `LMO0`、`LMO1` 的 0、1。
+- value 是该事件中所有初级及次级粒子在该晶体内的 `GetTotalEnergyDeposit()` 之和，使用 Geant4 内部能量单位。
+- 零沉积步不新增条目；未出现在集合中的晶体沉积为零。晶体关闭、SD 被停用时可能没有集合，不能与有集合但无沉积混淆。
+- 当前记录原始、未乘统计权重的能量沉积，适用于现有无偏置输运；未来引入偏置输运时需另行定义统计权重处理。
+- 每个工作线程拥有自己的 SD 和事件集合，不共享累加容器。多次运行不会保留上一事件的能量。
+
+模块职责和后续调用约定：
+
+- `LMOSensitiveDetector.hh/.cc` 分别位于 `include/`、`src/` 顶层，与各 Action 类同层，负责将晶体 step 转换成基础命中集合。
+- `record/` 中的具体类按场景读取当前事件的命中集合，完成所需筛选、统计和记录对象构造；目前不预设具体类。
+- Action 是协调入口：例如 `EventAction::EndOfEventAction()` 调用记录类处理当前事件，取得结果后调用 `output/` 中的输出类；`RunAction` 可协调文件的打开和关闭。此流程尚未实现。
+- 记录类应读取 SD 交给事件的集合，而非长期持有 SD 实例或命中集合指针。集合 ID 在使用它的工作线程内查询；需跨事件保存的数据应复制到记录对象。
+- `output/` 中的类负责持久化记录结果，由 Action 调用，SD 不直接写文件。
+
+后续记录类可通过本线程的 `G4SDManager` 查询 `LMOSD/Edep` 的集合 ID，
+再从 `event->GetHCofThisEvent()` 读取对应集合，并处理集合缺失的情况。
+目前 `record/` 保持空目录，Action 接口保持占位；集合按 Geant4 的事件生命周期释放，尚未保存到 ROOT 或输出能谱。
+记录类只能使用基础集合实际保留的信息；未来若需要逐步、粒子或时间信息，应先扩充 SD 的命中数据结构。
+这一版不保存时间、逐步记录或响应信息；若整个衰变链属于一个事件，集合保存整条链的总沉积，不能据此还原脉冲或时间窗口。
+
+自动检查中的 `lmo-sd-*` 使用真实晶体几何和输运，比较 SD 集合与独立的逐步求和，
+覆盖无晶体、单晶体、双晶体、空沉积事件、多初级粒子、连续运行及双线程运行。
+这些是记录正确性和软件回归检查，不是探测器能谱的实验物理验证。
+
+
+### LMO 命名约定
+
+`LMO` 专指 Li2MoO4 吸收晶体，后续 NTD、LD 应各自使用独立的组件、体积和记录标识。
+LMO 的逻辑体及物理体统一命名为 `LMO` 加零起始编号，例如 `LMO0`、`LMO1`；copy number 与编号一致。
+几何组件为 `LMOArray`，数量通过 `/cupid/geometry/lmoCount` 设置；参数字段为
+`lmoCount`、`lmoSide`、`lmoGap`、`lmoCenter`。材料名仍为 `Li2MoO4`。
+顶层灵敏探测器为 `LMOSensitiveDetector`，SD 名称为 `LMOSD`，事件集合为 `LMOSD/Edep`。
+LMO 内部源目录为 `generator/lmo_signal/`，下设 `lmo_radioactivity/` 和 `double_beta_decay/`。
+示例宏为 `lmo_only.mac`。旧几何组件名、数量命令和体积名称不作为别名保留；外部宏及分析脚本需按此约定更新。

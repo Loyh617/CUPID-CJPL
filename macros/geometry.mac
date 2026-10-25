@@ -1,7 +1,7 @@
 # All geometry commands must precede /run/initialize.
 /cupid/geometry/enable Cryostat
 /cupid/geometry/enable InnerShielding
-/cupid/geometry/enable CrystalArray
-/cupid/geometry/crystalCount 1
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 1
 /cupid/geometry/list
 

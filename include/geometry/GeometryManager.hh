@@ -1,11 +1,14 @@
 #pragma once
 #include "geometry/GeometryParameters.hh"
 #include "geometry/SourceVolumeInfo.hh"
+
 #include "globals.hh"
+
 #include <array>
 #include <memory>
 #include <map>
 #include <cstddef>
+#include <vector>
 
 class G4LogicalVolume;
 namespace cupid {
@@ -17,13 +20,16 @@ class GeometryManager {
   GeometryManager();
   ~GeometryManager();
   void SetEnabled(const G4String& name, G4bool enabled);
-  void SetCrystalCount(G4int count);
+  void SetLMOCount(G4int count);
   void List() const;
   void Build(G4VPhysicalVolume* world, const Materials& materials);
   // Construction-only registration. Register mothers before their children.
   void BeginSourceVolumes(G4VPhysicalVolume* world);
   void RegisterSourceVolume(G4VPhysicalVolume* volume, G4VPhysicalVolume* parent);
   void FinishSourceVolumes();
+  // Register crystal placements in contiguous, zero-based copy-number order.
+  void RegisterLMOVolume(G4VPhysicalVolume* volume);
+  const std::vector<G4LogicalVolume*>& GetLMOLogicalVolumes() const;
   const SourceVolumeInfo& FindSourceVolume(const G4String& name) const;
   G4VPhysicalVolume* GetWorldVolume() const;
   std::size_t GetGeometryGeneration() const { return fGeometryGeneration; }
@@ -40,6 +46,7 @@ class GeometryManager {
   std::array<Component, 3> fComponents;
   GeometryParameters fParameters;
   std::map<G4String, SourceVolumeInfo> fSourceVolumes;
+  std::vector<G4LogicalVolume*> fLMOLogicalVolumes;
   G4VPhysicalVolume* fWorld = nullptr;
   G4bool fRegistering = false;
   G4bool fSourceVolumesReady = false;

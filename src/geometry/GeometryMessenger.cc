@@ -16,17 +16,17 @@ GeometryMessenger::GeometryMessenger(GeometryManager& manager) : fManager(manage
   fDisable = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/disable", this);
   for (auto* command : {fEnable.get(), fDisable.get()}) {
     command->SetParameterName("component", false);
-    command->SetGuidance("Component: Cryostat, InnerShielding or CrystalArray (case sensitive).");
+    command->SetGuidance("Component: Cryostat, InnerShielding or LMOArray (case sensitive).");
     command->AvailableForStates(G4State_PreInit);
     command->SetToBeBroadcasted(false);
   }
   fList = std::make_unique<G4UIcmdWithoutParameter>("/cupid/geometry/list", this);
   fList->AvailableForStates(G4State_PreInit, G4State_Idle);
   fList->SetToBeBroadcasted(false);
-  fCount = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/crystalCount", this);
+  fCount = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/lmoCount", this);
   fCount->SetParameterName("count", false);
   fCount->SetRange("count>=1 && count<=2");
-  fCount->SetGuidance("One centered crystal or two along X; does not enable CrystalArray.");
+  fCount->SetGuidance("One centered crystal or two along X; does not enable LMOArray.");
   fCount->AvailableForStates(G4State_PreInit);
   fCount->SetToBeBroadcasted(false);
   fCheck = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/check", this);
@@ -43,7 +43,7 @@ void GeometryMessenger::SetNewValue(G4UIcommand* command, G4String value) {
     if (command == fEnable.get()) fManager.SetEnabled(value, true);
     else if (command == fDisable.get()) fManager.SetEnabled(value, false);
     else if (command == fList.get()) fManager.List();
-    else if (command == fCount.get()) fManager.SetCrystalCount(fCount->GetNewIntValue(value));
+    else if (command == fCount.get()) fManager.SetLMOCount(fCount->GetNewIntValue(value));
     else if (command == fCheck.get() && !fManager.CheckOverlaps(fCheck->GetNewIntValue(value))) {
       throw std::runtime_error("Geometry overlap check failed. Inspect the reported volumes.");
     }

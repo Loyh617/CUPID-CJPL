@@ -1,8 +1,8 @@
 /control/verbose 1
 /run/verbose 1
 /random/setSeeds 12345 67890
-/cupid/geometry/enable CrystalArray
-/cupid/geometry/crystalCount 2
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 2
 /run/initialize
 /cupid/geometry/check 10000
 /gun/particle gamma

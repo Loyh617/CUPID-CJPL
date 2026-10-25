@@ -9,10 +9,10 @@ namespace cupid {
 // The environment is deliberately vacuum, not a model of the laboratory.
 struct GeometryParameters {
   G4double worldHalfLength = 2.0 * m;
-  G4int crystalCount = 1;
-  G4double crystalSide = 45.0 * mm;
-  G4double crystalGap = 5.0 * mm;
-  G4ThreeVector crystalCenter{0., -350.0 * mm, 0.};
+  G4int lmoCount = 1;
+  G4double lmoSide = 45.0 * mm;
+  G4double lmoGap = 5.0 * mm;
+  G4ThreeVector lmoCenter{0., -350.0 * mm, 0.};
 
   struct Plate {
     const char* name;

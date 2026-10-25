@@ -12,6 +12,7 @@ include(${Geant4_USE_FILE})
 add_executable(cupid-sim
   main.cc
   src/DetectorConstruction.cc
+  src/LMOSensitiveDetector.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
   src/generator/toolkit/sampler/PointSampler.cc
@@ -21,8 +22,8 @@ add_executable(cupid-sim
   src/generator/toolkit/NuclideEmitter.cc
   src/generator/calibration/th232/Th232Generator.cc
   src/generator/calibration/co56/Co56Generator.cc
-  src/generator/crystal_signal/double_beta_decay/TwoNuDoubleBetaDecayGenerator.cc
-  src/generator/crystal_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.cc
+  src/generator/lmo_signal/double_beta_decay/TwoNuDoubleBetaDecayGenerator.cc
+  src/generator/lmo_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.cc
   src/generator/GeneratorManager.cc
   src/generator/GeneratorMessenger.cc
   src/PhysicsList.cc
@@ -35,7 +36,7 @@ add_executable(cupid-sim
   src/geometry/GeometryMessenger.cc
   src/geometry/Cryostat.cc
   src/geometry/InnerShielding.cc
-  src/geometry/CrystalArray.cc
+  src/geometry/LMOArray.cc
   src/materials/Materials.cc
 )
 target_compile_features(cupid-sim PRIVATE cxx_std_17)
@@ -51,7 +52,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/macros")
-foreach(name geometry run crystal_only check_geometry vis draw render)
+foreach(name geometry run lmo_only check_geometry vis draw render)
   configure_file(macros/${name}.mac macros/${name}.mac COPYONLY)
 endforeach()
 
@@ -83,7 +84,7 @@ if(BUILD_TESTING)
     src/generator/toolkit/sampler/PointSampler.cc
     src/generator/toolkit/sampler/RejectionVolumeSampler.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
-    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/CrystalArray.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
     src/materials/Materials.cc)
   target_compile_features(check-vertex-sampler PRIVATE cxx_std_17)
   target_include_directories(check-vertex-sampler PRIVATE include)
@@ -100,5 +101,24 @@ if(BUILD_TESTING)
     target_compile_options(check-direct-samplers PRIVATE -Wall -Wextra -Wpedantic)
   endif()
   add_test(NAME direct-sampler-checks COMMAND check-direct-samplers)
+  add_executable(check-lmo-sd
+    tests/check_lmo_sd.cc
+    src/DetectorConstruction.cc src/PhysicsList.cc
+    src/LMOSensitiveDetector.cc
+    src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
+    src/materials/Materials.cc)
+  target_compile_features(check-lmo-sd PRIVATE cxx_std_17)
+  target_include_directories(check-lmo-sd PRIVATE include)
+  target_link_libraries(check-lmo-sd PRIVATE ${Geant4_LIBRARIES})
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(check-lmo-sd PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  foreach(mode serial mt)
+    foreach(count 0 1 2)
+      add_test(NAME lmo-sd-${mode}-${count} COMMAND check-lmo-sd ${mode} ${count})
+      set_tests_properties(lmo-sd-${mode}-${count} PROPERTIES TIMEOUT 120)
+    endforeach()
+  endforeach()
 endif()
 

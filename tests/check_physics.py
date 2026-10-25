@@ -11,7 +11,7 @@ output.mkdir(parents=True, exist_ok=True)
 def run(name, commands, patterns, threads=False):
     macro = output / (name + '.mac')
     macro.write_text('/random/setSeeds 12345 67890\n'
-                     '/cupid/geometry/enable CrystalArray\n'
+                     '/cupid/geometry/enable LMOArray\n'
                      '/run/verbose 1\n'
                      '/run/initialize\n' + commands + '\n', encoding='utf-8')
     arguments = ['--threads', '2'] if threads else ['--serial']
@@ -50,7 +50,7 @@ run('processes_and_transport', """
 /run/beamOn 1
 """, [r'phot', r'compt', r'Rayl', r'eIoni', r'eBrem',
        r'muonNuclear', r'muMinusCaptureAtRest', r'neutronInelastic', r'nCapture',
-       r'Crystal0\b.*muIoni', r'Particle = neutron',
+       r'LMO0\b.*muIoni', r'Particle = neutron',
        # Retired 2026-10-21: actions are placeholders; use native run summaries.
        # Restore only if CUPID_RUN_SUMMARY is reintroduced.
        # r'CUPID_RUN_SUMMARY run=1 events=1 aborted=0'])

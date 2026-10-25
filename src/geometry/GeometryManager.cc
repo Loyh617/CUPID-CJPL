@@ -2,12 +2,15 @@
 #include "geometry/GeometryMessenger.hh"
 #include "geometry/Cryostat.hh"
 #include "geometry/InnerShielding.hh"
-#include "geometry/CrystalArray.hh"
+#include "geometry/LMOArray.hh"
+
 #include "G4PhysicalVolumeStore.hh"
 #include "G4VPhysicalVolume.hh"
 #include "G4ios.hh"
 #include "G4StateManager.hh"
 #include "G4Threading.hh"
+
+#include <algorithm>
 #include <stdexcept>
 
 namespace cupid {
@@ -15,7 +18,7 @@ GeometryManager::GeometryManager()
     : fComponents{{
           {"Cryostat", false, [](auto* m, const auto& a, const auto& p, auto& g) { Cryostat{}.Build(m,a,p,g); }},
           {"InnerShielding", false, [](auto* m, const auto& a, const auto& p, auto& g) { InnerShielding{}.Build(m,a,p,g); }},
-          {"CrystalArray", false, [](auto* m, const auto& a, const auto& p, auto& g) { CrystalArray{}.Build(m,a,p,g); }}
+          {"LMOArray", false, [](auto* m, const auto& a, const auto& p, auto& g) { LMOArray{}.Build(m,a,p,g); }}
       }}, fMessenger(std::make_unique<GeometryMessenger>(*this)) {}
 GeometryManager::~GeometryManager() = default;
 
@@ -24,18 +27,18 @@ void GeometryManager::SetEnabled(const G4String& name, G4bool enabled) {
     if (name == component.name) { component.enabled = enabled; return; }
   }
   throw std::invalid_argument("Unknown geometry component '" + name +
-      "'. Available: Cryostat InnerShielding CrystalArray");
+      "'. Available: Cryostat InnerShielding LMOArray");
 }
-void GeometryManager::SetCrystalCount(G4int count) {
-  if (count < 1 || count > 2) throw std::invalid_argument("crystalCount must be 1 or 2 in v0.1");
-  fParameters.crystalCount = count;
+void GeometryManager::SetLMOCount(G4int count) {
+  if (count < 1 || count > 2) throw std::invalid_argument("lmoCount must be 1 or 2 in v0.1");
+  fParameters.lmoCount = count;
 }
 void GeometryManager::List() const {
   G4cout << "CUPID_GEOMETRY model=prototype-v0.1 environment=vacuum axis=Y" << G4endl;
   for (const auto& component : fComponents) {
     G4cout << "  " << component.name << "=" << (component.enabled ? "on" : "off") << G4endl;
   }
-  G4cout << "  crystalCount=" << fParameters.crystalCount << G4endl;
+  G4cout << "  lmoCount=" << fParameters.lmoCount << G4endl;
 }
 void GeometryManager::Build(G4VPhysicalVolume* world, const Materials& materials) {
   BeginSourceVolumes(world);
@@ -57,6 +60,7 @@ void GeometryManager::BeginSourceVolumes(G4VPhysicalVolume* world) {
   fSourceVolumesReady = false;
   fRegistering = false;
   fSourceVolumes.clear();
+  fLMOLogicalVolumes.clear();
   fWorld = nullptr;
   ++fGeometryGeneration;
   if (!world || world->GetMotherLogical() || world->IsReplicated() || world->IsParameterised() ||
@@ -85,6 +89,27 @@ void GeometryManager::RegisterSourceVolume(G4VPhysicalVolume* volume, G4VPhysica
                                 mother.localToWorldRotation * volume->GetObjectTranslation();
   if (!fSourceVolumes.emplace(volume->GetName(), info).second)
     throw std::runtime_error("Source volume name is ambiguous: " + volume->GetName());
+}
+
+void GeometryManager::RegisterLMOVolume(G4VPhysicalVolume* volume) {
+  if (G4Threading::IsWorkerThread() || !fRegistering)
+    throw std::runtime_error("LMO registration is closed.");
+  if (!volume) throw std::invalid_argument("Cannot register a null crystal placement.");
+  const auto found = fSourceVolumes.find(volume->GetName());
+  if (found == fSourceVolumes.end() || found->second.physicalVolume != volume)
+    throw std::runtime_error("Register the crystal source volume before its scoring volume.");
+  auto* logical = volume->GetLogicalVolume();
+  if (volume->GetCopyNo() != static_cast<G4int>(fLMOLogicalVolumes.size()) ||
+      std::find(fLMOLogicalVolumes.begin(), fLMOLogicalVolumes.end(), logical) !=
+          fLMOLogicalVolumes.end())
+    throw std::runtime_error("LMOs require distinct logical volumes and contiguous copy numbers from zero.");
+  fLMOLogicalVolumes.push_back(logical);
+}
+
+const std::vector<G4LogicalVolume*>& GeometryManager::GetLMOLogicalVolumes() const {
+  if (!fSourceVolumesReady)
+    throw std::runtime_error("LMO lookup requires initialized geometry.");
+  return fLMOLogicalVolumes;
 }
 
 void GeometryManager::FinishSourceVolumes() {

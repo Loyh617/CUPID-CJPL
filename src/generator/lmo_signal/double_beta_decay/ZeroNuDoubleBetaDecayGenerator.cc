@@ -1,4 +1,4 @@
-#include "generator/crystal_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.hh"
+#include "generator/lmo_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.hh"
 #include <stdexcept>
 
 namespace cupid {

@@ -96,3 +96,32 @@
 - Include the pending four-sampler implementation and NuclideEmitter rename in the user-requested Git checkpoint.
 - Validation: obsolete-path scan passed; build and regression checks pending.
 - Validation result: Geant4 11.4.1 build passed and all six CTest groups passed in 44.38 seconds. Verified both old common directories are absent and no active source/build/documentation references use generator/common or IonEmitter. git diff --check passed. Prepared the requested checkpoint including all pending sampler and emitter changes.
+
+
+2026-10-25 | Attach crystal sensitive detector
+- Add record/CrystalSensitiveDetector.hh/.cc: one event-owned G4THitsMap<double> named CrystalSD/Edep, accumulating unweighted total energy deposition by pre-step crystal copy number; ignore zero-deposit steps.
+- GeometryManager and CrystalArray: explicitly register the actual crystal logical volumes during construction, clear registrations on reconstruction, and expose a read-only list with unique contiguous crystal IDs.
+- DetectorConstruction::ConstructSDandField: create/reuse a thread-local SD through G4SDManager and attach it to all registered crystals; skip world-only geometry and avoid duplicate attachment.
+- Update CMakeLists.txt and README.md. Preserve Action placeholders and defer ROOT output, timing and detector response.
+- API verification: official Geant4 11.4 documentation and local 11.4.1 G4VSensitiveDetector, G4THitsMap, G4PSEnergyDeposit and G4VUserDetectorConstruction sources.
+- Validation: integration tests and build pending.
+- Add tests/check_crystal_sd.cc and six CTest cases: real transport with zero/one/two crystals in serial/two-worker modes, per-event SD ownership/attachment, independent step-sum comparison, empty events, two-primary events, repeated SD hook and consecutive runs.
+- Validation result: Geant4 11.4.1 Release compilation and linking passed without compiler warnings; all 12 CTest cases passed in 64.41 seconds. The six new SD cases each checked 28 events across two runs (168 events total), covering serial and two-worker execution. SD collection energies matched an independent per-step reference; empty-event reset, crystal IDs and duplicate-hook protection passed. Existing geometry, materials, generators, samplers and physics smoke tests passed. git diff --check passed. No spectrum/experimental physics validation is claimed; changes remain uncommitted.
+
+
+2026-10-25 | Place CrystalSensitiveDetector alongside Actions
+- Move include/record/CrystalSensitiveDetector.hh to include/CrystalSensitiveDetector.hh and src/record/CrystalSensitiveDetector.cc to src/CrystalSensitiveDetector.cc; keep record directories empty for future scenario-specific record classes.
+- Update project/test include paths and both CMake source references. Preserve SD behavior, collection schema, geometry registration and Action placeholders.
+- README.md: define SD as the Geant4-facing adapter, record classes as consumers of event-owned hits, Actions as coordinators and output classes as persistence implementations. Document event/thread lifetime and the need to extend base hits before richer recording can be implemented.
+- Validation: pending build and focused SD regression checks.
+- Validation result: Geant4 11.4.1 build and link passed; all six focused crystal-sd tests passed in 20.32 seconds (zero/one/two crystals, serial/two-worker transport). Verified top-level SD files, empty record directories and no obsolete active path references. git diff --check passed. Runtime behavior unchanged; changes remain uncommitted.
+
+
+2026-10-25 | Use explicit LMO detector naming
+- Rename CrystalArray to LMOArray and CrystalSensitiveDetector to LMOSensitiveDetector, preserving the SD at the same level as Actions. Rename logical/physical volumes to LMO0/LMO1, shared solid to LMOArray.Solid, SD to LMOSD and collection to LMOSD/Edep; keep copy numbers, material and geometry dimensions unchanged.
+- Rename geometry parameters and interfaces to lmoCount/lmoSide/lmoGap/lmoCenter, SetLMOCount, RegisterLMOVolume and GetLMOLogicalVolumes. Rename the macro count command to /cupid/geometry/lmoCount and component selection to LMOArray without old aliases.
+- Rename generator/crystal_signal to generator/lmo_signal and crystal_radioactivity to lmo_radioactivity in both source trees; update include paths and placeholder-source test labels.
+- Rename crystal_only.mac to lmo_only.mac, check_crystal_sd.cc to check_lmo_sd.cc and corresponding build/test targets; update all affected macros, tests, README and diagnostics. Remove only the obsolete generated build/macros/crystal_only.mac copy. Preserve historical log entries and material-alias rejection tests.
+- Extend SD integration assertions for exact LMO logical/physical names, source-registry lookup and matching copy IDs.
+- Validation: compilation, full regression suite and obsolete-name checks pending.
+- Validation result: Geant4 11.4.1 Release build and link passed; all 12 CTest cases passed in 64.21 seconds, including full geometry/macro regression, source selection, physics smoke checks, samplers and six serial/two-worker LMO SD cases with exact LV/PV/source names and copy-ID assertions. Verified no obsolete active identifiers/paths, refreshed lmo_only.mac build copy and empty record directories. git diff --check passed. No material or physics model changes; changes remain uncommitted.

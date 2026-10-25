@@ -1,6 +1,7 @@
 #pragma once
 
 #include "G4VUserDetectorConstruction.hh"
+
 #include <memory>
 
 namespace cupid {
@@ -11,6 +12,7 @@ class DetectorConstruction final : public G4VUserDetectorConstruction {
   DetectorConstruction();
   ~DetectorConstruction() override;
   G4VPhysicalVolume* Construct() override;
+  void ConstructSDandField() override;
   const GeometryManager& GetGeometryManager() const { return *fGeometry; }
 
  private:
