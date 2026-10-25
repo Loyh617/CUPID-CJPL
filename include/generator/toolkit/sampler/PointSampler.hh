@@ -7,9 +7,9 @@
 namespace cupid {
 class GeometryManager;
 // A fixed world-coordinate position, validated against the initialized World.
-class PointVertexSampler {
+class PointSampler {
  public:
-  PointVertexSampler(const G4ThreeVector& point, const GeometryManager& geometry);
+  PointSampler(const G4ThreeVector& point, const GeometryManager& geometry);
   G4ThreeVector Sample();
 
  private:

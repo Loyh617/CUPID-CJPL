@@ -1,4 +1,4 @@
-#include "generator/common/sampler/PointVertexSampler.hh"
+#include "generator/toolkit/sampler/PointSampler.hh"
 #include "geometry/GeometryManager.hh"
 
 #include "G4LogicalVolume.hh"
@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 namespace cupid {
-PointVertexSampler::PointVertexSampler(
+PointSampler::PointSampler(
     const G4ThreeVector& point, const GeometryManager& geometry)
     : fGeometry(geometry), fGeometryGeneration(geometry.GetGeometryGeneration()),
       fPoint(point) {
@@ -19,7 +19,7 @@ PointVertexSampler::PointVertexSampler(
     throw std::runtime_error("Source point must be strictly inside World.");
 }
 
-G4ThreeVector PointVertexSampler::Sample() {
+G4ThreeVector PointSampler::Sample() {
   if (fGeometry.GetGeometryGeneration() != fGeometryGeneration)
     throw std::runtime_error("Source sampler is stale after geometry reconstruction; recreate the generator.");
   return fPoint;

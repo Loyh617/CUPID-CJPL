@@ -4,7 +4,7 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 
 这是独立的新工程。参考工程只用于理解尺寸和装置关系，没有作为构建依赖。
 当前仅测试粒子枪可运行；Th-232/Co-56 专属发生器保留接口占位，尚未确定源模型。
-公共组件提供独立的固定点采样、体积拒绝采样及核素发射工具，供后续具体发生器自行调用。
+公共组件提供固定点、直接体积、直接表面、体积拒绝四种采样器及核素发射工具，供后续具体发生器自行调用。
 当前不包含晶体能量 ROOT 输出、岩石、大厅、电子学或波形。
 `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
@@ -341,10 +341,12 @@ include/generator/                  src/generator/ 有对应实现
   VGenerator.hh                     场景发生器的统一事件生成接口
   GeneratorManager.hh               发生器调度入口，当前仅测试粒子枪
   GeneratorMessenger.hh             选择、诊断、列出和检查命令
-  common/IonEmitter.hh               静止基态核素初级粒子工具
-  common/sampler/
-    PointVertexSampler.hh           固定点采样
-    VolumeVertexSampler.hh          均匀体积拒绝采样
+  toolkit/NuclideEmitter.hh               静止基态核素初级粒子工具
+  toolkit/sampler/
+    PointSampler.hh                 固定点采样
+    DirectVolumeSampler.hh          简单实体内均匀采样
+    DirectSurfaceSampler.hh         简单表面上均匀采样
+    RejectionVolumeSampler.hh        实际几何内均匀拒绝采样
   calibration/th232/Th232Generator.hh   接口占位
   calibration/co56/Co56Generator.hh     接口占位
   background/environment/           预留
@@ -376,39 +378,102 @@ include/generator/                  src/generator/ 有对应实现
 
 ### 由具体发生器选择采样方式
 
-采样器没有共同基类，也没有按模式创建采样器的工厂。两个类各自保留 `Sample()`
-作为操作名称，仅为调用习惯一致，不存在多态继承关系。
-后续每种具体发生器自行决定用哪种算法，并直接把位置或体积名称传给它。
+四个采样器没有共同基类，也没有按模式创建采样器的工厂。固定点和拒绝采样使用
+`Sample()`；直接采样使用 `SampleBox()` 等明确形状的方法。后续每种具体发生器
+自行决定用哪种算法，并直接传入位置、尺寸或体积名称。
 
 下面的 `geometry` 是已完成构造和登记的 `const GeometryManager&`，
 `Crystal1` 必须已启用并登记。示例仅展示接口，不为任何刻度源预设模型。
 
 ```cpp
-#include "generator/common/sampler/PointVertexSampler.hh"
-#include "generator/common/sampler/VolumeVertexSampler.hh"
+#include "generator/toolkit/sampler/PointSampler.hh"
+#include "generator/toolkit/sampler/RejectionVolumeSampler.hh"
 
 #include "G4SystemOfUnits.hh"
 
-cupid::PointVertexSampler pointSampler({0., -350.*mm, -100.*mm}, geometry);
+cupid::PointSampler pointSampler({0., -350.*mm, -100.*mm}, geometry);
 const auto fixedPosition = pointSampler.Sample();
 
 const G4String volume = "Crystal1";
-cupid::VolumeVertexSampler volumeSampler(volume, geometry);
+cupid::RejectionVolumeSampler volumeSampler(volume, geometry);
 const auto sampledPosition = volumeSampler.Sample();
 ```
 
 具体发生器可以把选定采样器作为成员，在几何准备好后构造，随后逐事件调用。
-`PointVertexSampler` 检查输入坐标有限且严格位于 World 内部，每次返回相同世界坐标，
+`PointSampler` 检查输入坐标有限且严格位于 World 内部，每次返回相同世界坐标，
 不创建导航器、不消耗随机数，也不要求位置一定在晶体内部。
 
-`VolumeVertexSampler` 通过显式 `volume` 名称查询已登记的物理体；名称无默认值。
+`RejectionVolumeSampler` 通过显式 `volume` 名称查询已登记的物理体；名称无默认值。
 它在 Solid 的局部包围盒中拒绝采样，转换到世界坐标，并用线程独立的导航器
 排除子体积。目标名称不存在、未登记或对应关闭的组件时会报错。
 最多尝试 100000 次；薄壳、低填充率或没有剩余可采样区域的体积可能耗尽次数。
-指定表面、污染深度和多体积权重尚未实现。
+实际 Geant4 物理体表面的通用采样、污染深度和多体积权重尚未实现。
 
-两个类都不读取发生器配置或几何尺寸参数来选择算法、坐标或目标名称。
+四个类都不读取发生器配置或几何尺寸参数来选择算法、坐标或目标名称。
 `GeometryParameters.hh` 继续负责装置布局，不决定放射源位置。
+
+### 直接体积与表面采样
+
+两个直接采样器均接收中心坐标和局部到世界的旋转：
+
+```cpp
+DirectVolumeSampler(center = {}, localToWorldRotation = {});
+DirectSurfaceSampler(center = {}, localToWorldRotation = {});
+```
+
+默认中心为原点，默认旋转为单位矩阵。旋转方向与几何登记表中的
+`localToWorldRotation` 一致；结果为 `center + rotation * localPosition`。
+中心必须有限，旋转必须有限、正交且保持右手性；不接受缩放或反射矩阵。
+尺寸使用 Geant4 内部长度单位，必须是有限正数，建议显式使用 `mm` 等单位。
+
+| 类 | 方法 | 采样区域及参数 |
+| --- | --- | --- |
+| `DirectVolumeSampler` | `SampleBox(halfLengths)` | 局部三轴上以原点为中心的长方体；三个参数分量都是半边长，三者相等即立方体 |
+| `DirectVolumeSampler` | `SampleCylinder(radius, halfLength)` | 局部 Z 轴上的实心圆柱；第二个参数是半高 |
+| `DirectVolumeSampler` | `SampleSphere(radius)` | 半径范围 0 到 radius 的完整球体内部 |
+| `DirectSurfaceSampler` | `SampleRectangle(halfX, halfY)` | 局部 XY 平面上以原点为中心的矩形；参数是半边长，相等即正方形 |
+| `DirectSurfaceSampler` | `SampleSphere(radius)` | 完整球面 |
+| `DirectSurfaceSampler` | `SampleHemisphere(radius)` | 局部 z >= 0 的半球弯曲表面，不包含底部圆盘 |
+
+示例：
+
+```cpp
+#include "generator/toolkit/sampler/DirectVolumeSampler.hh"
+#include "generator/toolkit/sampler/DirectSurfaceSampler.hh"
+
+#include "G4SystemOfUnits.hh"
+
+G4RotationMatrix rotation;
+rotation.rotateY(90.*deg);
+const G4ThreeVector center{0., -350.*mm, 0.};
+cupid::DirectVolumeSampler volume(center, rotation);
+cupid::DirectSurfaceSampler surface(center, rotation);
+
+// A 45 mm cube; a cylinder of radius 10 mm and full height 40 mm.
+const auto inCube = volume.SampleBox({22.5*mm, 22.5*mm, 22.5*mm});
+const auto inCylinder = volume.SampleCylinder(10.*mm, 20.*mm);
+const auto inBall = volume.SampleSphere(10.*mm);
+
+// A 20 mm by 40 mm rectangle in the rotated local XY plane.
+const auto onRectangle = surface.SampleRectangle(10.*mm, 20.*mm);
+const auto onSphere = surface.SampleSphere(10.*mm);
+// The local +Z hemisphere points along world +X after this rotation.
+const auto onHemisphere = surface.SampleHemisphere(10.*mm);
+```
+
+体积均匀与面积均匀使用不同的概率分布。圆柱横截面取 `r = R*sqrt(u)`；
+球体取 `r = R*cbrt(u)`，方向上取均匀 `cos(theta)` 和方位角。
+球面固定半径，`cos(theta)` 均匀分布于 [-1,1]；半球面为 [0,1]。
+矩形和长方体各坐标独立均匀采样。所有随机数来自当前 Geant4 随机引擎，
+不在采样器内设置种子；运行仍由 `/random/` 命令管理。
+接口核对依据为本机 Geant4 11.4.1 源码，以及官方版本的
+[Randomize.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/HEPRandom/include/Randomize.hh) 和
+[G4PhysicalConstants.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/management/include/G4PhysicalConstants.hh)。
+
+直接采样器只描述数学区域，不要求 World 或物理体已构建，也不自动检查 World 边界、
+排除孔洞/子体积或匹配材料。若要求样本严格属于已登记物理体的自身区域，
+使用 `RejectionVolumeSampler`。球面和矩形样本位于数学表面上，不自动偏移到边界某一侧；
+发射方向和必要的边界处理由后续具体发生器决定。
 
 ### 几何与源位置的接口
 
@@ -431,14 +496,18 @@ geometry.RegisterSourceVolume(physical, parent);
 未完成或失败时不开放查询。当前不支持把复制体、参数化体或重复母逻辑体下的
 多路径目标登记为源；普通嵌套旋转受支持。
 
-体积采样器构造时查询一次目标及其变换。子体积即使没有登记为源，仍会被导航器排除。
-两种采样器都保存几何代次，几何重新构造后旧采样器会报错。
+`RejectionVolumeSampler` 构造时查询一次目标及其变换。子体积即使没有登记为源，
+仍会被导航器排除。`PointSampler` 和 `RejectionVolumeSampler` 保存几何代次，
+几何重新构造后旧实例会报错；两个直接采样器不引用实际几何，不需要几何代次。
 这只是失效保护；目前不支持运行间自动重建发生器，更换几何仍应启动新进程。
 
 ### 测试与后续接入
 
 `tests/check_vertex_sampler.cc` 独立检查固定点和体积采样、显式选择不同体积、
 固定点不消耗随机数、非法坐标、嵌套旋转、孔洞和子体积排除，及登记表的错误处理。
+`tests/check_direct_samplers.cc` 对六种采样区域各取 60000 个点，检查解析边界、
+旋转和平移、均值、二阶矩以及联合等体积/等面积分区计数，并检查固定种子重现、
+非法尺寸/坐标/旋转拒绝和初始化不消耗随机数。
 `tests/check_generators.py` 检查粒子枪串行/双线程/重复运行、未实现源拒绝，
 以及移除的旧命令不再被接受。物理冒烟测试继续通过粒子枪检查衰变和输运。
 这些检查不构成实验能谱或本底率的物理验证。

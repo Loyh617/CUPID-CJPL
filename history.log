@@ -75,3 +75,24 @@
 - Remove generic position/point/volume commands and the two calibration example macros (including their current build copies). Keep select/list/check/verbose; check explicitly validates selection only. Update CMakeLists.txt and tests/check_generators.py accordingly.
 - README.md: replace obsolete calibration examples/configuration-factory documentation with the current gun-only runtime, independent sampler APIs, placeholder status, removed commands and future scenario-owned sampling responsibilities.
 - Validation result: Geant4 11.4.1 Release build passed; all five CTest groups passed in 44.95 seconds (materials, 21 framework cases, 3 physics smoke cases, 11 updated generator cases, and independent sampler/registry checks). Source scan found no remaining GeneratorConfig or sampler-base/factory references. git diff --check passed. Changes remain uncommitted.
+
+2026-10-24 | Four explicit position samplers
+- Rename PointVertexSampler to PointSampler and VolumeVertexSampler to RejectionVolumeSampler in include/src, existing tests, CMakeLists.txt and README.md; preserve their behavior.
+- Add independent DirectVolumeSampler (box, full solid cylinder, ball) and DirectSurfaceSampler (rectangle, spherical surface, positive-local-Z curved hemisphere excluding the base disk). Each accepts a center and local-to-world rotation; each shape has an explicit sampling method and dimensions.
+- Use direct inverse-CDF formulas with Geant4 random numbers, positive finite dimension checks, proper rotation validation and finite world-coordinate results. Analytic samplers do not query geometry, exclude daughters or add surface offsets.
+- API verification: installed Geant4 11.4.1 Randomize.hh, G4PhysicalConstants.hh, G4RotationMatrix.hh, G4ThreeVector.hh and bundled CLHEP rotation declarations.
+- Validation: direct distribution/transform/error-path tests and full build/regression checks pending.
+- README.md: document all four names, direct sampler methods, half-length conventions, local axes/hemisphere support, coordinate transforms, analytic CDFs and distinction from registered-geometry rejection sampling.
+- Validation result: Geant4 11.4.1 Release build passed without compiler warnings; all six CTest groups passed in 44.90 seconds. Direct sampler tests cover 60000 points for each of six regions (360000 total), support, moments, joint equal-measure cells, rotation/translation, hemisphere orientation, reproducibility and invalid parameters. Existing geometry, point/rejection sampling, serial/MT gun and physics smoke tests passed. No old class references remain in source/tests. git diff --check passed. Changes remain uncommitted.
+
+2026-10-25 | Rename NuclideEmitter
+- Rename IonEmitter.hh/.cc and the class to NuclideEmitter; update CMakeLists.txt, include paths and README.md. Preserve existing Emit behavior and common directory location.
+- Document current responsibility in an English class comment and group includes according to project convention.
+- Validation: pending compilation and obsolete-reference scan.
+- Validation result: Geant4 11.4.1 build and link passed; no old IonEmitter references remain in active source, tests, macros, CMake or README. git diff --check passed. No runtime logic changed; regression tests were not rerun for this rename. Changes remain uncommitted.
+
+2026-10-25 | Rename generator toolkit and prepare Git checkpoint
+- Rename include/generator/common and src/generator/common to toolkit; update active include paths, CMakeLists.txt, test references and README.md. Preserve historical paths in earlier log entries.
+- Include the pending four-sampler implementation and NuclideEmitter rename in the user-requested Git checkpoint.
+- Validation: obsolete-path scan passed; build and regression checks pending.
+- Validation result: Geant4 11.4.1 build passed and all six CTest groups passed in 44.38 seconds. Verified both old common directories are absent and no active source/build/documentation references use generator/common or IonEmitter. git diff --check passed. Prepared the requested checkpoint including all pending sampler and emitter changes.

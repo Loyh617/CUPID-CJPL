@@ -13,10 +13,10 @@ class G4VSolid;
 namespace cupid {
 class GeometryManager;
 // Uniform rejection sampling in one registered placement, excluding daughters.
-class VolumeVertexSampler {
+class RejectionVolumeSampler {
  public:
-  VolumeVertexSampler(const G4String& volume, const GeometryManager& geometry);
-  ~VolumeVertexSampler();
+  RejectionVolumeSampler(const G4String& volume, const GeometryManager& geometry);
+  ~RejectionVolumeSampler();
   G4ThreeVector Sample();
 
  private:

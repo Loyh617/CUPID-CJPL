@@ -1,5 +1,5 @@
-#include "generator/common/sampler/PointVertexSampler.hh"
-#include "generator/common/sampler/VolumeVertexSampler.hh"
+#include "generator/toolkit/sampler/PointSampler.hh"
+#include "generator/toolkit/sampler/RejectionVolumeSampler.hh"
 #include "geometry/GeometryManager.hh"
 
 #include "G4PVReplica.hh"
@@ -67,7 +67,7 @@ int main() {
     G4Navigator verify;
     verify.SetWorldVolume(world);
 
-    cupid::VolumeVertexSampler sampler("Target", geometry);
+    cupid::RejectionVolumeSampler sampler("Target", geometry);
     G4double sumX = 0.;
     for (int i = 0; i < 12000; ++i) {
       const auto point = sampler.Sample();
@@ -83,12 +83,12 @@ int main() {
     Require(std::abs(sumX/12000 - expectedMean) < 0.5, "Volume sampling mean is biased");
 
     for (const auto* name : {"Missing", "Duplicate", "Daughter"}) {
-      Reject([&] { cupid::VolumeVertexSampler invalid(name, geometry); },
+      Reject([&] { cupid::RejectionVolumeSampler invalid(name, geometry); },
              "Missing or unregistered source volume was accepted");
     }
-    Reject([&] { cupid::VolumeVertexSampler invalid("", geometry); }, "Empty volume accepted");
+    Reject([&] { cupid::RejectionVolumeSampler invalid("", geometry); }, "Empty volume accepted");
     // The explicit volume parameter must select different actual placements.
-    cupid::VolumeVertexSampler holderSampler("Holder", geometry);
+    cupid::RejectionVolumeSampler holderSampler("Holder", geometry);
     for (int i = 0; i < 200; ++i)
       Require(verify.LocateGlobalPointAndSetup(holderSampler.Sample(), nullptr, false) == holder,
               "Explicit volume parameter did not select Holder");
@@ -97,14 +97,14 @@ int main() {
     G4Random::setTheSeed(7654321);
     const auto expectedRandom = G4UniformRand();
     G4Random::setTheSeed(7654321);
-    cupid::PointVertexSampler pointSampler(fixedPoint, geometry);
+    cupid::PointSampler pointSampler(fixedPoint, geometry);
     for (int i = 0; i < 100; ++i)
       Require(pointSampler.Sample() == fixedPoint, "Point source changed");
     Require(G4UniformRand() == expectedRandom, "Point sampling consumed random numbers");
     for (const auto& point : {G4ThreeVector{500*mm, 0, 0}, G4ThreeVector{501*mm, 0, 0},
                               G4ThreeVector{std::numeric_limits<double>::infinity(), 0, 0},
                               G4ThreeVector{0, std::numeric_limits<double>::quiet_NaN(), 0}})
-      Reject([&] { cupid::PointVertexSampler invalid(point, geometry); }, "Invalid fixed point accepted");
+      Reject([&] { cupid::PointSampler invalid(point, geometry); }, "Invalid fixed point accepted");
 
     // A rebuild clears the registry and invalidates existing samplers.
     G4GeometryManager::GetInstance()->OpenGeometry();

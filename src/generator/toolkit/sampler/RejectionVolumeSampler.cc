@@ -1,4 +1,4 @@
-#include "generator/common/sampler/VolumeVertexSampler.hh"
+#include "generator/toolkit/sampler/RejectionVolumeSampler.hh"
 #include "geometry/GeometryManager.hh"
 
 #include "G4LogicalVolume.hh"
@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 namespace cupid {
-VolumeVertexSampler::VolumeVertexSampler(
+RejectionVolumeSampler::RejectionVolumeSampler(
     const G4String& volume, const GeometryManager& geometry)
     : fGeometry(geometry), fGeometryGeneration(geometry.GetGeometryGeneration()),
       fVolume(volume), fNavigator(std::make_unique<G4Navigator>()) {
@@ -31,9 +31,9 @@ VolumeVertexSampler::VolumeVertexSampler(
       throw std::runtime_error("Source volume has invalid sampling bounds.");
   }
 }
-VolumeVertexSampler::~VolumeVertexSampler() = default;
+RejectionVolumeSampler::~RejectionVolumeSampler() = default;
 
-G4ThreeVector VolumeVertexSampler::Sample() {
+G4ThreeVector RejectionVolumeSampler::Sample() {
   if (fGeometry.GetGeometryGeneration() != fGeometryGeneration)
     throw std::runtime_error("Source sampler is stale after geometry reconstruction; recreate the generator.");
   for (int attempt = 0; attempt < 100000; ++attempt) {

@@ -14,9 +14,11 @@ add_executable(cupid-sim
   src/DetectorConstruction.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
-  src/generator/common/sampler/PointVertexSampler.cc
-  src/generator/common/sampler/VolumeVertexSampler.cc
-  src/generator/common/IonEmitter.cc
+  src/generator/toolkit/sampler/PointSampler.cc
+  src/generator/toolkit/sampler/RejectionVolumeSampler.cc
+  src/generator/toolkit/sampler/DirectVolumeSampler.cc
+  src/generator/toolkit/sampler/DirectSurfaceSampler.cc
+  src/generator/toolkit/NuclideEmitter.cc
   src/generator/calibration/th232/Th232Generator.cc
   src/generator/calibration/co56/Co56Generator.cc
   src/generator/crystal_signal/double_beta_decay/TwoNuDoubleBetaDecayGenerator.cc
@@ -78,8 +80,8 @@ if(BUILD_TESTING)
   set_tests_properties(generator-checks PROPERTIES TIMEOUT 240)
   add_executable(check-vertex-sampler
     tests/check_vertex_sampler.cc
-    src/generator/common/sampler/PointVertexSampler.cc
-    src/generator/common/sampler/VolumeVertexSampler.cc
+    src/generator/toolkit/sampler/PointSampler.cc
+    src/generator/toolkit/sampler/RejectionVolumeSampler.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
     src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/CrystalArray.cc
     src/materials/Materials.cc)
@@ -87,5 +89,16 @@ if(BUILD_TESTING)
   target_include_directories(check-vertex-sampler PRIVATE include)
   target_link_libraries(check-vertex-sampler PRIVATE ${Geant4_LIBRARIES})
   add_test(NAME vertex-sampler-checks COMMAND check-vertex-sampler)
+  add_executable(check-direct-samplers
+    tests/check_direct_samplers.cc
+    src/generator/toolkit/sampler/DirectVolumeSampler.cc
+    src/generator/toolkit/sampler/DirectSurfaceSampler.cc)
+  target_compile_features(check-direct-samplers PRIVATE cxx_std_17)
+  target_include_directories(check-direct-samplers PRIVATE include)
+  target_link_libraries(check-direct-samplers PRIVATE ${Geant4_LIBRARIES})
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(check-direct-samplers PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  add_test(NAME direct-sampler-checks COMMAND check-direct-samplers)
 endif()
 
