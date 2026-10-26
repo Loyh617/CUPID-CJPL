@@ -17,9 +17,11 @@ void ActionInitialization::BuildForMaster() const {
 void ActionInitialization::Build() const {
   SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
   SetUserAction(new RunAction);
-  SetUserAction(new EventAction);
+  auto* eventAction = new EventAction;
+  SetUserAction(eventAction);
   SetUserAction(new SteppingAction);
-  SetUserAction(new TrackingAction);
+  SetUserAction(new TrackingAction(eventAction->GetTrackAncestry(),
+                                   eventAction->IsIncidentRecordingEnabled()));
   SetUserAction(new StackingAction);
 }
 }

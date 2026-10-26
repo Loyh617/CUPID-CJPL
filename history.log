@@ -125,3 +125,34 @@
 - Extend SD integration assertions for exact LMO logical/physical names, source-registry lookup and matching copy IDs.
 - Validation: compilation, full regression suite and obsolete-name checks pending.
 - Validation result: Geant4 11.4.1 Release build and link passed; all 12 CTest cases passed in 64.21 seconds, including full geometry/macro regression, source selection, physics smoke checks, samplers and six serial/two-worker LMO SD cases with exact LV/PV/source names and copy-ID assertions. Verified no obsolete active identifiers/paths, refreshed lmo_only.mac build copy and empty record directories. git diff --check passed. No material or physics model changes; changes remain uncommitted.
+
+
+2026-10-26 | Event and incident-particle energy records
+- User-requested baseline checkpoint completed first: 1c77a24 (LMO sensitive detector and explicit LMO naming).
+- Add top-level DetectorHit and change LMOSD/Edep from G4THitsMap<double> totals to DetectorHitsCollection with per-detector, per-track deposits, including zero-deposit visits and unhit detectors. Keep SD beside Actions; no physics or geometry changes.
+- Add record/EnergyRecord, EventEnergyRecorder, IncidentEnergyRecorder and TrackAncestry. Record classes consume event-owned hit collections; incident roots are resolved separately for each detector using parent IDs and birth volumes, with cached iterative traversal, error detection and unique energy ownership.
+- Wire EventAction and TrackingAction through ActionInitialization: event-local ancestry includes every tracked particle; event end creates both record vectors; next event clears state and aborted events produce no result rows. SD names come from constructed LMO volumes.
+- User-confirmed policy: each detector has its own incident roots; descendants born there inherit the root, crossings into another detector start that detector's branch, in-detector primaries root at themselves, and re-entry of the same track is merged. A parent that never visited the target detector cannot establish a branch there.
+- Reference review: LMO-Th232-sim/analyse/EnergyReconstruction.C recursively sums descendant tracks for each externally born candidate; separate roots in the same subtree can overlap. New recording assigns every detector/track deposit to exactly one root and preserves zero-deposit ancestors.
+- API verification: official Geant4 11.4 tracking/hit documentation and local 11.4.1 tracking initialization, G4HCofThisEvent and G4THitsCollection sources. No ROOT output or extra output fields added in this step.
+- Validation: targeted ancestry tests, real serial/MT transport and regression checks pending.
+- Add deterministic energy-record tests for genealogy attribution, cross-detector roots, zero-deposit ancestors, internal primaries, outside-born re-entry branches, no-visit-parent fallback, generic LD/NTD names, 20000-track chains, invalid/missing ancestry, event reset and abortion. Extend real SD transport tests to execute production EventAction/TrackingAction and compare both record totals against an independent step sum for electrons, external gammas, through-going muons and geantinos in serial/MT runs.
+- Build adjustment: G4String has no default std::hash specialization in this installation; use std::set for the small detector-name uniqueness checks. Integer ancestry caches remain unordered maps.
+- Validation adjustment: the standalone record test must register a minimal Geant4 physics list before constructing EventAction; corrected the test setup after Geant4 rejected early Action construction. All six real transport record tests already passed. README now documents schemas, per-detector ancestry policy, zero rows, lifetime, output integration and deferred metadata.
+- Final validation: Geant4 11.4.1 Release build and link passed. All 13 CTest cases passed in 63.62 seconds, including deterministic genealogy/error/lifecycle tests, a 20000-track chain, and six serial/two-worker integration cases with 72 events each (432 total across consecutive runs). Real secondary deposits were confirmed; event totals and sums of incident-root totals matched independent per-step accumulation. Existing materials, geometry/macros, generators, samplers and decay/transport smoke tests passed. git diff --check passed. Current results are in-memory records only; no ROOT or experimental spectrum validation claimed. New record changes remain uncommitted after baseline 1c77a24.
+
+
+2026-10-26 | Independent recorder selection and colocated result types
+- Move EventEnergyRecord and IncidentEnergyRecord into their respective recorder headers; remove include/record/EnergyRecord.hh and its includes.
+- EventAction now chooses each recorder independently using immutable constructor flags; its default constructor in src/EventAction.cc selects event-only recording (true, false). Both or neither can also be selected. No runtime macro, shared recorder base or manager added.
+- ActionInitialization passes incident-recording enablement to TrackingAction; disabled incident recording skips ancestry registration while retaining the standard Action interface. Raw SD hit collection remains unchanged.
+- Update README, explicit both-mode transport tests and deterministic selection tests for all four combinations, default event-only operation without ancestry, energy correctness and event reset.
+- Validation: compilation and relevant regression tests pending.
+- Compilation adjustment: include globals.hh explicitly in TrackingAction.hh for its new G4bool parameter/member.
+- Validation result: Geant4 11.4.1 build passed; all 13 CTest cases passed in 63.53 seconds. Deterministic checks cover four independent recorder selections, default event-only recording without ancestry, result energies and event reset. Serial/MT transport checks explicitly retain both recorders for comparison; normal framework/generator/physics runs exercise the event-only default. Removed header and obsolete include scan verified; git diff --check passed. Changes remain uncommitted.
+
+
+2026-10-26 | Document recorder selection in EventAction
+- Add English comments at the default constructor describing argument order, all four recorder selections, rebuilding after selection changes, and the linked ancestry-tracking flag.
+- Explain independent recorder calls and the incident recorder's ancestry requirement beside the corresponding EndOfEventAction branches. No behavior changes.
+- Validation: comment-only follow-up to the successful build and 13 passing CTest cases above; inspect the diff and check whitespace before committing the accumulated record implementation and selection changes.

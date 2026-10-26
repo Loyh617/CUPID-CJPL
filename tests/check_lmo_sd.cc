@@ -1,4 +1,7 @@
 #include "DetectorConstruction.hh"
+#include "DetectorHit.hh"
+#include "EventAction.hh"
+#include "TrackingAction.hh"
 #include "PhysicsList.hh"
 #include "geometry/GeometryManager.hh"
 #include "LMOSensitiveDetector.hh"
@@ -11,6 +14,7 @@
 #include "G4RunManagerFactory.hh"
 #include "G4SDManager.hh"
 #include "G4Step.hh"
+#include "G4Track.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4UImanager.hh"
 #include "G4UserEventAction.hh"
@@ -32,6 +36,7 @@
 namespace {
 std::atomic<int> checkedEvents{0};
 std::atomic<int> failedChecks{0};
+std::atomic<int> secondaryDeposits{0};
 
 void Check(bool condition, const char* message) {
   if (!condition) {
@@ -45,14 +50,21 @@ class TestPrimary final : public G4VUserPrimaryGeneratorAction {
   explicit TestPrimary(int count) : fCount(count) {}
 
   void GeneratePrimaries(G4Event* event) override {
-    const auto mode = event->GetEventID() % 4;
-    fGun.SetParticleDefinition(G4ParticleTable::GetParticleTable()->FindParticle(
-        mode == 3 ? "geantino" : "e-"));
-    fGun.SetParticleEnergy(1. * MeV);
+    const auto mode = event->GetEventID() % 6;
+    const G4String particle = mode == 3 ? "geantino" : mode == 4 ? "gamma" : mode == 5 ? "mu-" : "e-";
+    fGun.SetParticleDefinition(G4ParticleTable::GetParticleTable()->FindParticle(particle));
+    fGun.SetParticleEnergy((mode == 4 ? 2.6145 : mode == 5 ? 100. : 1.) * MeV);
     fGun.SetParticleMomentumDirection({0., 0., 1.});
-    if (mode == 2 && fCount == 2) {
+    if (mode == 2) {
       Emit(event, 0);
-      Emit(event, 1);
+      Emit(event, fCount == 2 ? 1 : 0);
+    } else if (mode == 4) {
+      fGun.SetParticlePosition({fCount == 2 ? -25. * mm : 0., -350. * mm, -30. * mm});
+      fGun.GeneratePrimaryVertex(event);
+    } else if (mode == 5) {
+      fGun.SetParticleMomentumDirection({1., 0., 0.});
+      fGun.SetParticlePosition({-60. * mm, -350. * mm, 0.});
+      fGun.GeneratePrimaryVertex(event);
     } else {
       Emit(event, fCount == 2 ? mode % 2 : 0);
     }
@@ -73,7 +85,12 @@ class TestEvent final : public G4UserEventAction {
   TestEvent(const cupid::DetectorConstruction& detector, int count)
       : fDetector(detector), fCount(count) {}
 
-  void BeginOfEventAction(const G4Event*) override {
+  cupid::TrackAncestry& GetTrackAncestry() { return fEventAction.GetTrackAncestry(); }
+
+  void BeginOfEventAction(const G4Event* event) override {
+    fEventAction.BeginOfEventAction(event);
+    Check(fEventAction.GetEventRecords().empty() && fEventAction.GetIncidentRecords().empty(),
+          "record vectors reset at the start of the event");
     fReference.clear();
     const auto& geometry = fDetector.GetGeometryManager();
     const auto& lmos = geometry.GetLMOLogicalVolumes();
@@ -103,49 +120,71 @@ class TestEvent final : public G4UserEventAction {
     const auto& lmos = fDetector.GetGeometryManager().GetLMOLogicalVolumes();
     // Identify the crystal by its registered logical-volume index, independently of copy number.
     const auto found = std::find(lmos.begin(), lmos.end(), physical->GetLogicalVolume());
-    if (found != lmos.end())
+    if (found != lmos.end()) {
       fReference[static_cast<int>(std::distance(lmos.begin(), found))] += energy;
+      if (step->GetTrack()->GetParentID() > 0) ++secondaryDeposits;
+    }
   }
 
   void EndOfEventAction(const G4Event* event) override {
+    fEventAction.EndOfEventAction(event);
     ++checkedEvents;
     Check(!event->IsAborted(), "event completed");
-    auto* collections = event->GetHCofThisEvent();
+    const auto& eventRows = fEventAction.GetEventRecords();
+    const auto& incidentRows = fEventAction.GetIncidentRecords();
+    Check(eventRows.size() == static_cast<std::size_t>(fCount), "one event row per enabled LMO");
     if (fCount == 0) {
-      Check(fReference.empty(), "world-only reference empty");
-      Check(!collections || collections->GetNumberOfCollections() == 0, "world-only has no hits");
+      Check(fReference.empty() && eventRows.empty() && incidentRows.empty(), "world-only records empty");
       return;
     }
+    auto* collections = event->GetHCofThisEvent();
     const auto id = G4SDManager::GetSDMpointer()->GetCollectionID(
         cupid::LMOSensitiveDetector::CollectionFullName);
     Check(id >= 0 && collections, "collection registered and attached to event");
     if (id < 0 || !collections) return;
-    auto* hits = dynamic_cast<G4THitsMap<G4double>*>(collections->GetHC(id));
-    Check(hits != nullptr, "collection type");
+    auto* hits = dynamic_cast<cupid::DetectorHitsCollection*>(collections->GetHC(id));
+    Check(hits && hits->entries() == static_cast<std::size_t>(fCount), "per-detector hit collection");
     if (!hits) return;
-    Check(hits->entries() == fReference.size(), "sparse collection size");
-    for (const auto& [lmoId, energy] : fReference) {
-      const auto* recorded = (*hits)[lmoId];
-      Check(recorded && std::abs(*recorded - energy) < 1.e-10 * MeV,
-            "SD matches independent sum of all particle steps");
+
+    std::map<G4String, G4double> incidentTotals;
+    for (const auto& row : incidentRows) {
+      Check(row.eventId == event->GetEventID() && row.trackId > 0 && row.edep >= 0., "incident fields");
+      Check(fEventAction.GetTrackAncestry().Contains(row.trackId), "root exists in event ancestry");
+      incidentTotals[row.detectorName] += row.edep;
     }
     G4double total = 0.;
-    for (const auto& [lmoId, energy] : *hits->GetMap()) {
-      Check(lmoId >= 0 && lmoId < fCount, "valid crystal ID");
-      Check(energy && *energy > 0., "positive sparse entry");
-      if (energy) total += *energy;
+    for (int lmoId = 0; lmoId < fCount; ++lmoId) {
+      const G4String name = "LMO" + std::to_string(lmoId);
+      const auto found = std::find_if(eventRows.begin(), eventRows.end(), [&](const auto& row) {
+        return row.detectorName == name;
+      });
+      Check(found != eventRows.end(), "event detector name");
+      if (found == eventRows.end()) continue;
+      const auto reference = fReference.count(lmoId) ? fReference.at(lmoId) : 0.;
+      Check(found->eventId == event->GetEventID(), "event ID");
+      Check(std::abs(found->edep - reference) < 1.e-9 * MeV, "event record matches independent steps");
+      Check(std::abs(incidentTotals[name] - reference) < 1.e-9 * MeV,
+            "sum of incident records matches independent steps without loss or duplication");
+      total += found->edep;
     }
-    const auto mode = event->GetEventID() % 4;
+    const auto mode = event->GetEventID() % 6;
     if (mode == 3) {
-      Check(hits->entries() == 0, "geantino event has no residual energy");
-    } else {
-      const auto target = fCount == 2 ? mode % 2 : 0;
-      Check((*hits)[target] && *(*hits)[target] > 0., "target crystal recorded");
-      const auto primaries = mode == 2 && fCount == 2 ? 2 : 1;
-      Check(total > 0. && total <= primaries * MeV + 1.e-8 * MeV,
-            "event energy is positive and not double counted");
-      if (primaries == 2)
-        Check((*hits)[0] && (*hits)[1], "both primaries recorded in the same event");
+      Check(total == 0., "geantino event has zero energy without residual records");
+      Check(!incidentRows.empty(), "zero-deposit incident root is retained");
+    } else if (mode < 3) {
+      const auto primaries = mode == 2 ? 2 : 1;
+      Check(total > 0. && total <= primaries * MeV + 1.e-8 * MeV, "no duplicated event energy");
+      for (int primary = 1; primary <= primaries; ++primary) {
+        Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
+          return row.trackId == primary && row.edep > 0.;
+        }), "each in-detector primary has a separate positive root");
+      }
+    } else if (mode == 5) {
+      for (int lmoId = 0; lmoId < fCount; ++lmoId) {
+        Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
+          return row.trackId == 1 && row.detectorName == "LMO" + std::to_string(lmoId) && row.edep > 0.;
+        }), "same external primary records separate deposits in each traversed LMO");
+      }
     }
   }
 
@@ -153,6 +192,7 @@ class TestEvent final : public G4UserEventAction {
   const cupid::DetectorConstruction& fDetector;
   int fCount;
   std::map<int, G4double> fReference;
+  cupid::EventAction fEventAction{true, true};
 };
 
 class TestStep final : public G4UserSteppingAction {
@@ -171,6 +211,7 @@ class TestActions final : public G4VUserActionInitialization {
     auto* event = new TestEvent(fDetector, fCount);
     SetUserAction(new TestPrimary(fCount));
     SetUserAction(event);
+    SetUserAction(new cupid::TrackingAction(event->GetTrackAncestry()));
     SetUserAction(new TestStep(*event));
   }
  private:
@@ -201,9 +242,10 @@ int main(int argc, char** argv) {
     run->Initialize();
     // Repeating the hook must neither register nor attach a duplicate SD.
     detector->ConstructSDandField();
-    run->BeamOn(16);
-    run->BeamOn(12);
-    Check(checkedEvents == 28, "all events in both runs checked");
+    run->BeamOn(48);
+    run->BeamOn(24);
+    Check(checkedEvents == 72, "all events in both runs checked");
+    if (count > 0) Check(secondaryDeposits > 0, "test transported depositing secondary particles");
     if (failedChecks != 0) return 1;
     G4cout << "LMO_SD_PASS mode=" << argv[1] << " lmos=" << count
            << " events=" << checkedEvents << G4endl;

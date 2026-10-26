@@ -4,27 +4,40 @@
 #include "G4Step.hh"
 #include "G4StepPoint.hh"
 #include "G4TouchableHandle.hh"
+#include "G4Track.hh"
+
+#include <stdexcept>
+#include <set>
 
 namespace cupid {
 
-LMOSensitiveDetector::LMOSensitiveDetector()
-    : G4VSensitiveDetector(DetectorName) {
+LMOSensitiveDetector::LMOSensitiveDetector() : G4VSensitiveDetector(DetectorName) {
   collectionName.insert(CollectionName);
 }
 
+void LMOSensitiveDetector::SetDetectorNames(const std::vector<G4String>& names) {
+  std::set<G4String> unique;
+  for (const auto& name : names) {
+    if (name.empty() || !unique.insert(name).second)
+      throw std::invalid_argument("LMO detector names must be nonempty and unique.");
+  }
+  fDetectorNames = names;
+}
+
 void LMOSensitiveDetector::Initialize(G4HCofThisEvent* collections) {
-  fEnergyDeposits = new G4THitsMap<G4double>(SensitiveDetectorName, collectionName[0]);
+  if (fDetectorNames.empty()) throw std::runtime_error("LMO detector names were not configured.");
+  fHits = new DetectorHitsCollection(SensitiveDetectorName, collectionName[0]);
   if (fCollectionId < 0) fCollectionId = GetCollectionID(0);
-  collections->AddHitsCollection(fCollectionId, fEnergyDeposits);
+  collections->AddHitsCollection(fCollectionId, fHits);
+  // Include unhit detectors so event records can explicitly contain zero deposits.
+  for (const auto& name : fDetectorNames) fHits->insert(new DetectorHit(name));
 }
 
 G4bool LMOSensitiveDetector::ProcessHits(G4Step* step, G4TouchableHistory*) {
-  auto energyDeposit = step->GetTotalEnergyDeposit();
-  if (energyDeposit == 0.) return false;
-
-  // Depth zero is the crystal placement, including for steps leaving it.
   const auto lmoId = step->GetPreStepPoint()->GetTouchableHandle()->GetCopyNumber();
-  fEnergyDeposits->add(lmoId, energyDeposit);
+  if (lmoId < 0 || static_cast<std::size_t>(lmoId) >= fHits->entries())
+    throw std::runtime_error("LMO copy number is outside the configured detector list.");
+  (*fHits)[lmoId]->AddEnergyDeposit(step->GetTrack()->GetTrackID(), step->GetTotalEnergyDeposit());
   return true;
 }
 

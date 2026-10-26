@@ -10,6 +10,7 @@
 #include "G4VisAttributes.hh"
 
 #include <stdexcept>
+#include <vector>
 
 namespace cupid {
 DetectorConstruction::DetectorConstruction()
@@ -42,6 +43,9 @@ void DetectorConstruction::ConstructSDandField() {
     detector = new LMOSensitiveDetector;
     manager->AddNewDetector(detector);
   }
+  std::vector<G4String> names;
+  for (auto* logical : lmos) names.push_back(logical->GetName());
+  detector->SetDetectorNames(names);
   for (auto* logical : lmos) {
     if (logical->GetSensitiveDetector() != detector)
       SetSensitiveDetector(logical, detector);

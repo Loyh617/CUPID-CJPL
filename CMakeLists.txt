@@ -13,6 +13,10 @@ add_executable(cupid-sim
   main.cc
   src/DetectorConstruction.cc
   src/LMOSensitiveDetector.cc
+  src/DetectorHit.cc
+  src/record/EventEnergyRecorder.cc
+  src/record/IncidentEnergyRecorder.cc
+  src/record/TrackAncestry.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
   src/generator/toolkit/sampler/PointSampler.cc
@@ -103,8 +107,11 @@ if(BUILD_TESTING)
   add_test(NAME direct-sampler-checks COMMAND check-direct-samplers)
   add_executable(check-lmo-sd
     tests/check_lmo_sd.cc
+    src/EventAction.cc src/TrackingAction.cc
     src/DetectorConstruction.cc src/PhysicsList.cc
-    src/LMOSensitiveDetector.cc
+    src/LMOSensitiveDetector.cc src/DetectorHit.cc
+    src/record/EventEnergyRecorder.cc src/record/IncidentEnergyRecorder.cc
+    src/record/TrackAncestry.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
     src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
     src/materials/Materials.cc)
@@ -114,6 +121,17 @@ if(BUILD_TESTING)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(check-lmo-sd PRIVATE -Wall -Wextra -Wpedantic)
   endif()
+  add_executable(check-energy-records
+    tests/check_energy_records.cc src/DetectorHit.cc src/EventAction.cc
+    src/record/EventEnergyRecorder.cc src/record/IncidentEnergyRecorder.cc
+    src/record/TrackAncestry.cc)
+  target_compile_features(check-energy-records PRIVATE cxx_std_17)
+  target_include_directories(check-energy-records PRIVATE include)
+  target_link_libraries(check-energy-records PRIVATE ${Geant4_LIBRARIES})
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(check-energy-records PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  add_test(NAME energy-record-checks COMMAND check-energy-records)
   foreach(mode serial mt)
     foreach(count 0 1 2)
       add_test(NAME lmo-sd-${mode}-${count} COMMAND check-lmo-sd ${mode} ${count})

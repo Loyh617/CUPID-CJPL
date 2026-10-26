@@ -6,9 +6,11 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 当前仅测试粒子枪可运行；Th-232/Co-56 专属发生器保留接口占位，尚未确定源模型。
 公共组件提供固定点、直接体积、直接表面、体积拒绝四种采样器及核素发射工具，供后续具体发生器自行调用。
 当前不包含晶体能量 ROOT 输出、岩石、大厅、电子学或波形。
-`RunAction`、`EventAction`、`SteppingAction`、`TrackingAction`、`StackingAction` 已注册，暂只保留接口。
+`EventAction` 独立选择调用记录类，默认只做逐事件统计；启用逐入射统计时，`TrackingAction` 登记当前事件的轨迹关系。
+`RunAction`、`SteppingAction` 仍保留空接口，`StackingAction` 维持默认分类。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
-`LMOSensitiveDetector` 与 Action 类位于同一层，提供晶体命中数据；`record/` 预留给不同需求的记录类。
+`LMOSensitiveDetector` 与 Action 类位于同一层，提供按探测器和 TrackID 区分的基础沉积。
+`record/` 实现逐事件、逐入射粒子两种统计；结果目前保存在当前工作线程的内存中，尚未写入文件。
 
 ## 1. 在 WSL Ubuntu 中构建
 
@@ -124,12 +126,16 @@ include/ + src/                 头文件和实现一一对应
   PrimaryGeneratorAction        调用 GeneratorManager，统一传播源错误
   PhysicsList                   逐项注册物理构造器和设置参数
   RunAction                     运行开始/结束接口，暂为空
-  EventAction                   事件开始/结束接口，暂为空
+  EventAction                   清空事件状态，调用记录类并持有本事件结果
   SteppingAction                每步处理接口，暂为空
-  TrackingAction                轨迹开始/结束接口，暂为空
+  TrackingAction                首次跟踪时登记 TrackID、ParentID 和出生体积
   StackingAction                新轨迹分类、新阶段、事件准备接口
   generator/                    场景调度入口、公共组件及专属源占位目录
-  record/                       空目录，预留按需求整理命中数据的记录类
+  DetectorHit                   每个探测器的逐轨迹基础沉积集合
+  record/
+    EventEnergyRecorder         每事件、每探测器的总沉积及 EventEnergyRecord 结构体
+    IncidentEnergyRecorder      每入射根的总沉积及 IncidentEnergyRecord 结构体
+    TrackAncestry               本事件全部已跟踪粒子的父子关系和出生体积
   geometry/
     GeometryManager             组件开关、装配、源体积登记与查询、重叠检查
     SourceVolumeInfo.hh         物理放置指针及局部到世界坐标变换
@@ -249,7 +255,7 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 `ActionInitialization::BuildForMaster()` 只注册 `RunAction`；
 `Build()` 为串行执行或每个工作线程分别注册粒子枪与上述五个 actions。
 当前接口不累计能量、不筛选轨迹、不保存记录；`StackingAction` 也不推迟轨迹到后续事件。
-未实现的 generator 场景目录用 `.gitkeep` 保留；`record/` 仍为空，Git 不跟踪该空目录。
+未实现的 generator 场景目录用 `.gitkeep` 保留；`record/` 提供当前的两种能量统计及溯源工具。
 
 ## 7. 添加组件
 
@@ -517,40 +523,115 @@ geometry.RegisterSourceVolume(physical, parent);
 模型确定后再接入 `GeneratorManager`，更新命令候选项、CMake、示例、测试和说明。
 不为尚未确定的 Th-232/Co-56 模型指定位置、采样器或源封装。
 
-## 晶体灵敏探测器
+## LMO 灵敏探测器与记录流程
 
-启用 `LMOArray` 后，`LMOArray::Build()` 将晶体登记到 `GeometryManager`。
-`DetectorConstruction::ConstructSDandField()` 取得实际构建的晶体逻辑体，向本线程的
-`G4SDManager` 注册 `LMOSD`，并将它挂载到所有晶体。没有晶体时不会创建探测器。
-几何层只提供体积列表，不依赖 `record`；没有通过材料或体积名称猜测哪些体积是晶体。
+`DetectorConstruction::ConstructSDandField()` 根据实际构建的 LMO 逻辑体配置本线程的
+`LMOSensitiveDetector`，注册到 `G4SDManager` 并挂载。SD 位于 `include/`、`src/` 顶层，
+与 Action 同层；`record/` 负责记录策略。材料、体积和物理输运逻辑不依赖记录类。
 
-`LMOSensitiveDetector` 使用 `G4THitsMap<G4double>`：
+当前事件中的数据流为：
 
-- 集合名称为 `LMOSD/Edep`，每个事件创建一个新集合，由事件负责释放。
-- key 是晶体物理体的 copy number，目前对应 `LMO0`、`LMO1` 的 0、1。
-- value 是该事件中所有初级及次级粒子在该晶体内的 `GetTotalEnergyDeposit()` 之和，使用 Geant4 内部能量单位。
-- 零沉积步不新增条目；未出现在集合中的晶体沉积为零。晶体关闭、SD 被停用时可能没有集合，不能与有集合但无沉积混淆。
-- 当前记录原始、未乘统计权重的能量沉积，适用于现有无偏置输运；未来引入偏置输运时需另行定义统计权重处理。
-- 每个工作线程拥有自己的 SD 和事件集合，不共享累加容器。多次运行不会保留上一事件的能量。
+```text
+TrackingAction → TrackAncestry：TrackID、ParentID、首次跟踪时的出生物理体名称
+LMOSensitiveDetector → LMOSD/Edep：每块 LMO、每条 Track 的原始沉积
+EventAction → EventEnergyRecorder / IncidentEnergyRecorder → 两种记录向量
+```
 
-模块职责和后续调用约定：
+`LMOSD/Edep` 现在的类型是 `DetectorHitsCollection`，即 `G4THitsCollection<DetectorHit>`，
+不再是 `G4THitsMap<G4double>`。每个 DetectorHit 对应一块 LMO，内部按 TrackID 累加
+`GetTotalEnergyDeposit()`。保留零沉积的轨迹访问，并为未命中的 LMO 创建空条目。
+SD 只保留逐轨迹累计值，不保存逐步位置、时间或脉冲信息。
 
-- `LMOSensitiveDetector.hh/.cc` 分别位于 `include/`、`src/` 顶层，与各 Action 类同层，负责将晶体 step 转换成基础命中集合。
-- `record/` 中的具体类按场景读取当前事件的命中集合，完成所需筛选、统计和记录对象构造；目前不预设具体类。
-- Action 是协调入口：例如 `EventAction::EndOfEventAction()` 调用记录类处理当前事件，取得结果后调用 `output/` 中的输出类；`RunAction` 可协调文件的打开和关闭。此流程尚未实现。
-- 记录类应读取 SD 交给事件的集合，而非长期持有 SD 实例或命中集合指针。集合 ID 在使用它的工作线程内查询；需跨事件保存的数据应复制到记录对象。
-- `output/` 中的类负责持久化记录结果，由 Action 调用，SD 不直接写文件。
+每个事件都会创建新的命中集合；事件拥有并释放集合。每个工作线程独立持有 SD、
+TrackAncestry 和 EventAction 的记录向量。记录是值对象，后续输出不能保存指向旧命中集合的指针。
+同一轨迹暂停后恢复时，TrackingAction 保留首次记录的出生体积，不将恢复地点当作出生位置。
+目前 StackingAction 不把轨迹延后到另一个事件；跨事件追踪谱系尚未支持。
 
-后续记录类可通过本线程的 `G4SDManager` 查询 `LMOSD/Edep` 的集合 ID，
-再从 `event->GetHCofThisEvent()` 读取对应集合，并处理集合缺失的情况。
-目前 `record/` 保持空目录，Action 接口保持占位；集合按 Geant4 的事件生命周期释放，尚未保存到 ROOT 或输出能谱。
-记录类只能使用基础集合实际保留的信息；未来若需要逐步、粒子或时间信息，应先扩充 SD 的命中数据结构。
-这一版不保存时间、逐步记录或响应信息；若整个衰变链属于一个事件，集合保存整条链的总沉积，不能据此还原脉冲或时间窗口。
+### 两种记录的数据约定
 
-自动检查中的 `lmo-sd-*` 使用真实晶体几何和输运，比较 SD 集合与独立的逐步求和，
-覆盖无晶体、单晶体、双晶体、空沉积事件、多初级粒子、连续运行及双线程运行。
-这些是记录正确性和软件回归检查，不是探测器能谱的实验物理验证。
+| 记录类 | 记录字段 | 每行含义 |
+| --- | --- | --- |
+| EventEnergyRecorder | eventId、edep、detectorName | 一个事件中一块探测器的总沉积 |
+| IncidentEnergyRecorder | eventId、trackId、edep、detectorName | 一个事件中一块探测器的一个入射根及归属后代的总沉积 |
 
+字段 `eventId`、`trackId`、`edep` 分别对应所需的 EventID、入射根 TrackID 和 Edep。
+`detectorName` 使用 `LMO0`、`LMO1` 等物理体名称；当前 LMO 的逻辑体名称与物理体相同。
+记录类不硬编码 LMO 前缀，后续 NTD/LD 的 SD 可生成相同类型的集合，但名称必须全局唯一。
+NTD/LD 几何和 SD 尚未实现；测试只用合成数据验证名称通用性。
+
+能量使用 Geant4 内部单位，未乘统计权重、未做展宽或阈值处理；输出时再明确转换为 keV 或 MeV。
+逐事件记录包含所有已启用且 SD 活跃的探测器，即使沉积为零；未启用或没有命中集合不伪造为零。
+逐入射记录保留总沉积为零的根；完全没有轨迹访问的探测器没有入射记录。
+中止事件不生成结果行。正常空事件可有逐事件零沉积行，但无入射行。
+
+### 逐入射粒子的归属规则
+
+对每块探测器单独处理，TrackID 只在当前 Event 内有意义：
+
+1. 在该探测器外出生、随后访问它的轨迹，以自身 TrackID 为根。
+2. 在该探测器内出生的次级粒子，沿 ParentID 追溯到该探测器中的入射根。
+3. 该探测器内直接生成的初级粒子以自身为根，包括初级放射性核素；其内部衰变链后代也按此规则归属。
+4. 同一 Track 离开后重返同一探测器，仍合并到同一个根；不区分多次入射片段。
+5. 后代进入另一块探测器，在那块探测器中重新确定根；在外部出生的后代重新进入原探测器，也成为新的入射根。
+6. 若父轨迹从未访问该探测器，就在当前轨迹停止追溯，以覆盖边界出生等情况，避免把未入射父粒子当作该探测器的入射根。
+
+算法按每条轨迹向上迭代追溯并缓存结果，给每份沉积指定唯一的根；不对每个候选根无条件递归累加整棵后代树。
+这避免同一子树中存在新的外部入射根时重复计能，也避免长链递归导致栈溢出。
+缺失轨迹、缺失必要父轨迹及参与追溯的环会报错，不静默丢弃沉积。
+ParentID 指直接父粒子的 TrackID，并不限于母核。
+
+同一事件、同一探测器应满足：所有入射记录的 Edep 之和等于逐事件 Edep，允许浮点求和顺序引起的舍入差异。
+完整衰变链仍属于一个 Geant4 event；这里的能量归属不是实验脉冲、符合窗口或 pile-up 模型。
+
+### Action 调用与后续输出
+
+`ActionInitialization` 创建 EventAction，并将其 TrackAncestry 引用交给同一工作线程的 TrackingAction。
+`EventAction::BeginOfEventAction()` 清空上一事件的谱系和结果。
+`EndOfEventAction()` 遍历当前事件的 DetectorHitsCollection，只调用所选记录器并保存结果。
+两个结果结构体分别定义在各自记录器的头文件中，没有独立的 EnergyRecord.hh。
+记录类的 `Build()` 接口彼此独立，可在 EventAction 中按需求调用，没有共同基类或记录器管理器。
+
+当前选择入口位于 `src/EventAction.cc` 的默认构造函数：
+
+```cpp
+EventAction::EventAction()
+    : EventAction(true, false) {}
+```
+
+第一个参数控制逐事件记录，第二个控制逐入射记录；修改后重新编译即可。
+
+| 参数 | 调用的记录器 |
+| --- | --- |
+| `true, false` | 只调用 EventEnergyRecorder，当前默认 |
+| `false, true` | 只调用 IncidentEnergyRecorder |
+| `true, true` | 同时调用，用于两种结果对照等情况 |
+| `false, false` | 两种都不调用 |
+
+选择在 Action 创建时固定，同一工作线程运行中不切换。未启用的结果向量保持为空，
+并非计算后丢弃。ActionInitialization 根据选择配置 TrackingAction；逐入射关闭时跳过谱系登记。
+SD 仍统一保存逐轨迹基础命中数据，本次没有增加 SD 存储模式。
+结果通过 `GetEventRecords()`、`GetIncidentRecords()` 访问；没有新增选择宏。
+
+后续应在 EventAction 完成统计后调用 `output/` 中的类写入结果，RunAction 协调文件生命周期。
+本次没有创建 ROOT 文件、ntuple 或自动输出；记录向量保留到下一事件开始，长期保存需由输出层复制或写入。
+已有外部代码若按旧的 G4THitsMap 类型读取 LMOSD/Edep，必须更新为新的集合类型。
+
+### 待后续讨论的字段
+
+- RunID、作业/配置标识、随机种子：EventID 在不同 run/job 中会重复，需要组合标识保证追溯。
+- 入射根粒子名称/PDG、ParentID、产生过程，以及“外部入射/内部初级/边界出生”分类。
+- 入射能量、位置、方向及首次入射时间；若要做时间分组，还需保存分段时间数据而非一个总量。
+- 统计权重、零沉积筛选策略、中止事件计数和归一化信息。
+
+这些字段尚未加入最终记录结构；ParentID 和出生体积目前仅作为内部溯源信息使用。
+
+### 验证范围
+
+`energy-record-checks` 用确定的谱系检查多入射根、零沉积祖先、跨探测器、重返、内部初级、
+未访问父轨迹、通用 LD/NTD 名称、20000 层链、异常谱系、集合 ID 空洞、事件清理与中止事件。
+`lmo-sd-*` 在串行和双线程的无/单/双 LMO 几何中，使用真实电子、外部伽马、穿越 μ 子和 geantino，
+调用生产代码的 EventAction/TrackingAction，将两种记录的总能量与独立逐步求和核对，并覆盖连续 run。
+这些是软件记录验证，不等同于实验能谱或本底率的物理验证。
 
 ### LMO 命名约定
 

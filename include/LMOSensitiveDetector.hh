@@ -1,14 +1,18 @@
 #pragma once
 
-#include "G4THitsMap.hh"
+#include "DetectorHit.hh"
+
 #include "G4VSensitiveDetector.hh"
+
+#include <vector>
 
 namespace cupid {
 
-// Unweighted energy deposition per crystal for one complete Geant4 event.
+// Collect raw per-track deposits; recording policies belong to record classes.
 class LMOSensitiveDetector final : public G4VSensitiveDetector {
  public:
   LMOSensitiveDetector();
+  void SetDetectorNames(const std::vector<G4String>& names);
   void Initialize(G4HCofThisEvent* collections) override;
 
   static constexpr const char* DetectorName = "LMOSD";
@@ -20,8 +24,9 @@ class LMOSensitiveDetector final : public G4VSensitiveDetector {
 
  private:
   G4int fCollectionId = -1;
-  // The event owns the collection; a new one is installed for every event.
-  G4THitsMap<G4double>* fEnergyDeposits = nullptr;
+  std::vector<G4String> fDetectorNames;
+  // Owned by the current event.
+  DetectorHitsCollection* fHits = nullptr;
 };
 
 }  // namespace cupid
