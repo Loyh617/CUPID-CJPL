@@ -156,3 +156,14 @@
 - Add English comments at the default constructor describing argument order, all four recorder selections, rebuilding after selection changes, and the linked ancestry-tracking flag.
 - Explain independent recorder calls and the incident recorder's ancestry requirement beside the corresponding EndOfEventAction branches. No behavior changes.
 - Validation: comment-only follow-up to the successful build and 13 passing CTest cases above; inspect the diff and check whitespace before committing the accumulated record implementation and selection changes.
+
+
+2026-10-26 | Standalone ROOT output module
+- Add include/output/RootOutput.hh and src/output/RootOutput.cc with explicit file lifecycle and independent event/incident record writing. No Action changes or automatic simulation output.
+- Store RunID, EventID, Edep in keV and DetectorName, plus incident-root TrackID in IncidentEnergy; create only requested trees, retain zero deposits, and write schema/unit metadata.
+- Enable ROOT thread safety once; use separate instances/files per worker. Disable automatic TTree rollover process-wide to preserve file ownership. Check opening/filling/finalization failures; CREATE mode preserves existing files.
+- Add a cupid-output CMake target requiring the installed ROOT 6.36.10 Core/RIO/Tree libraries and a standalone ROOT round-trip test. Validation pending.
+- Preserve the user's existing EventAction comment edits.
+- Build environment: ROOT 6.36.10's official CMake configuration requires Vdt, absent from the system. Downloaded Ubuntu libvdt-dev/libvdt0.4 0.4.4-3build1 and extracted them under build/local-deps/vdt; supplied VDT_INCLUDE_DIR/VDT_LIBRARY in the build cache without changing the ROOT installation or system packages.
+- Test compilation adjustment: ROOT 6.36.10 gDirectory is a TDirectoryAtomicAdapter, not a std::atomic; use its documented TDirectory pointer conversion/comparison in the directory-restoration test.
+- Validation result: Geant4 11.4.1 + ROOT 6.36.10 Release build/link passed. root-output-checks passed in 0.80 seconds, including full readback of two concurrent independent 100005-row files and all lifecycle/schema/error-input checks. All 13 existing regression tests passed separately in 36.64 seconds (14 tests total). git diff --check passed. Action integration, single-file MT merging, disk-failure fault injection and production-scale throughput remain outside this module validation. Changes are uncommitted.

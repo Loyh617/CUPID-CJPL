@@ -10,12 +10,9 @@
 namespace cupid {
 
 // Select the default recorders here, then rebuild the application.
-// Arguments: (recordEventEnergy, recordIncidentEnergy).
-// (true, false): event totals only; (false, true): incident-particle totals only.
-// (true, true): both recorders; (false, false): neither recorder.
 // ActionInitialization also uses the incident flag to enable ancestry tracking.
 EventAction::EventAction()
-    : EventAction(true, false) {}
+    : EventAction(true, false) {}// Arguments: (recordEventEnergy, recordIncidentEnergy).
 
 EventAction::EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy)
     : fRecordEventEnergy(recordEventEnergy), fRecordIncidentEnergy(recordIncidentEnergy) {}

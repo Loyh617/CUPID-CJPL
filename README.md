@@ -642,3 +642,84 @@ LMO 的逻辑体及物理体统一命名为 `LMO` 加零起始编号，例如 `L
 顶层灵敏探测器为 `LMOSensitiveDetector`，SD 名称为 `LMOSD`，事件集合为 `LMOSD/Edep`。
 LMO 内部源目录为 `generator/lmo_signal/`，下设 `lmo_radioactivity/` 和 `double_beta_decay/`。
 示例宏为 `lmo_only.mac`。旧几何组件名、数量命令和体积名称不作为别名保留；外部宏及分析脚本需按此约定更新。
+
+
+### ROOT 输出模块（尚未接入 Action）
+
+`include/output/RootOutput.hh` 和 `src/output/RootOutput.cc` 提供 `cupid::RootOutput`。
+该类只序列化传入的记录，不调用记录器、不做能量汇总、不选择生成器或探测器。
+当前 Action 未调用它，运行 `cupid-sim` 不会因此自动生成 ROOT 文件。
+
+构建增加 ROOT 6.36.10 的 Core、RIO、Tree 依赖，使用 CMake 导出目标；在 WSL 中配置：
+
+```bash
+source /home/loyh/geant4/install/bin/geant4.sh
+source /home/loyh/root/bin/thisroot.sh
+cmake -S . -B build -DGeant4_DIR=/home/loyh/geant4/install/lib/cmake/Geant4 -DROOT_DIR=/home/loyh/root/cmake
+cmake --build build -j4
+ctest --test-dir build -R root-output-checks --output-on-failure
+```
+
+本机 ROOT 的官方 CMake 配置还要求 Vdt 开发依赖，原系统未安装。
+本次验证把 Ubuntu 24.04 的 `libvdt-dev` 和 `libvdt0.4`（0.4.4-3build1）
+解压在 `build/local-deps/vdt`，并在当前 build 的 CMake 缓存中设置了路径。
+若重建构建目录，需重新准备依赖；已有系统 Vdt 开发包的环境可由 CMake 自动查找。
+保留当前本地依赖时，也可在配置命令追加：
+
+```bash
+-DVDT_INCLUDE_DIR=/home/loyh/simulation/CUPID-CJPL/build/local-deps/vdt/usr/include \
+-DVDT_LIBRARY=/home/loyh/simulation/CUPID-CJPL/build/local-deps/vdt/usr/lib/x86_64-linux-gnu/libvdt.so
+```
+
+模块编译为 `cupid-output`，主程序和输出测试链接该目标。后续 Action 可按以下方式调用
+（此例仅说明接口，不代表现在已有 Action 接线）：
+
+```cpp
+#include "output/RootOutput.hh"
+
+cupid::RootOutput output;
+output.OpenFile("run0_worker0.root");
+output.WriteEventRecords(runId, eventRecords);
+// Call this independently when incident records are wanted.
+output.WriteIncidentRecords(runId, incidentRecords);
+output.CloseFile();
+```
+
+`runId` 由调用者提供，两个向量分别来自所选记录器。输出对象需跨事件存活，
+通常由 RunAction 管理打开/关闭，EventAction 每完成一个事件便写入；此接入留待后续实现。
+两种 Write 方法独立，首次调用才创建对应树，空向量也会创建一棵零行树。
+未调用的方法不会产生对应树。每次调用追加全部行，不去重、不重排、不筛选零沉积。
+重复提交同一批记录会得到重复行，调用者负责仅提交一次。
+
+| 树 | 分支 | 一行含义 |
+| --- | --- | --- |
+| `EventEnergy` | `RunID`、`EventID`、`Edep`、`DetectorName` | 一个 event 中一个探测器的总沉积 |
+| `IncidentEnergy` | 上述字段加 `TrackID` | 一个 event 中一个探测器的一条入射根及其归属后代的总沉积 |
+
+ID 是 ROOT `Int_t`，Edep 是 `Double_t`，DetectorName 是 `std::string`。
+写入时从 Geant4 内部能量单位转换为 **keV**；文件中的 `EnergyUnit` 和 `SchemaVersion`
+两个 TNamed 分别标记 `keV` 和 `1`。不做权重、活度、时间或实验响应换算。
+支持 LMO、NTD、LD 等任意非空探测器名，不编码材料或命名规则。
+RunID 只能区分同一作业内的 run；跨作业的唯一标识、运行配置、种子、事件总数及归一化元数据尚未实现。
+因此不能仅凭数据行数推导源事件总数或绝对本底率。
+
+多线程使用**每线程一个对象、一个不同文件**；同一对象不可跨线程共享或并发调用，
+多个对象也不能同时写同一路径。模块一次性启用 ROOT 线程安全，不启用 ROOT 隐式线程池。
+当前不自动合并工作线程文件，不保证跨文件的事件顺序；文件命名和后续合并由上层安排。
+每树每 10000 行刷新缓冲，每 100000 行自动保存树头，不在模块内积攒整个 run 的记录向量。
+模块初始化会在进程范围将 TTree 自动分卷上限设为最大 Long64_t，避免 ROOT 自动更换/销毁
+模块持有的 TFile；需要分卷时应由调用者显式关闭旧文件并打开新文件。
+
+`OpenFile` 使用 CREATE 模式，已有同名文件报错，父目录须已存在。未打开时写入、
+非法记录、打开/写入/关闭失败会抛出标准 C++ 异常。整批记录在写入前先验证字段，
+但磁盘 I/O 错误不保证批次原子性，失败文件不应视为完整结果。
+应显式调用 `CloseFile()` 以处理最终写盘错误；析构只是兜底关闭，失败时向标准错误流报告。
+关闭后可复用同一对象打开另一个新文件；不提供追加已有文件或断点续写。
+
+`root-output-checks` 用 ROOT 重新读取实际生成的文件，检查两种表、单位转换、零沉积、
+不同 run、泛用探测器名称、按需建树、空文件、对象复用、错误输入、已有文件保护、
+当前目录恢复，以及两个并行写入对象各 100005 行的刷新/自动保存/关闭与读回结果。
+这是输出模块的软件验证，尚不包括 Geant4 Action 接线、多线程单文件合并或物理验证。
+
+接口参考：ROOT 6.36 [TFile](https://root.cern.ch/doc/v636/classTFile.html)、
+[TTree](https://root.cern.ch/doc/v636/classTTree.html)；同时核对本机 ROOT 6.36.10 头文件和 CMake 配置。

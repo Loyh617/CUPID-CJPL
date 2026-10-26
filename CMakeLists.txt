@@ -9,6 +9,17 @@ else()
 endif()
 include(${Geant4_USE_FILE})
 
+find_package(ROOT 6.36.10 EXACT REQUIRED COMPONENTS Core RIO Tree)
+find_package(Threads REQUIRED)
+add_library(cupid-output STATIC src/output/RootOutput.cc)
+target_compile_features(cupid-output PUBLIC cxx_std_17)
+set_target_properties(cupid-output PROPERTIES CXX_EXTENSIONS OFF)
+target_include_directories(cupid-output PUBLIC include)
+target_link_libraries(cupid-output PUBLIC ${Geant4_LIBRARIES} ROOT::Core ROOT::RIO ROOT::Tree Threads::Threads)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(cupid-output PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 add_executable(cupid-sim
   main.cc
   src/DetectorConstruction.cc
@@ -46,7 +57,7 @@ add_executable(cupid-sim
 target_compile_features(cupid-sim PRIVATE cxx_std_17)
 set_target_properties(cupid-sim PROPERTIES CXX_EXTENSIONS OFF)
 target_include_directories(cupid-sim PRIVATE include)
-target_link_libraries(cupid-sim PRIVATE ${Geant4_LIBRARIES})
+target_link_libraries(cupid-sim PRIVATE ${Geant4_LIBRARIES} cupid-output)
 target_compile_definitions(cupid-sim PRIVATE
   CUPID_WITH_VIS=$<BOOL:${CUPID_WITH_VIS}>
   CUPID_MACRO_DIR="${CMAKE_CURRENT_BINARY_DIR}/macros"
@@ -62,6 +73,10 @@ endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(check-root-output tests/check_root_output.cc)
+  target_link_libraries(check-root-output PRIVATE cupid-output)
+  add_test(NAME root-output-checks COMMAND check-root-output ${CMAKE_CURRENT_BINARY_DIR}/root-output-test-results)
+  set_tests_properties(root-output-checks PROPERTIES TIMEOUT 120)
   add_executable(check-materials tests/check_materials.cc src/materials/Materials.cc)
   target_compile_features(check-materials PRIVATE cxx_std_17)
   target_include_directories(check-materials PRIVATE include)
