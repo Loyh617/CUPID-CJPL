@@ -1,5 +1,6 @@
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
+#include "output/RunLog.hh"
 // 2026-10-18: retired the transport-only baseline for explicit physics modules.
 // Restore the old include and initialization together only to reproduce that baseline.
 // #include "FTFP_BERT.hh"
@@ -9,6 +10,10 @@
 #include "G4UImanager.hh"
 #include "G4Version.hh"
 #include "G4ios.hh"
+#include "RVersion.h"
+
+#include <chrono>
+#include <iomanip>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -23,6 +28,7 @@
 namespace {
 struct Options {
   std::string macro;
+  std::string outputDirectory;
   int threads = 2;
   bool serial = false;
   bool visualization = false;
@@ -36,6 +42,12 @@ Options Parse(int argc, char** argv) {
     if (arg == "--help" || arg == "-h") options.help = true;
     else if (arg == "--serial") options.serial = true;
     else if (arg == "--vis") options.visualization = true;
+    else if (arg == "--output") {
+      if (++i >= argc || !options.outputDirectory.empty())
+        throw std::invalid_argument("Missing or duplicate --output directory");
+      options.outputDirectory = argv[i];
+      if (options.outputDirectory.empty()) throw std::invalid_argument("Empty --output directory");
+    }
     else if (arg == "--threads") {
       if (++i >= argc) throw std::invalid_argument("Missing value after --threads");
       const std::string value = argv[i];
@@ -53,12 +65,15 @@ Options Parse(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
+  std::unique_ptr<cupid::RunLog> log;
   try {
     const auto options = Parse(argc, argv);
     if (options.help) {
-      std::cout << "Usage: cupid-sim [file.mac] [--threads N | --serial] [--vis]\n"
+      std::cout << "Usage: cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR]\n"
                    "Default: 2 worker threads; no macro starts interactive visualization.\n"
-                   "--vis also enables visualization commands in a batch macro.\n";
+                   "--vis also enables visualization commands in a batch macro.\n"
+                   "--output selects a directory for merged runN.root files and run.log.\n"
+                   "Default output: a new output/job_<timestamp> directory.\n";
       return 0;
     }
     const bool interactive = options.macro.empty();
@@ -72,6 +87,24 @@ int main(int argc, char** argv) {
     if (!std::filesystem::is_regular_file(macro)) throw std::runtime_error("Macro file not found: "+requested);
     macro = std::filesystem::absolute(macro);
 
+    const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    const auto outputDirectory = std::filesystem::absolute(options.outputDirectory.empty()
+        ? std::filesystem::path("output") / ("job_" + std::to_string(timestamp))
+        : std::filesystem::path(options.outputDirectory));
+    const bool created = std::filesystem::create_directories(outputDirectory);
+    if (options.outputDirectory.empty() && !created)
+      throw std::runtime_error("Automatic output directory already exists.");
+    log = std::make_unique<cupid::RunLog>((outputDirectory / "run.log").string());
+    std::cout << "CUPID_OUTPUT_DIRECTORY " << outputDirectory.string() << '\n'
+              << "CUPID_VERSIONS " << G4Version << " ROOT=" << ROOT_RELEASE << '\n'
+              << "CUPID_COMMAND";
+    for (int i = 0; i < argc; ++i) std::cout << " " << std::quoted(argv[i]);
+    std::cout << "\nCUPID_CWD " << std::filesystem::current_path().string()
+              << "\nCUPID_RECORD_POLICY EventEnergy: positive detector totals only; IncidentEnergy: includes zero deposits."
+              << "\nCUPID_RESULT_NOTE Energies are unweighted keV, without detector response or a time window."
+              << " Use processed_events, not tree row counts, for the simulated event count.\n";
+    log->RecordMacro(macro.string(), {".", macro.parent_path().string(), CUPID_MACRO_DIR});
+
     std::unique_ptr<G4RunManager> runManager(G4RunManagerFactory::CreateRunManager(
         options.serial ? G4RunManagerType::SerialOnly : G4RunManagerType::MTOnly));
     if (!options.serial) runManager->SetNumberOfThreads(options.threads);
@@ -84,7 +117,7 @@ int main(int argc, char** argv) {
     // physics->SetVerboseLevel(0);
     // runManager->SetUserInitialization(physics);
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    auto* actions = new cupid::ActionInitialization;
+    auto* actions = new cupid::ActionInitialization(outputDirectory.string());
     runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS
@@ -114,6 +147,7 @@ int main(int argc, char** argv) {
     if (session) session->SessionStart();
     if (actions->HasGeneratorError()) return 1;
 #endif
+    log->Check();
     return 0;
   } catch (const std::exception& error) {
     std::cerr << "CUPID_ERROR: " << error.what() << '\n';

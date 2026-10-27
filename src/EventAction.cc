@@ -1,5 +1,6 @@
 #include "EventAction.hh"
 #include "DetectorHit.hh"
+#include "RunAction.hh"
 
 #include "G4Event.hh"
 #include "G4HCofThisEvent.hh"
@@ -11,11 +12,11 @@ namespace cupid {
 
 // Select the default recorders here, then rebuild the application.
 // ActionInitialization also uses the incident flag to enable ancestry tracking.
-EventAction::EventAction()
-    : EventAction(true, false) {}// Arguments: (recordEventEnergy, recordIncidentEnergy).
+EventAction::EventAction(RunAction* runAction)
+    : EventAction(true, true, runAction) {}  // Arguments: (recordEventEnergy, recordIncidentEnergy, runAction).
 
-EventAction::EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy)
-    : fRecordEventEnergy(recordEventEnergy), fRecordIncidentEnergy(recordIncidentEnergy) {}
+EventAction::EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy, RunAction* runAction)
+    : fRunAction(runAction), fRecordEventEnergy(recordEventEnergy), fRecordIncidentEnergy(recordIncidentEnergy) {}
 
 void EventAction::BeginOfEventAction(const G4Event*) {
   fTrackAncestry.Clear();
@@ -48,6 +49,13 @@ void EventAction::EndOfEventAction(const G4Event* event) {
       const auto incidentRecords = fIncidentRecorder.Build(event->GetEventID(), *hits, fTrackAncestry);
       fIncidentRecords.insert(fIncidentRecords.end(), incidentRecords.begin(), incidentRecords.end());
     }
+  }
+  // Write each completed event immediately; RunAction owns this worker's file lifecycle.
+  if (fRunAction) {
+    auto& output = fRunAction->GetOutput();
+    const auto runId = fRunAction->GetRunId();
+    if (fRecordEventEnergy) output.WriteEventRecords(runId, fEventRecords);
+    if (fRecordIncidentEnergy) output.WriteIncidentRecords(runId, fIncidentRecords);
   }
 }
 

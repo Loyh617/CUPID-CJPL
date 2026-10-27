@@ -1,0 +1,20 @@
+# Ideal bare Th-232 point source, 10 mm outside the cryostat on the -X side.
+# At y=-350 mm the outer AlLower radius is 344.2 mm; LMO0 is at x=-25 mm.
+# Direction specifies the placement axis, not a collimation of decay products.
+/control/verbose 1
+/run/verbose 1
+/random/setSeeds 2322026 100000
+/cupid/geometry/enable Cryostat
+/cupid/geometry/enable InnerShielding
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 2
+/run/initialize
+/cupid/geometry/check 10000
+/gun/particle ion
+/gun/ion 90 232 0 0
+/gun/energy 0 eV
+/gun/position -354.2 -350 0 mm
+/gun/direction 1 0 0
+/tracking/verbose 0
+/run/printProgress 10000
+/run/beamOn 100000

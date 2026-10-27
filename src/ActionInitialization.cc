@@ -8,16 +8,17 @@
 #include "StackingAction.hh"
 
 namespace cupid {
-ActionInitialization::ActionInitialization()
-    : fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
+ActionInitialization::ActionInitialization(const G4String& outputDirectory)
+    : fOutputDirectory(outputDirectory), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
 ActionInitialization::~ActionInitialization() = default;
 void ActionInitialization::BuildForMaster() const {
-  SetUserAction(new RunAction);
+  SetUserAction(new RunAction(fOutputDirectory, false));
 }
 void ActionInitialization::Build() const {
   SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
-  SetUserAction(new RunAction);
-  auto* eventAction = new EventAction;
+  auto* runAction = new RunAction(fOutputDirectory);
+  SetUserAction(runAction);
+  auto* eventAction = new EventAction(runAction);
   SetUserAction(eventAction);
   SetUserAction(new SteppingAction);
   SetUserAction(new TrackingAction(eventAction->GetTrackAncestry(),

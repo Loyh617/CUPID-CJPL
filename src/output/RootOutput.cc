@@ -4,12 +4,15 @@
 
 #include "TDirectory.h"
 #include "TFile.h"
+#include "TFileMerger.h"
 #include "TNamed.h"
 #include "TROOT.h"
 #include "TTree.h"
 
 #include <cmath>
+#include <filesystem>
 #include <iostream>
+#include <set>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
@@ -21,6 +24,62 @@ void Validate(G4int runId, G4int eventId, G4double edep, const G4String& detecto
       !std::isfinite(edep / keV))
     throw std::invalid_argument("RootOutput: invalid energy record.");
 }
+}
+
+RootFileSummary RootOutput::InspectFile(const std::string& fileName) {
+  TDirectory::TContext context;
+  std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
+  if (!file || file->IsZombie() || file->TestBit(TFile::kRecovered))
+    throw std::runtime_error("RootOutput: invalid file: " + fileName);
+  TNamed* schema = nullptr;
+  TNamed* unit = nullptr;
+  file->GetObject("SchemaVersion", schema);
+  file->GetObject("EnergyUnit", unit);
+  if (!schema || !unit || std::string(schema->GetTitle()) != "1" || std::string(unit->GetTitle()) != "keV")
+    throw std::runtime_error("RootOutput: incompatible metadata: " + fileName);
+  TTree* events = nullptr;
+  TTree* incidents = nullptr;
+  file->GetObject("EventEnergy", events);
+  file->GetObject("IncidentEnergy", incidents);
+  return {events ? events->GetEntries() : 0, incidents ? incidents->GetEntries() : 0};
+}
+
+RootFileSummary RootOutput::MergeFiles(const std::string& outputName,
+                                       const std::vector<std::string>& inputNames) {
+  if (inputNames.empty()) throw std::invalid_argument("RootOutput: no files to merge.");
+  const auto output = std::filesystem::absolute(outputName).lexically_normal();
+  const auto partial = output.string() + ".partial";
+  if (std::filesystem::exists(output) || std::filesystem::exists(partial))
+    throw std::runtime_error("RootOutput: merge destination already exists: " + output.string());
+  RootFileSummary expected;
+  std::set<std::filesystem::path> inputs;
+  for (const auto& name : inputNames) {
+    const auto input = std::filesystem::canonical(name);
+    if (input == output || !inputs.insert(input).second)
+      throw std::invalid_argument("RootOutput: duplicate input or output used as input.");
+    const auto counts = InspectFile(name);
+    expected.eventRows += counts.eventRows;
+    expected.incidentRows += counts.incidentRows;
+  }
+  {
+    TDirectory::TContext context;
+    TFileMerger merger(false);
+    merger.SetPrintLevel(-1);
+    if (!merger.OutputFile(partial.c_str(), "CREATE"))
+      throw std::runtime_error("RootOutput: cannot create merge output.");
+    for (const auto& name : inputNames)
+      if (!merger.AddFile(name.c_str(), false))
+        throw std::runtime_error("RootOutput: cannot add merge input: " + name);
+    if (!merger.Merge()) throw std::runtime_error("RootOutput: file merge failed; inputs retained.");
+    if (merger.GetOutputFile() && merger.GetOutputFile()->TestBit(TFile::kWriteError))
+      throw std::runtime_error("RootOutput: merged file has a write error; inputs retained.");
+    merger.CloseOutputFile();
+  }
+  const auto actual = InspectFile(partial);
+  if (actual.eventRows != expected.eventRows || actual.incidentRows != expected.incidentRows)
+    throw std::runtime_error("RootOutput: merged row counts differ; inputs retained.");
+  std::filesystem::rename(partial, output);
+  return actual;
 }
 
 RootOutput::RootOutput() {

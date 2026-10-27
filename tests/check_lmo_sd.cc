@@ -132,7 +132,9 @@ class TestEvent final : public G4UserEventAction {
     Check(!event->IsAborted(), "event completed");
     const auto& eventRows = fEventAction.GetEventRecords();
     const auto& incidentRows = fEventAction.GetIncidentRecords();
-    Check(eventRows.size() == static_cast<std::size_t>(fCount), "one event row per enabled LMO");
+    const auto positiveCount = std::count_if(fReference.begin(), fReference.end(),
+                                             [](const auto& entry) { return entry.second > 0.; });
+    Check(eventRows.size() == static_cast<std::size_t>(positiveCount), "one event row per positive-energy LMO");
     if (fCount == 0) {
       Check(fReference.empty() && eventRows.empty() && incidentRows.empty(), "world-only records empty");
       return;
@@ -158,18 +160,22 @@ class TestEvent final : public G4UserEventAction {
       const auto found = std::find_if(eventRows.begin(), eventRows.end(), [&](const auto& row) {
         return row.detectorName == name;
       });
-      Check(found != eventRows.end(), "event detector name");
-      if (found == eventRows.end()) continue;
       const auto reference = fReference.count(lmoId) ? fReference.at(lmoId) : 0.;
-      Check(found->eventId == event->GetEventID(), "event ID");
-      Check(std::abs(found->edep - reference) < 1.e-9 * MeV, "event record matches independent steps");
       Check(std::abs(incidentTotals[name] - reference) < 1.e-9 * MeV,
             "sum of incident records matches independent steps without loss or duplication");
+      if (reference == 0.) {
+        Check(found == eventRows.end(), "zero-energy detector has no event row");
+        continue;
+      }
+      Check(found != eventRows.end(), "positive-energy detector is recorded");
+      if (found == eventRows.end()) continue;
+      Check(found->eventId == event->GetEventID() && found->edep > 0., "positive event fields");
+      Check(std::abs(found->edep - reference) < 1.e-9 * MeV, "event record matches independent steps");
       total += found->edep;
     }
     const auto mode = event->GetEventID() % 6;
     if (mode == 3) {
-      Check(total == 0., "geantino event has zero energy without residual records");
+      Check(total == 0. && eventRows.empty(), "geantino event has no event-energy rows");
       Check(!incidentRows.empty(), "zero-deposit incident root is retained");
     } else if (mode < 3) {
       const auto primaries = mode == 2 ? 2 : 1;

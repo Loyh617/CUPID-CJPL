@@ -8,3 +8,5 @@ __pycache__/
 CMakeUserPresets.json
 
 !/history.log
+/output/
+/results/

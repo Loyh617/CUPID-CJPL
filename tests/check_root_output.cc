@@ -12,6 +12,7 @@
 #include <cmath>
 #include <filesystem>
 #include <future>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -63,6 +64,12 @@ void CheckMetadata(TFile& file) {
 
 int main(int argc, char** argv) {
   try {
+    if (argc == 5 && std::string(argv[1]) == "--inspect") {
+      const auto summary = cupid::RootOutput::InspectFile(argv[2]);
+      Require(summary.eventRows == std::stoll(argv[3]) && summary.incidentRows == std::stoll(argv[4]),
+              "Unexpected integrated output row counts.");
+      return 0;
+    }
     Require(argc == 2, "Expected test output directory.");
     const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     const auto dir = std::filesystem::path(argv[1]) / std::to_string(stamp);
@@ -145,6 +152,31 @@ int main(int argc, char** argv) {
       Require(!file.Get("EventEnergy"), "Unrequested event tree was created.");
       CheckMetadata(file);
     }
+    const auto merged = (dir / "merged.root").string();
+    const auto summary = cupid::RootOutput::MergeFiles(merged, {metadataOnly, mixed, empty});
+    Require(summary.eventRows == 3 && summary.incidentRows == 4, "Merged row count mismatch.");
+    Require(std::filesystem::exists(mixed) && std::filesystem::exists(empty), "Merger deleted inputs.");
+    Require(!std::filesystem::exists(merged + ".partial"), "Successful merge left a partial file.");
+    {
+      TDirectory::TContext context;
+      TFile file(merged.c_str(), "READ");
+      CheckMetadata(file);
+      CheckTree(file, "EventEnergy", false, {{7, 3, 0, 2500., "LMO0"}, {7, 3, 0, 0., "LMO1"}, {8, 3, 0, 0.25, "LD0"}});
+      CheckTree(file, "IncidentEnergy", true, {{7, 3, 9, 1500., "LMO0"}, {7, 3, 11, 1000., "LMO0"},
+                                               {7, 3, 12, 0., "LMO1"}, {8, 3, 1, 0.25, "LD0"}});
+    }
+    Reject([&] { cupid::RootOutput::MergeFiles(merged, {mixed}); }, "Merge overwrote existing output.");
+    const auto invalid = (dir / "invalid.root").string();
+    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {}); }, "Merge accepted no inputs.");
+    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, mixed}); }, "Merge accepted duplicate inputs.");
+    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, (dir / "missing.root").string()}); },
+           "Merge accepted missing input.");
+    const auto corrupt = (dir / "corrupt.root").string();
+    { std::ofstream file(corrupt); file << "not a ROOT file"; }
+    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, corrupt}); }, "Merge accepted invalid input.");
+    Require(!std::filesystem::exists(invalid) && std::filesystem::exists(mixed), "Failed merge lost input data.");
+    const auto zeroSummary = cupid::RootOutput::MergeFiles((dir / "zero.root").string(), {metadataOnly, empty});
+    Require(zeroSummary.eventRows == 0 && zeroSummary.incidentRows == 0, "Empty merge failed.");
     std::cout << "ROOT output checks passed; files: " << dir << '\n';
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

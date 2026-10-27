@@ -69,13 +69,13 @@ int main() {
     const cupid::EventEnergyRecorder eventRecorder;
     const cupid::IncidentEnergyRecorder incidentRecorder;
     const auto eventRows = eventRecorder.Build(42, hits);
-    Require(eventRows.size() == 4, "include zero-deposit detectors in event rows");
+    Require(eventRows.size() == 3, "omit zero-deposit detectors in event rows");
     std::map<G4String, double> totals;
     for (const auto& row : eventRows) {
       Require(row.eventId == 42, "event field");
       totals[row.detectorName] = row.edep;
     }
-    Require(totals == std::map<G4String, double>{{"LMO0", 89.}, {"LMO1", 10.}, {"LD0", 1.}, {"NTD0", 0.}},
+    Require(totals == std::map<G4String, double>{{"LMO0", 89.}, {"LMO1", 10.}, {"LD0", 1.}},
             "event totals and generic detector names");
     std::map<Key, double> actual;
     std::map<G4String, double> incidentTotals;
@@ -91,6 +91,21 @@ int main() {
     Require(actual == expected, "roots: secondaries, cross-detector entry, re-entry, internal primary, zero ancestors");
     for (const auto& [name, total] : totals)
       Require(incidentTotals[name] == total, "incident/event equality");
+
+    // Both an untouched detector and zero-energy visits produce no event rows.
+    cupid::DetectorHitsCollection zeroHits("ZeroSD", "Edep");
+    zeroHits.insert(new cupid::DetectorHit("LMO0"));
+    auto* zeroVisit = new cupid::DetectorHit("LMO1");
+    zeroVisit->AddEnergyDeposit(1, 0.);
+    zeroVisit->AddEnergyDeposit(2, 0.);
+    zeroHits.insert(zeroVisit);
+    Require(eventRecorder.Build(43, zeroHits).empty(), "all-zero event produces no rows");
+    const G4double tinyEnergy = 1.e-20;
+    zeroVisit->AddEnergyDeposit(2, tinyEnergy);
+    const auto tinyRows = eventRecorder.Build(44, zeroHits);
+    Require(tinyRows.size() == 1 && tinyRows[0].detectorName == "LMO1" &&
+            tinyRows[0].eventId == 44 && tinyRows[0].edep == tinyEnergy,
+            "retain arbitrarily small positive deposits without an energy threshold");
 
     // Reverse IDs exercise a long first traversal rather than cached one-link paths.
     cupid::TrackAncestry longAncestry;
@@ -146,13 +161,14 @@ int main() {
     Require(action.GetEventRecords().empty() && action.GetIncidentRecords().empty() &&
             !action.GetTrackAncestry().Contains(1), "next event clears ancestry and records");
     Require(copied[0].eventId == 7 && copied[0].edep == 2., "record values survive independent copying");
-    // A default EventAction only needs hit data, with no ancestry registration.
+    // The default EventAction enables both recorders and requires ancestry.
     cupid::EventAction defaultAction;
-    Require(!defaultAction.IsIncidentRecordingEnabled(), "default selects event recording only");
+    Require(defaultAction.IsIncidentRecordingEnabled(), "default selects both recorders");
     defaultAction.BeginOfEventAction(&event);
+    defaultAction.GetTrackAncestry().RegisterTrack(1, 0, "LMO0");
     defaultAction.EndOfEventAction(&event);
-    Require(defaultAction.GetEventRecords().size() == 1 && defaultAction.GetIncidentRecords().empty(),
-            "default recorder does not invoke incident reconstruction");
+    Require(defaultAction.GetEventRecords().size() == 1 && defaultAction.GetIncidentRecords().size() == 1,
+            "default invokes both recorders");
     for (const bool eventEnabled : {false, true}) {
       for (const bool incidentEnabled : {false, true}) {
         cupid::EventAction selected(eventEnabled, incidentEnabled);

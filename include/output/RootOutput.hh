@@ -3,6 +3,7 @@
 #include "record/EventEnergyRecorder.hh"
 #include "record/IncidentEnergyRecorder.hh"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,9 +13,18 @@ class TTree;
 
 namespace cupid {
 
+struct RootFileSummary {
+  std::int64_t eventRows = 0;
+  std::int64_t incidentRows = 0;
+};
+
 // Use one instance and a distinct file per worker; never share an instance across threads.
 class RootOutput final {
  public:
+  // Merge closed files; validate the result before publishing it. Inputs are kept.
+  static RootFileSummary MergeFiles(const std::string& outputName,
+                                    const std::vector<std::string>& inputNames);
+  static RootFileSummary InspectFile(const std::string& fileName);
   RootOutput();
   ~RootOutput();
   RootOutput(const RootOutput&) = delete;

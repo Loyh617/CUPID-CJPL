@@ -167,3 +167,44 @@
 - Build environment: ROOT 6.36.10's official CMake configuration requires Vdt, absent from the system. Downloaded Ubuntu libvdt-dev/libvdt0.4 0.4.4-3build1 and extracted them under build/local-deps/vdt; supplied VDT_INCLUDE_DIR/VDT_LIBRARY in the build cache without changing the ROOT installation or system packages.
 - Test compilation adjustment: ROOT 6.36.10 gDirectory is a TDirectoryAtomicAdapter, not a std::atomic; use its documented TDirectory pointer conversion/comparison in the directory-restoration test.
 - Validation result: Geant4 11.4.1 + ROOT 6.36.10 Release build/link passed. root-output-checks passed in 0.80 seconds, including full readback of two concurrent independent 100005-row files and all lifecycle/schema/error-input checks. All 13 existing regression tests passed separately in 36.64 seconds (14 tests total). git diff --check passed. Action integration, single-file MT merging, disk-failure fault injection and production-scale throughput remain outside this module validation. Changes are uncommitted.
+
+
+2026-10-26 | Connect ROOT output and run the two-LMO Th-232 test
+- Baseline committed as 0980995 before implementation.
+- Enable both recorders in EventAction by default; inject the worker RunAction and write each completed event through its RootOutput. Standalone recorder tests may omit the RunAction.
+- RunAction owns ROOT lifecycle, with one file per worker/run and no MT-master event file. Add --output DIR; default to a fresh timestamped output job directory. Existing files remain protected by CREATE mode.
+- Add macros/th232_two_lmo.mac: Cryostat + InnerShielding + two LMOs, neutral ground-state Th-232 at rest at (-354.2,-350,0) mm, 10 mm outside the outer AlLower surface on the -X side facing LMO0, 100000 events, fixed seeds. Use the existing gun instead of changing the placeholder Th232Generator.
+- Source is an ideal bare point in the existing vacuum world, without encapsulation or a daughter confinement model. Decay/recoil transport uses the current PhysicsList; no angular bias or time-window grouping added.
+- Update default-recorder test and CMake linkage. Validation and requested production test pending.
+- Add a geometric source-position test using the actual polycone and navigator (source in World, first surface distance 10 mm, alignment with LMO0), and tests/check_root_records.py to verify complete event coverage and equality of both record totals from actual ROOT files.
+- Validation: build passed and all 15 CTest cases passed in 35.69 s, including actual source-distance/alignment and existing serial/MT transport tests. A one-event source trace reached Pb-208; an eight-worker 1000-event pilot passed ROOT coverage/energy checks.
+- Requested run completed: 100000 events with 8 workers, exit 0, elapsed 7.003 s including initialization/checks. All 21 placed geometry volumes passed the 10000-sample overlap check. Merged eight worker files with ROOT hadd into results/th232_two_lmo_100000_20261026/th232_two_lmo_100000.root.
+- Independent ROOT readback before/after merge: 200000 event rows, 424 incident rows, complete EventID 0..99999 coverage for both LMOs, no duplicate keys, exact agreement between event totals and incident sums. Positive-edep events: LMO0=5, LMO1=4; too few for a calibration spectrum.
+- Save source snapshot, macro, log, versions/seeds/configuration manifest, hashes and validation reports. Document that a bare point source in vacuum has transported recoils and escaping tracks, not a confined physical source. Update README for active Action integration and ignore generated output/results directories. Post-baseline implementation remains uncommitted.
+- Final documentation review: refresh the README overview/build instructions to match both-recorders-enabled and automatic ROOT output; keep dated historical validation entries intact. Final git diff --check passed.
+
+
+2026-10-26 | Filter zero-energy event records and clean obsolete build results
+- Remove explicitly listed old test result/log directories and obsolete check-crystal-sd artifacts after verifying resolved paths remain inside the project build directory. Keep current build products/cache, local Vdt dependencies and all production results.
+- Cleaned build/test-results: 181646 file bytes.
+- Cleaned build/physics-test-results: 280965 file bytes.
+- Cleaned build/generator-test-results: 620261 file bytes.
+- Cleaned build/root-output-test-results: 1900426 file bytes.
+- Cleaned build/Testing: 17099 file bytes.
+- Cleaned build/check-crystal-sd: 168664 file bytes.
+- Cleaned build/CMakeFiles/check-crystal-sd.dir: 1013851 file bytes.
+- EventEnergyRecorder emits only per-event/per-detector totals > 0, with no additional threshold. Preserve EventID, all positive deposits and IncidentEnergyRecorder behavior. Update zero/tiny-deposit tests, independent serial/MT step-sum checks, sparse ROOT validation (legacy --event-policy all), and documentation. Validation pending.
+- Validation result: Release build passed; all 7 relevant recorder/serial/MT tests passed in 11.24 s. Two-worker output integration processed 32 electron events and 32 geantino events: positive run has exactly 32 EventEnergy rows in LMO0 and none in LMO1; zero run has 0 EventEnergy rows and preserves 32 IncidentEnergy rows. Per-key energy equality passed.
+- Integration inspection found a worker assigned zero events (confirmed in run log), whose file correctly contains metadata only. Add an explicit --allow-empty-files option to the readback checker; missing only one tree still fails. Rechecked actual files without rerunning the simulation, and confirmed the old 100000-event ROOT file still passes with --event-policy all.
+- Retain only the latest relevant CTest log and current build/event-record-test-results verification artifacts. Historical production ROOT files remain unchanged; the zero-energy filter applies to new runs. No Git commit requested.
+
+
+2026-10-27 | Automatic ROOT merge and compact run logs
+- Add RootOutput::MergeFiles using ROOT 6.36.10 TFileMerger, checking input metadata and merged row counts before publishing the final file. Keep inputs if merging/validation fails.
+- Master RunAction merges runN_worker*.root after Geant4 11.4.1's worker run-end barrier; delete only the explicit worker file list after success. Serial output writes runN.root directly.
+- Add output/RunLog to retain console output in one run.log per job, including command line, versions, input macro contents/static includes, actual gun settings, run RNG state and final event/row counts. No separate parameter/summary files for new jobs.
+- Validation and cleanup of existing results pending.
+- Add merge tests for metadata-only/empty/mixed files, exact row contents, duplicate/missing/corrupt input rejection, existing-output protection and retained inputs on failure. Add production serial/MT integration checks for repeated runs, sparse records, automatic cleanup, embedded macro/parameter/result logs and failure logging.
+- Consolidate existing results/th232_two_lmo_100000_20261026 into the original merged ROOT file plus run.log. Embed original production log, macro, parameter manifest, result summary, validation reports and tracked source diff before deleting auxiliary/trial/worker files and the source snapshot archive. Validate original ROOT counts (200000/424) and SHA256 before cleanup; data file remains byte-identical.
+- Validation result: Release build passed; expanded root-output-checks and new output-integration-checks passed (9.94 s combined), and all 14 remaining CTest cases passed (36.22 s). Sixteen tests total. Serial/4-worker repeated-run tests confirm only run0.root, run1.root and run.log remain, including an all-zero run; logged macros/actual source settings/counts and overwrite/error handling verified. Integration test scratch files are removed automatically.
+- Update README for automatic merging, compact job directories, consolidated logs, failure retention and the simplified historical Th-232 results. No commit requested; changes remain uncommitted.

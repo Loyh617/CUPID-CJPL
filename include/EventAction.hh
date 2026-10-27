@@ -10,10 +10,12 @@
 
 namespace cupid {
 
+class RunAction;
+
 class EventAction final : public G4UserEventAction {
  public:
-  EventAction();
-  EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy);
+  explicit EventAction(RunAction* runAction = nullptr);
+  EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy, RunAction* runAction = nullptr);
   G4bool IsIncidentRecordingEnabled() const { return fRecordIncidentEnergy; }
   void BeginOfEventAction(const G4Event*) override;
   void EndOfEventAction(const G4Event*) override;
@@ -22,6 +24,7 @@ class EventAction final : public G4UserEventAction {
   const std::vector<IncidentEnergyRecord>& GetIncidentRecords() const { return fIncidentRecords; }
 
  private:
+  RunAction* fRunAction = nullptr;  // Non-owning; managed by Geant4.
   const G4bool fRecordEventEnergy;
   const G4bool fRecordIncidentEnergy;
   TrackAncestry fTrackAncestry;
