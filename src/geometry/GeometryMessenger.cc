@@ -1,3 +1,10 @@
+/// \file src/geometry/GeometryMessenger.cc
+/// \brief Implementation: Translate geometry macro commands into GeometryManager operations.
+///
+/// GeometryManager owns this messenger. Before /run/initialize, use
+/// /cupid/geometry/enable, disable and lmoCount to configure components.
+/// Use /cupid/geometry/check after initialization to check placed volumes.
+
 #include "geometry/GeometryMessenger.hh"
 #include "geometry/GeometryManager.hh"
 #include "G4UIdirectory.hh"

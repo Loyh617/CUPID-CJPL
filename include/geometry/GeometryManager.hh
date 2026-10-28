@@ -1,3 +1,12 @@
+/// \file include/geometry/GeometryManager.hh
+/// \brief Declaration: Build selected components and expose registered source and LMO volumes.
+///
+/// DetectorConstruction owns this manager. Configure components via the
+/// messenger before initialization, then Build() registers their placements.
+/// Generators use FindSourceVolume(); detector setup uses
+/// GetLMOLogicalVolumes(). Registry references apply only to the current
+/// geometry generation; the prototype supports one or two enabled LMOs.
+
 #pragma once
 #include "geometry/GeometryParameters.hh"
 #include "geometry/SourceVolumeInfo.hh"

@@ -1,3 +1,10 @@
+/// \file src/geometry/InnerShielding.cc
+/// \brief Implementation: Construct the prototype inner shielding components.
+///
+/// GeometryManager calls Build(parent, materials, parameters, geometry) when
+/// InnerShielding is enabled. The builder uses the shared dimensions and
+/// registers its physical placements for source-volume lookup.
+
 #include "geometry/InnerShielding.hh"
 #include "geometry/GeometryParameters.hh"
 #include "geometry/GeometryManager.hh"

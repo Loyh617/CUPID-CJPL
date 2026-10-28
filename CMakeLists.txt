@@ -11,7 +11,7 @@ include(${Geant4_USE_FILE})
 
 find_package(ROOT 6.36.10 EXACT REQUIRED COMPONENTS Core RIO Tree)
 find_package(Threads REQUIRED)
-add_library(cupid-output STATIC src/output/RootOutput.cc src/output/RunLog.cc)
+add_library(cupid-output STATIC src/output/RootOutput.cc src/output/RunLog.cc src/output/OutputManager.cc)
 target_compile_features(cupid-output PUBLIC cxx_std_17)
 set_target_properties(cupid-output PROPERTIES CXX_EXTENSIONS OFF)
 target_include_directories(cupid-output PUBLIC include)
@@ -27,7 +27,7 @@ add_executable(cupid-sim
   src/DetectorHit.cc
   src/record/EventEnergyRecorder.cc
   src/record/IncidentEnergyRecorder.cc
-  src/record/TrackAncestry.cc
+  src/record/TrackAncestry.cc src/record/RecordManager.cc
   src/ActionInitialization.cc
   src/PrimaryGeneratorAction.cc
   src/generator/toolkit/sampler/PointSampler.cc
@@ -73,6 +73,16 @@ endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(check-managers tests/check_managers.cc src/DetectorHit.cc
+    src/record/RecordManager.cc src/record/EventEnergyRecorder.cc
+    src/record/IncidentEnergyRecorder.cc src/record/TrackAncestry.cc)
+  target_link_libraries(check-managers PRIVATE cupid-output)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(check-managers PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  add_test(NAME record-output-manager-checks
+    COMMAND check-managers ${CMAKE_CURRENT_BINARY_DIR}/manager-test-results)
+  set_tests_properties(record-output-manager-checks PROPERTIES TIMEOUT 120)
   add_executable(check-th232-source tests/check_th232_source.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
     src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
@@ -138,7 +148,7 @@ if(BUILD_TESTING)
     src/DetectorConstruction.cc src/PhysicsList.cc
     src/LMOSensitiveDetector.cc src/DetectorHit.cc
     src/record/EventEnergyRecorder.cc src/record/IncidentEnergyRecorder.cc
-    src/record/TrackAncestry.cc
+    src/record/TrackAncestry.cc src/record/RecordManager.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
     src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
     src/materials/Materials.cc)
@@ -151,7 +161,7 @@ if(BUILD_TESTING)
   add_executable(check-energy-records
     tests/check_energy_records.cc src/DetectorHit.cc src/EventAction.cc
     src/record/EventEnergyRecorder.cc src/record/IncidentEnergyRecorder.cc
-    src/record/TrackAncestry.cc)
+    src/record/TrackAncestry.cc src/record/RecordManager.cc)
   target_compile_features(check-energy-records PRIVATE cxx_std_17)
   target_include_directories(check-energy-records PRIVATE include)
   target_link_libraries(check-energy-records PRIVATE ${Geant4_LIBRARIES} cupid-output)

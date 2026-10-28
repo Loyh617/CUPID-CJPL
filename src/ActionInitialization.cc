@@ -1,3 +1,10 @@
+/// \file src/ActionInitialization.cc
+/// \brief Implementation: Connect the Geant4 user actions and their per-thread dependencies.
+///
+/// Register with the run manager in main(). Geant4 calls Build() for event
+/// processing and BuildForMaster() for the MT coordinator. Each worker owns
+/// its actions; EventAction shares that worker's RunAction and track ancestry.
+
 #include "ActionInitialization.hh"
 #include "generator/GeneratorMessenger.hh"
 #include "PrimaryGeneratorAction.hh"
@@ -22,7 +29,7 @@ void ActionInitialization::Build() const {
   SetUserAction(eventAction);
   SetUserAction(new SteppingAction);
   SetUserAction(new TrackingAction(eventAction->GetTrackAncestry(),
-                                   eventAction->IsIncidentRecordingEnabled()));
+                                   eventAction->RequiresTrackAncestry()));
   SetUserAction(new StackingAction);
 }
 }

@@ -1,3 +1,10 @@
+/// \file include/ActionInitialization.hh
+/// \brief Declaration: Connect the Geant4 user actions and their per-thread dependencies.
+///
+/// Register with the run manager in main(). Geant4 calls Build() for event
+/// processing and BuildForMaster() for the MT coordinator. Each worker owns
+/// its actions; EventAction shares that worker's RunAction and track ancestry.
+
 #pragma once
 
 #include "G4VUserActionInitialization.hh"

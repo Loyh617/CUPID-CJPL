@@ -1,3 +1,12 @@
+/// \file src/geometry/GeometryManager.cc
+/// \brief Implementation: Build selected components and expose registered source and LMO volumes.
+///
+/// DetectorConstruction owns this manager. Configure components via the
+/// messenger before initialization, then Build() registers their placements.
+/// Generators use FindSourceVolume(); detector setup uses
+/// GetLMOLogicalVolumes(). Registry references apply only to the current
+/// geometry generation; the prototype supports one or two enabled LMOs.
+
 #include "geometry/GeometryManager.hh"
 #include "geometry/GeometryMessenger.hh"
 #include "geometry/Cryostat.hh"

@@ -1,7 +1,13 @@
+/// \file include/EventAction.hh
+/// \brief Coordinate named recorders and pass their typed results to output.
+///
+/// ActionInitialization supplies the same thread's RunAction. Geant4 invokes
+/// BeginOfEventAction() to reset state and EndOfEventAction() to build records.
+/// Constructor names select recorders; omitting RunAction permits in-memory use.
+
 #pragma once
 
-#include "record/EventEnergyRecorder.hh"
-#include "record/IncidentEnergyRecorder.hh"
+#include "record/RecordManager.hh"
 #include "record/TrackAncestry.hh"
 
 #include "G4UserEventAction.hh"
@@ -15,23 +21,22 @@ class RunAction;
 class EventAction final : public G4UserEventAction {
  public:
   explicit EventAction(RunAction* runAction = nullptr);
-  EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy, RunAction* runAction = nullptr);
-  G4bool IsIncidentRecordingEnabled() const { return fRecordIncidentEnergy; }
+  EventAction(const std::vector<G4String>& recorders, RunAction* runAction = nullptr);
+  G4bool RequiresTrackAncestry() const { return fRecords.RequiresTrackAncestry(); }
   void BeginOfEventAction(const G4Event*) override;
   void EndOfEventAction(const G4Event*) override;
   TrackAncestry& GetTrackAncestry() { return fTrackAncestry; }
-  const std::vector<EventEnergyRecord>& GetEventRecords() const { return fEventRecords; }
-  const std::vector<IncidentEnergyRecord>& GetIncidentRecords() const { return fIncidentRecords; }
+  const std::vector<EventEnergyRecord>& GetEventRecords() const {
+    return fRecords.GetRecords<EventEnergyRecord>();
+  }
+  const std::vector<IncidentEnergyRecord>& GetIncidentRecords() const {
+    return fRecords.GetRecords<IncidentEnergyRecord>();
+  }
 
  private:
   RunAction* fRunAction = nullptr;  // Non-owning; managed by Geant4.
-  const G4bool fRecordEventEnergy;
-  const G4bool fRecordIncidentEnergy;
+  RecordManager fRecords;
   TrackAncestry fTrackAncestry;
-  EventEnergyRecorder fEventRecorder;
-  IncidentEnergyRecorder fIncidentRecorder;
-  std::vector<EventEnergyRecord> fEventRecords;
-  std::vector<IncidentEnergyRecord> fIncidentRecords;
 };
 
 }  // namespace cupid

@@ -1,3 +1,11 @@
+/// \file src/generator/toolkit/sampler/RejectionVolumeSampler.cc
+/// \brief Implementation: Sample uniformly inside one registered physical placement by rejection.
+///
+/// Construct with a volume name and an initialized GeometryManager, then
+/// call Sample() for World coordinates. Daughter volumes are excluded.
+/// Keep a sampler per worker and recreate it after geometry reconstruction;
+/// sampling fails explicitly if the bounded attempt limit is exhausted.
+
 #include "generator/toolkit/sampler/RejectionVolumeSampler.hh"
 #include "geometry/GeometryManager.hh"
 

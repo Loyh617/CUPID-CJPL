@@ -1,3 +1,10 @@
+/// \file src/record/EventEnergyRecorder.cc
+/// \brief Implementation: Produce positive per-event, per-detector total energy records.
+///
+/// EventAction calls Build(eventId, hits) after transport. The returned
+/// EventEnergyRecord vector contains totals > 0 in Geant4 internal units.
+/// The recorder performs no file I/O; EventAction selects the output module.
+
 #include "record/EventEnergyRecorder.hh"
 
 namespace cupid {

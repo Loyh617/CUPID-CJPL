@@ -1,3 +1,11 @@
+/// \file src/generator/toolkit/sampler/DirectVolumeSampler.cc
+/// \brief Implementation: Sample uniformly by volume in analytic boxes, cylinders and spheres.
+///
+/// A concrete generator supplies a center and local-to-World rotation, then
+/// calls SampleBox(), SampleCylinder() or SampleSphere() in Geant4 units.
+/// Box dimensions and cylinder height use half lengths. Returned points are
+/// in World coordinates; no navigation or daughter-volume exclusion occurs.
+
 #include "generator/toolkit/sampler/DirectVolumeSampler.hh"
 
 #include "G4PhysicalConstants.hh"

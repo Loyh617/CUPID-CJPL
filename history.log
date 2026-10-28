@@ -208,3 +208,23 @@
 - Consolidate existing results/th232_two_lmo_100000_20261026 into the original merged ROOT file plus run.log. Embed original production log, macro, parameter manifest, result summary, validation reports and tracked source diff before deleting auxiliary/trial/worker files and the source snapshot archive. Validate original ROOT counts (200000/424) and SHA256 before cleanup; data file remains byte-identical.
 - Validation result: Release build passed; expanded root-output-checks and new output-integration-checks passed (9.94 s combined), and all 14 remaining CTest cases passed (36.22 s). Sixteen tests total. Serial/4-worker repeated-run tests confirm only run0.root, run1.root and run.log remain, including an all-zero run; logged macros/actual source settings/counts and overwrite/error handling verified. Integration test scratch files are removed automatically.
 - Update README for automatic merging, compact job directories, consolidated logs, failure retention and the simplified historical Th-232 results. No commit requested; changes remain uncommitted.
+
+
+2026-10-27 | Document production file responsibilities and call paths
+- Commit the existing output integration, sparse event records, automatic ROOT merge, run logs and tests as 9525cb7 before documentation changes.
+- Add English file-header documentation to main.cc and all existing production .hh/.cc files under include/ and src/ (70 files). Follow the file/brief documentation style inspected in the installed Geant4 11.4.1 examples/basic/B1 headers and sources.
+- Describe each file's purpose, caller or public entry points, lifecycle and relevant units/thread/geometry constraints. Explicitly identify empty action hooks and unimplemented dedicated generators; distinguish ROOT writing from recording and file merging from event processing.
+- Preserve every pre-existing source byte, include order and implementation. Do not change macros, test sources, build settings or simulation results. The next development plan is provided in conversation only.
+- Validation: for all 70 production files, verify that removing the new leading comment block reproduces Git HEAD byte-for-byte. All additions are line comments or blank lines. No behavioral changes; no repeat simulation or physics validation needed. Documentation changes remain uncommitted.
+
+
+2026-10-28 | Named record and output managers
+- Add RecordManager with validated, immutable recorder-name selection, per-event typed result batches and declared ancestry requirements. Keep original record structures in recorder headers and leave recorder algorithms unchanged.
+- Add OutputManager and VOutput. Resolve the output name once, then forward strongly typed Write overloads and file lifecycle/merge/inspection operations. RootOutput remains the only registered backend; existing standalone write APIs and ROOT schema are retained. Rename the file summary type to backend-neutral OutputSummary.
+- EventAction delegates collection handling to RecordManager and passes original vectors by const reference through std::visit. RunAction owns its thread-local OutputManager and obtains file extensions from the selected backend. ActionInitialization derives tracking requirements from the selected recorders.
+- Select recorders by names in EventAction and output by the RunAction constructor name; do not add runtime macro selection, a global singleton or type-erased payloads. Preserve existing file-header documentation and add English headers for new production files.
+- Update selection tests and CMake linkage. Validation pending; no Git commit requested.
+- Compilation interface correction: verified the local Geant4 11.4.1 G4HCofThisEvent header; GetCapacity/GetHC are non-const. Accept a non-const collection container reference while reading individual hits through const pointers; no cast or mutation of hit data.
+- Add named-manager ROOT readback/selection/error/merge tests, preserve existing deterministic recorder and serial/MT transport coverage, and log the selected recorder/output names. Update README call paths and extension instructions. Validation pending.
+- Validation result: Geant4 11.4.1 / ROOT 6.36.10 Release build passed without compiler warnings. All 17 CTest cases passed in 79.17 seconds, including new typed manager readback and existing serial/4-worker repeated-run merge/log tests. git diff --check passed.
+- Final scope check: 62 existing production files outside the Action/ROOT integration changes retain byte-identical implementation after removing the preceding file documentation. In particular, recorder algorithms, SD behavior, geometry, generators and physics are unchanged. Existing production results were not modified. Changes remain uncommitted.

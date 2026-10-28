@@ -1,3 +1,10 @@
+/// \file include/generator/GeneratorManager.hh
+/// \brief Declaration: Provide the currently implemented particle-gun generation path.
+///
+/// PrimaryGeneratorAction owns this manager and calls Generate(event).
+/// Only the gun selection is implemented; configure it using /gun/ commands.
+/// Selection and verbosity references must outlive the manager.
+
 #pragma once
 
 #include "globals.hh"

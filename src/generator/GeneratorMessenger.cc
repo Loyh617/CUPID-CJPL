@@ -1,3 +1,10 @@
+/// \file src/generator/GeneratorMessenger.cc
+/// \brief Implementation: Expose generator selection and diagnostics through Geant4 UI commands.
+///
+/// ActionInitialization owns this messenger and the referenced settings.
+/// Use /cupid/generator/select and verbose before initialization; list and
+/// check report the supported selection. Only gun is currently selectable.
+
 #include "generator/GeneratorMessenger.hh"
 #include "generator/GeneratorManager.hh"
 

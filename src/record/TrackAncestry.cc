@@ -1,3 +1,10 @@
+/// \file src/record/TrackAncestry.cc
+/// \brief Implementation: Store event-local parent IDs and birth-volume names for all tracked particles.
+///
+/// EventAction owns and clears this table at event start. TrackingAction
+/// calls RegisterTrack() when incident recording is enabled, including
+/// tracks without deposits. IncidentEnergyRecorder reads it during Build().
+
 #include "record/TrackAncestry.hh"
 
 #include <stdexcept>

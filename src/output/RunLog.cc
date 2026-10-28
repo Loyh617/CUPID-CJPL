@@ -1,3 +1,11 @@
+/// \file src/output/RunLog.cc
+/// \brief Implementation: Capture console output and run provenance in one job-level text log.
+///
+/// main() constructs RunLog before workers start and keeps it alive until
+/// they finish. RecordMacro() saves macro text and resolvable static includes;
+/// Check() reports write failures. RunAction summaries use the captured
+/// console streams; this class does not write ROOT event data.
+
 #include "output/RunLog.hh"
 
 #include <filesystem>

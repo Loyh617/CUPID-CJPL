@@ -1,61 +1,56 @@
+/// \file src/EventAction.cc
+/// \brief Invoke selected recorders and dispatch typed batches through OutputManager.
+///
+/// Configure recorder names in the default constructor and rebuild. Each event
+/// clears local state, builds selected records and writes through this worker's
+/// RunAction. Output lifetime and file merging remain run-level responsibilities.
+
 #include "EventAction.hh"
-#include "DetectorHit.hh"
 #include "RunAction.hh"
 
 #include "G4Event.hh"
-#include "G4HCofThisEvent.hh"
+#include "G4Threading.hh"
+#include "G4ios.hh"
 
-#include <stdexcept>
-#include <set>
+#include <variant>
 
 namespace cupid {
 
-// Select the default recorders here, then rebuild the application.
-// ActionInitialization also uses the incident flag to enable ancestry tracking.
+// Select recorders by their registered names, then rebuild the application.
+// Keep either name for one mode, both for both modes, or an empty vector for neither.
+// ActionInitialization enables ancestry tracking when any selection requires it.
 EventAction::EventAction(RunAction* runAction)
-    : EventAction(true, true, runAction) {}  // Arguments: (recordEventEnergy, recordIncidentEnergy, runAction).
+    : EventAction({"EventEnergyRecorder", "IncidentEnergyRecorder"}, runAction) {}
 
-EventAction::EventAction(G4bool recordEventEnergy, G4bool recordIncidentEnergy, RunAction* runAction)
-    : fRunAction(runAction), fRecordEventEnergy(recordEventEnergy), fRecordIncidentEnergy(recordIncidentEnergy) {}
+EventAction::EventAction(const std::vector<G4String>& recorders, RunAction* runAction)
+    : fRunAction(runAction), fRecords(recorders) {
+  if (fRunAction && G4Threading::G4GetThreadId() <= 0) {
+    G4cout << "CUPID_RECORDERS selected=";
+    if (fRecords.Empty()) G4cout << "none";
+    for (const auto& name : fRecords.GetNames()) G4cout << name << " ";
+    G4cout << G4endl;
+  }
+}
 
 void EventAction::BeginOfEventAction(const G4Event*) {
   fTrackAncestry.Clear();
-  fEventRecords.clear();
-  fIncidentRecords.clear();
+  fRecords.Clear();
 }
 
 void EventAction::EndOfEventAction(const G4Event* event) {
-  fEventRecords.clear();
-  fIncidentRecords.clear();
-  if (event->IsAborted() || (!fRecordEventEnergy && !fRecordIncidentEnergy)) return;
+  fRecords.Clear();
+  if (event->IsAborted() || fRecords.Empty()) return;
   auto* collections = event->GetHCofThisEvent();
   if (!collections) return;
+  fRecords.Build(event->GetEventID(), *collections, fTrackAncestry);
 
-  std::set<G4String> detectorNames;
-  for (std::size_t id = 0; id < collections->GetCapacity(); ++id) {
-    const auto* hits = dynamic_cast<const DetectorHitsCollection*>(collections->GetHC(id));
-    if (!hits) continue;
-    for (const auto* hit : *hits->GetVector()) {
-      if (!detectorNames.insert(hit->GetDetectorName()).second)
-        throw std::runtime_error("Duplicate detector name across event collections.");
-    }
-    // These selections are independent; an unselected recorder leaves its result vector empty.
-    if (fRecordEventEnergy) {
-      const auto eventRecords = fEventRecorder.Build(event->GetEventID(), *hits);
-      fEventRecords.insert(fEventRecords.end(), eventRecords.begin(), eventRecords.end());
-    }
-    // Incident attribution requires the ancestry collected by TrackingAction for this event.
-    if (fRecordIncidentEnergy) {
-      const auto incidentRecords = fIncidentRecorder.Build(event->GetEventID(), *hits, fTrackAncestry);
-      fIncidentRecords.insert(fIncidentRecords.end(), incidentRecords.begin(), incidentRecords.end());
-    }
-  }
-  // Write each completed event immediately; RunAction owns this worker's file lifecycle.
   if (fRunAction) {
     auto& output = fRunAction->GetOutput();
     const auto runId = fRunAction->GetRunId();
-    if (fRecordEventEnergy) output.WriteEventRecords(runId, fEventRecords);
-    if (fRecordIncidentEnergy) output.WriteIncidentRecords(runId, fIncidentRecords);
+    for (const auto& batch : fRecords.GetBatches()) {
+      // The visitor passes the original vector by const reference to its Write overload.
+      std::visit([&](const auto& records) { output.Write(runId, records); }, batch);
+    }
   }
 }
 

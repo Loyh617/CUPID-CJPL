@@ -1,3 +1,10 @@
+/// \file include/DetectorHit.hh
+/// \brief Declaration: Store one detector's raw per-track energy deposits for one event.
+///
+/// LMOSensitiveDetector fills DetectorHit objects in an event-owned hits
+/// collection. Recorders read GetTrackDeposits(); energies retain Geant4
+/// internal units, including zero-deposit visits needed for ancestry grouping.
+
 #pragma once
 
 #include "G4THitsCollection.hh"

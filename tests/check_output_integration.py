@@ -34,7 +34,9 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
         assert result.returncode == 0, result.stdout + result.stderr
         assert {p.name for p in output.iterdir()} == {'run0.root', 'run1.root', 'run.log'}
         log = (output / 'run.log').read_text()
-        for expected in ['CUPID_VERSIONS', 'ROOT=6.36.10', '/random/setSeeds 12567 76521',
+        for expected in ['CUPID_OUTPUT_MODULE name=RootOutput',
+                         'CUPID_RECORDERS selected=EventEnergyRecorder IncidentEnergyRecorder',
+                         'CUPID_VERSIONS', 'ROOT=6.36.10', '/random/setSeeds 12567 76521',
                          '/cupid/geometry/lmoCount 2', 'CUPID_SOURCE /gun/position',
                          'CUPID_RUN_RESULT run=0 requested_events=32 processed_events=32 event_rows=32 incident_rows=32',
                          'CUPID_RUN_RESULT run=1 requested_events=32 processed_events=32 event_rows=0 incident_rows=32']:

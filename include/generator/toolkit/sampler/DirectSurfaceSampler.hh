@@ -1,3 +1,11 @@
+/// \file include/generator/toolkit/sampler/DirectSurfaceSampler.hh
+/// \brief Declaration: Sample uniformly by area on rectangles, spheres and curved hemispheres.
+///
+/// Supply a center and local-to-World rotation, then call SampleRectangle(),
+/// SampleSphere() or SampleHemisphere(). Rectangles use XY half lengths;
+/// hemispheres occupy local z >= 0 without the base disk. Returned points
+/// have no boundary offset, navigation check or sampled emission direction.
+
 #pragma once
 
 #include "G4RotationMatrix.hh"

@@ -1,3 +1,11 @@
+/// \file src/record/IncidentEnergyRecorder.cc
+/// \brief Implementation: Group detector energy deposits by their incident ancestor track.
+///
+/// EventAction calls Build(eventId, hits, ancestry) after tracking completes.
+/// Grouping is detector-local and follows parent IDs and birth volumes;
+/// zero-deposit roots are retained. Returned IncidentEnergyRecord energies
+/// remain in Geant4 internal units; this recorder performs no file I/O.
+
 #include "record/IncidentEnergyRecorder.hh"
 
 #include <map>

@@ -1,3 +1,10 @@
+/// \file src/PrimaryGeneratorAction.cc
+/// \brief Implementation: Adapt Geant4 primary generation to the project GeneratorManager.
+///
+/// ActionInitialization creates one instance per event-processing thread.
+/// Geant4 calls GeneratePrimaries(event), which delegates to Generate(event)
+/// and reports generation failures through the shared error flag.
+
 #include "PrimaryGeneratorAction.hh"
 #include "generator/GeneratorManager.hh"
 

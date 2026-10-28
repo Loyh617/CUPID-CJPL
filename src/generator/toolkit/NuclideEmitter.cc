@@ -1,3 +1,10 @@
+/// \file src/generator/toolkit/NuclideEmitter.cc
+/// \brief Implementation: Add a neutral, ground-state primary nuclide at rest to an event.
+///
+/// A concrete generator calls Emit(event, Z, A, worldPosition) after particle
+/// initialization, using Geant4 units. The helper creates a vertex at time
+/// zero; registered physics handles subsequent decay and transport.
+
 #include "generator/toolkit/NuclideEmitter.hh"
 
 #include "G4Event.hh"

@@ -1,3 +1,10 @@
+/// \file include/geometry/GeometryParameters.hh
+/// \brief Declaration: Hold prototype dimensions and defaults shared by geometry builders.
+///
+/// GeometryManager owns the parameters; DetectorConstruction and component
+/// Build() methods read them. Specify lengths in Geant4 units; the cryostat
+/// axis is Y. These defaults do not define a laboratory or rock model.
+
 #pragma once
 #include "G4SystemOfUnits.hh"
 #include "G4ThreeVector.hh"

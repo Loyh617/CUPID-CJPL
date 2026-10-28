@@ -1,3 +1,10 @@
+/// \file src/geometry/Cryostat.cc
+/// \brief Implementation: Construct the prototype cryostat plates and surrounding shells.
+///
+/// GeometryManager calls Build(parent, materials, parameters, geometry) when
+/// Cryostat is enabled. The builder places volumes under the supplied parent
+/// and registers their source-volume transforms with GeometryManager.
+
 #include "geometry/Cryostat.hh"
 #include "geometry/GeometryParameters.hh"
 #include "geometry/GeometryManager.hh"

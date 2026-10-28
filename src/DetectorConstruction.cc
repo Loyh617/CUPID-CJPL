@@ -1,3 +1,10 @@
+/// \file src/DetectorConstruction.cc
+/// \brief Implementation: Build the World and attach sensitive detectors to the selected geometry.
+///
+/// Register with the run manager in main(). Construct() builds materials and
+/// delegates components to GeometryManager. ConstructSDandField() attaches
+/// a thread-local LMOSensitiveDetector to the registered LMO logical volumes.
+
 #include "DetectorConstruction.hh"
 #include "geometry/GeometryManager.hh"
 #include "materials/Materials.hh"

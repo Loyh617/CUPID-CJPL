@@ -1,3 +1,11 @@
+/// \file src/output/RootOutput.cc
+/// \brief Store typed energy records in ROOT and merge completed files.
+///
+/// OutputManager selects this VOutput backend. Write() overloads forward to
+/// the standalone WriteEventRecords()/WriteIncidentRecords() interfaces.
+/// Keep one writer per thread; input energies use Geant4 units, stored Edep
+/// uses keV. MergeFiles() validates closed files and retains its inputs.
+
 #include "output/RootOutput.hh"
 
 #include "G4SystemOfUnits.hh"
@@ -26,7 +34,21 @@ void Validate(G4int runId, G4int eventId, G4double edep, const G4String& detecto
 }
 }
 
-RootFileSummary RootOutput::InspectFile(const std::string& fileName) {
+void RootOutput::Write(G4int runId, const std::vector<EventEnergyRecord>& records) {
+  WriteEventRecords(runId, records);
+}
+void RootOutput::Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) {
+  WriteIncidentRecords(runId, records);
+}
+OutputSummary RootOutput::Merge(const std::string& outputName,
+                                const std::vector<std::string>& inputNames) const {
+  return MergeFiles(outputName, inputNames);
+}
+OutputSummary RootOutput::Inspect(const std::string& fileName) const {
+  return InspectFile(fileName);
+}
+
+OutputSummary RootOutput::InspectFile(const std::string& fileName) {
   TDirectory::TContext context;
   std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
   if (!file || file->IsZombie() || file->TestBit(TFile::kRecovered))
@@ -44,14 +66,14 @@ RootFileSummary RootOutput::InspectFile(const std::string& fileName) {
   return {events ? events->GetEntries() : 0, incidents ? incidents->GetEntries() : 0};
 }
 
-RootFileSummary RootOutput::MergeFiles(const std::string& outputName,
+OutputSummary RootOutput::MergeFiles(const std::string& outputName,
                                        const std::vector<std::string>& inputNames) {
   if (inputNames.empty()) throw std::invalid_argument("RootOutput: no files to merge.");
   const auto output = std::filesystem::absolute(outputName).lexically_normal();
   const auto partial = output.string() + ".partial";
   if (std::filesystem::exists(output) || std::filesystem::exists(partial))
     throw std::runtime_error("RootOutput: merge destination already exists: " + output.string());
-  RootFileSummary expected;
+  OutputSummary expected;
   std::set<std::filesystem::path> inputs;
   for (const auto& name : inputNames) {
     const auto input = std::filesystem::canonical(name);

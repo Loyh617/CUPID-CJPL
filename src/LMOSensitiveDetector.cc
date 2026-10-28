@@ -1,3 +1,10 @@
+/// \file src/LMOSensitiveDetector.cc
+/// \brief Implementation: Collect raw LMO energy deposits without choosing a recording policy.
+///
+/// DetectorConstruction configures names and attaches this detector to LMO
+/// logical volumes in ConstructSDandField(). Geant4 calls Initialize() and
+/// ProcessHits(); copy numbers index per-LMO hits consumed by EventAction.
+
 #include "LMOSensitiveDetector.hh"
 
 #include "G4HCofThisEvent.hh"

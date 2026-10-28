@@ -1,3 +1,10 @@
+/// \file src/generator/toolkit/sampler/PointSampler.cc
+/// \brief Implementation: Return a fixed source position expressed in World coordinates.
+///
+/// Construct with a point and an initialized GeometryManager, then call
+/// Sample() from a concrete generator. The point must be strictly inside
+/// World; recreate the sampler after geometry reconstruction.
+
 #include "generator/toolkit/sampler/PointSampler.hh"
 #include "geometry/GeometryManager.hh"
 

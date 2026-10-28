@@ -1,3 +1,10 @@
+/// \file include/TrackingAction.hh
+/// \brief Declaration: Register track ancestry for per-incident-particle energy reconstruction.
+///
+/// ActionInitialization supplies EventAction's event-local TrackAncestry and
+/// the incident-recording flag. PreUserTrackingAction() registers each track
+/// once when enabled; PostUserTrackingAction() is currently a placeholder.
+
 #pragma once
 
 #include "G4UserTrackingAction.hh"

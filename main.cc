@@ -1,3 +1,11 @@
+/// \file main.cc
+/// \brief Start the simulation, configure user initialization and manage the job log.
+///
+/// Run cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR].
+/// main() creates RunLog, the run manager, DetectorConstruction, PhysicsList
+/// and ActionInitialization, then executes the macro or interactive session.
+/// Actions produce runN.root files; run.log records the job-level console output.
+
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
 #include "output/RunLog.hh"

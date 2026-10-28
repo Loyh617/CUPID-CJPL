@@ -198,7 +198,7 @@ class TestEvent final : public G4UserEventAction {
   const cupid::DetectorConstruction& fDetector;
   int fCount;
   std::map<int, G4double> fReference;
-  cupid::EventAction fEventAction{true, true};
+  cupid::EventAction fEventAction{{"EventEnergyRecorder", "IncidentEnergyRecorder"}};
 };
 
 class TestStep final : public G4UserSteppingAction {

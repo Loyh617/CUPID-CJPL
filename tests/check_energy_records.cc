@@ -16,6 +16,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 void Require(bool condition, const char* message) {
@@ -140,7 +141,7 @@ int main() {
     Reject([&] { lmo0->AddEnergyDeposit(1, std::numeric_limits<double>::quiet_NaN()); }, "NaN rejected");
 
     // Exercise the production EventAction, including holes in the collection ID table.
-    cupid::EventAction action(true, true);
+    cupid::EventAction action({"EventEnergyRecorder", "IncidentEnergyRecorder"});
     G4Event event(7);
     auto* collections = new G4HCofThisEvent(3);
     auto* actionHits = new cupid::DetectorHitsCollection("LMOSD", "Edep");
@@ -163,7 +164,7 @@ int main() {
     Require(copied[0].eventId == 7 && copied[0].edep == 2., "record values survive independent copying");
     // The default EventAction enables both recorders and requires ancestry.
     cupid::EventAction defaultAction;
-    Require(defaultAction.IsIncidentRecordingEnabled(), "default selects both recorders");
+    Require(defaultAction.RequiresTrackAncestry(), "default selects both recorders");
     defaultAction.BeginOfEventAction(&event);
     defaultAction.GetTrackAncestry().RegisterTrack(1, 0, "LMO0");
     defaultAction.EndOfEventAction(&event);
@@ -171,7 +172,11 @@ int main() {
             "default invokes both recorders");
     for (const bool eventEnabled : {false, true}) {
       for (const bool incidentEnabled : {false, true}) {
-        cupid::EventAction selected(eventEnabled, incidentEnabled);
+        std::vector<G4String> names;
+        if (eventEnabled) names.push_back("EventEnergyRecorder");
+        if (incidentEnabled) names.push_back("IncidentEnergyRecorder");
+        cupid::EventAction selected(names);
+        Require(selected.RequiresTrackAncestry() == incidentEnabled, "selected ancestry requirement");
         selected.BeginOfEventAction(&event);
         if (incidentEnabled) selected.GetTrackAncestry().RegisterTrack(1, 0, "LMO0");
         selected.EndOfEventAction(&event);

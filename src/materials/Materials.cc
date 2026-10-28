@@ -1,3 +1,10 @@
+/// \file src/materials/Materials.cc
+/// \brief Implementation: Build the shared element and material library and resolve exact names.
+///
+/// DetectorConstruction calls Build() during geometry initialization before
+/// worker transport. Builders use Get(materialName); repeated Build() calls
+/// reuse existing entries. Geant4 owns the resulting elements and materials.
+
 #include "materials/Materials.hh"
 #include "G4Material.hh"
 #include "G4NistManager.hh"
