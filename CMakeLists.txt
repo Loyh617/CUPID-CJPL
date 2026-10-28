@@ -73,6 +73,15 @@ endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(check-native-analysis tests/check_native_analysis.cc src/RunAction.cc
+    src/DetectorHit.cc src/record/RecordManager.cc src/record/EventEnergyRecorder.cc
+    src/record/IncidentEnergyRecorder.cc src/record/TrackAncestry.cc)
+  target_link_libraries(check-native-analysis PRIVATE cupid-output)
+  foreach(selection event incident both none)
+    add_test(NAME native-analysis-mt-${selection} COMMAND check-native-analysis
+      ${CMAKE_CURRENT_BINARY_DIR}/native-analysis-test-results ${selection})
+    set_tests_properties(native-analysis-mt-${selection} PROPERTIES TIMEOUT 120)
+  endforeach()
   add_executable(check-managers tests/check_managers.cc src/DetectorHit.cc
     src/record/RecordManager.cc src/record/EventEnergyRecorder.cc
     src/record/IncidentEnergyRecorder.cc src/record/TrackAncestry.cc)

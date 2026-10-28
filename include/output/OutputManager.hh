@@ -3,7 +3,7 @@
 ///
 /// RunAction constructs one manager per thread, currently selecting RootOutput.
 /// EventAction calls Write() with original recorder vectors. Selection is fixed
-/// for the manager lifetime; no ROOT writer or open file is shared across workers.
+/// for the manager lifetime; Geant4 manages native merging between thread-local adapters.
 
 #pragma once
 
@@ -20,13 +20,13 @@ class OutputManager final {
   explicit OutputManager(const std::string& name);
   const std::string& GetName() const { return fName; }
   std::string GetFileExtension() const;
+  void Book(const std::vector<EventEnergyRecord>& records);
+  void Book(const std::vector<IncidentEnergyRecord>& records);
   void OpenFile(const std::string& fileName);
   bool IsOpen() const;
   void Write(G4int runId, const std::vector<EventEnergyRecord>& records);
   void Write(G4int runId, const std::vector<IncidentEnergyRecord>& records);
   void CloseFile();
-  OutputSummary MergeFiles(const std::string& outputName,
-                           const std::vector<std::string>& inputNames) const;
   OutputSummary InspectFile(const std::string& fileName) const;
 
  private:

@@ -1,30 +1,22 @@
 /// \file include/output/RootOutput.hh
-/// \brief Store typed energy records in ROOT and merge completed files.
+/// \brief Adapt typed records to the thread-local Geant4 ROOT analysis backend.
 ///
-/// OutputManager selects this VOutput backend. Write() overloads forward to
-/// the standalone WriteEventRecords()/WriteIncidentRecords() interfaces.
-/// Keep one writer per thread; input energies use Geant4 units, stored Edep
-/// uses keV. MergeFiles() validates closed files and retains its inputs.
+/// Book selected schemas identically on master and workers before OpenFile().
+/// Write() fills worker ntuples; CloseFile() calls native Write/CloseFile on every
+/// thread. Geant4 owns the analysis manager and merges the ROOT ntuples itself.
 
 #pragma once
 
 #include "output/VOutput.hh"
 
-#include <memory>
 #include <string>
 #include <vector>
 
-class TFile;
-class TTree;
+class G4GenericAnalysisManager;
 
 namespace cupid {
-
-// Use one instance and a distinct file per worker; never share an instance across threads.
 class RootOutput final : public VOutput {
  public:
-  // Merge closed files; validate the result before publishing it. Inputs are kept.
-  static OutputSummary MergeFiles(const std::string& outputName,
-                                    const std::vector<std::string>& inputNames);
   static OutputSummary InspectFile(const std::string& fileName);
   RootOutput();
   ~RootOutput() override;
@@ -34,35 +26,26 @@ class RootOutput final : public VOutput {
   RootOutput& operator=(RootOutput&&) = delete;
 
   std::string GetFileExtension() const override { return ".root"; }
+  void Book(const std::vector<EventEnergyRecord>&) override;
+  void Book(const std::vector<IncidentEnergyRecord>&) override;
+  void OpenFile(const std::string& fileName) override;
+  bool IsOpen() const override { return fOpen; }
   void Write(G4int runId, const std::vector<EventEnergyRecord>& records) override;
   void Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) override;
-  OutputSummary Merge(const std::string& outputName,
-                      const std::vector<std::string>& inputNames) const override;
-  OutputSummary Inspect(const std::string& fileName) const override;
-
-  // Create a new file. Existing files are never overwritten.
-  void OpenFile(const std::string& fileName) override;
-  bool IsOpen() const override;
-  // Each call appends rows; an empty batch still creates the requested tree.
   void WriteEventRecords(G4int runId, const std::vector<EventEnergyRecord>& records);
   void WriteIncidentRecords(G4int runId, const std::vector<IncidentEnergyRecord>& records);
-  // Call explicitly so that write failures can be handled by the caller.
   void CloseFile() override;
+  OutputSummary Inspect(const std::string& fileName) const override;
 
  private:
-  void RequireOpen() const;
-  TTree* CreateTree(const char* name, const char* title, bool incident);
-  void Fill(TTree& tree);
-
-  std::unique_ptr<TFile> fFile;
-  // Trees are owned by fFile. Branch addresses refer to these persistent row buffers.
-  TTree* fEventTree = nullptr;
-  TTree* fIncidentTree = nullptr;
-  G4int fRunId = 0;
-  G4int fEventId = 0;
-  G4int fTrackId = 0;
-  G4double fEdep = 0.;
-  std::string fDetectorName;
+  G4int BookNtuple(const char* name, const char* title, bool incident);
+  void RequireWritable(G4int ntupleId) const;
+  void Fill(G4int ntupleId, G4int runId, G4int eventId, G4double edep,
+            const G4String& detectorName, G4int trackId = 0);
+  G4GenericAnalysisManager* fAnalysis = nullptr;  // Owned by Geant4.
+  G4int fEventNtuple = -1;
+  G4int fIncidentNtuple = -1;
+  bool fOpen = false;
+  bool fHasOpened = false;
 };
-
 }  // namespace cupid

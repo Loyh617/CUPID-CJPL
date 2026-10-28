@@ -1,7 +1,7 @@
 /// \file src/EventAction.cc
 /// \brief Invoke selected recorders and dispatch typed batches through OutputManager.
 ///
-/// Configure recorder names in the default constructor and rebuild. Each event
+/// Configure recorder names in DefaultRecorders() and rebuild. Each event
 /// clears local state, builds selected records and writes through this worker's
 /// RunAction. Output lifetime and file merging remain run-level responsibilities.
 
@@ -12,18 +12,24 @@
 #include "G4Threading.hh"
 #include "G4ios.hh"
 
+#include <stdexcept>
 #include <variant>
 
 namespace cupid {
 
-// Select recorders by their registered names, then rebuild the application.
-// Keep either name for one mode, both for both modes, or an empty vector for neither.
-// ActionInitialization enables ancestry tracking when any selection requires it.
+// Configure selected names here and rebuild. ActionInitialization uses this same
+// list for the master and workers so that analysis schemas agree before transport.
+std::vector<G4String> EventAction::DefaultRecorders() {
+  return {"EventEnergyRecorder", "IncidentEnergyRecorder"};
+}
+
 EventAction::EventAction(RunAction* runAction)
-    : EventAction({"EventEnergyRecorder", "IncidentEnergyRecorder"}, runAction) {}
+    : EventAction(runAction ? runAction->GetRecorderNames() : DefaultRecorders(), runAction) {}
 
 EventAction::EventAction(const std::vector<G4String>& recorders, RunAction* runAction)
     : fRunAction(runAction), fRecords(recorders) {
+  if (fRunAction && recorders != fRunAction->GetRecorderNames())
+    throw std::invalid_argument("EventAction and RunAction recorder selections must match.");
   if (fRunAction && G4Threading::G4GetThreadId() <= 0) {
     G4cout << "CUPID_RECORDERS selected=";
     if (fRecords.Empty()) G4cout << "none";

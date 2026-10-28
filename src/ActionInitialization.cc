@@ -19,11 +19,11 @@ ActionInitialization::ActionInitialization(const G4String& outputDirectory)
     : fOutputDirectory(outputDirectory), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
 ActionInitialization::~ActionInitialization() = default;
 void ActionInitialization::BuildForMaster() const {
-  SetUserAction(new RunAction(fOutputDirectory, false));
+  SetUserAction(new RunAction(fOutputDirectory, EventAction::DefaultRecorders()));
 }
 void ActionInitialization::Build() const {
   SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
-  auto* runAction = new RunAction(fOutputDirectory);
+  auto* runAction = new RunAction(fOutputDirectory, EventAction::DefaultRecorders());
   SetUserAction(runAction);
   auto* eventAction = new EventAction(runAction);
   SetUserAction(eventAction);

@@ -3,7 +3,7 @@
 ///
 /// OutputManager owns a concrete implementation. Each Write() overload accepts
 /// an original recorder result type; new types require an explicit output mapping.
-/// Open and close files per run and per worker. Merge only closed worker files.
+/// Book matching schemas on master and workers; the backend owns merging.
 
 #pragma once
 
@@ -25,14 +25,13 @@ class VOutput {
  public:
   virtual ~VOutput() = default;
   virtual std::string GetFileExtension() const = 0;
+  virtual void Book(const std::vector<EventEnergyRecord>& records) = 0;
+  virtual void Book(const std::vector<IncidentEnergyRecord>& records) = 0;
   virtual void OpenFile(const std::string& fileName) = 0;
   virtual bool IsOpen() const = 0;
   virtual void Write(G4int runId, const std::vector<EventEnergyRecord>& records) = 0;
   virtual void Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) = 0;
   virtual void CloseFile() = 0;
-  // Validate before publishing the final file; keep inputs for caller cleanup.
-  virtual OutputSummary Merge(const std::string& outputName,
-                              const std::vector<std::string>& inputNames) const = 0;
   virtual OutputSummary Inspect(const std::string& fileName) const = 0;
 };
 

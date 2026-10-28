@@ -5,16 +5,18 @@
 #include "TDirectory.h"
 #include "TFile.h"
 #include "TLeaf.h"
+#include "TLeafC.h"
 #include "TNamed.h"
 #include "TTree.h"
 
 #include <chrono>
 #include <cmath>
 #include <filesystem>
-#include <future>
-#include <fstream>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <set>
+#include <tuple>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -22,6 +24,11 @@
 namespace {
 void Require(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
+}
+const char* DetectorName(TTree* tree) {
+  const auto* leaf = dynamic_cast<TLeafC*>(tree->GetLeaf("DetectorName"));
+  Require(leaf != nullptr, "Expected native Geant4 string leaf.");
+  return leaf->GetValueString();
 }
 template<class F> void Reject(F action, const char* message) {
   bool rejected = false;
@@ -36,38 +43,56 @@ void CheckTree(TFile& file, const char* name, bool incident, const std::vector<R
   Require(tree->GetListOfBranches()->GetEntries() == (incident ? 5 : 4), "Wrong branch count.");
   Require(std::string(tree->GetLeaf("Edep")->GetTypeName()) == "Double_t", "Wrong energy type.");
   Require(std::string(tree->GetLeaf("EventID")->GetTypeName()) == "Int_t", "Wrong ID type.");
-  Row value{};
-  std::string* nameValue = &value.name;
-  Require(tree->SetBranchAddress("RunID", &value.runId) >= 0, "RunID binding failed.");
-  Require(tree->SetBranchAddress("EventID", &value.eventId) >= 0, "EventID binding failed.");
-  Require(tree->SetBranchAddress("Edep", &value.edep) >= 0, "Edep binding failed.");
-  Require(tree->SetBranchAddress("DetectorName", &nameValue) >= 0, "DetectorName binding failed.");
-  if (incident) Require(tree->SetBranchAddress("TrackID", &value.trackId) >= 0, "TrackID binding failed.");
   for (std::size_t i = 0; i < rows.size(); ++i) {
     Require(tree->GetEntry(i) > 0, "Cannot read row.");
     const auto& expected = rows[i];
-    Require(value.runId == expected.runId && value.eventId == expected.eventId &&
-            (!incident || value.trackId == expected.trackId) && value.name == expected.name &&
-            std::abs(value.edep - expected.edep) <= 1.e-9, "Round-trip value mismatch.");
+    Require(tree->GetLeaf("RunID")->GetValue() == expected.runId &&
+            tree->GetLeaf("EventID")->GetValue() == expected.eventId &&
+            (!incident || tree->GetLeaf("TrackID")->GetValue() == expected.trackId) &&
+            std::string(DetectorName(tree)) == expected.name &&
+            std::abs(tree->GetLeaf("Edep")->GetValue() - expected.edep) <= 1.e-9,
+            "Round-trip value mismatch.");
   }
-  tree->ResetBranchAddresses();
 }
-void CheckMetadata(TFile& file) {
-  TNamed* unit = nullptr;
-  TNamed* schema = nullptr;
-  file.GetObject("EnergyUnit", unit);
-  file.GetObject("SchemaVersion", schema);
-  Require(unit && std::string(unit->GetTitle()) == "keV", "Missing energy unit.");
-  Require(schema && std::string(schema->GetTitle()) == "1", "Missing schema version.");
+
+void CheckIntegrated(const char* name, long long eventRows, long long incidentRows) {
+  const auto summary = cupid::RootOutput::InspectFile(name);
+  Require(summary.eventRows == eventRows && summary.incidentRows == incidentRows, "Integrated row counts differ.");
+  TFile file(name, "READ");
+  using Key = std::tuple<int, int, std::string>;
+  std::map<Key, double> events, totals;
+  std::set<std::tuple<Key, int>> roots;
+  for (const auto* table : {"EventEnergy", "IncidentEnergy"}) {
+    auto* tree = dynamic_cast<TTree*>(file.Get(table));
+    Require(tree != nullptr, "Missing selected ntuple.");
+    for (Long64_t row = 0; row < tree->GetEntries(); ++row) {
+      Require(tree->GetEntry(row) > 0, "Cannot read merged row.");
+      const int run = tree->GetLeaf("RunID")->GetValue();
+      const int event = tree->GetLeaf("EventID")->GetValue();
+      const std::string detector = DetectorName(tree);
+      const double energy = tree->GetLeaf("Edep")->GetValue();
+      Require(run >= 0 && event >= 0 && std::isfinite(energy) && energy >= 0., "Invalid merged fields.");
+      const Key key{run, event, detector};
+      if (std::string(table) == "EventEnergy") {
+        Require(energy > 0. && events.emplace(key, energy).second, "Duplicate or zero event row.");
+      } else {
+        const int track = tree->GetLeaf("TrackID")->GetValue();
+        Require(track > 0 && roots.emplace(key, track).second, "Duplicate or invalid incident root.");
+        totals[key] += energy;
+      }
+    }
+  }
+  for (const auto& [key, energy] : events)
+    Require(std::abs(energy - totals[key]) <= 1.e-8, "Event/incident energy mismatch.");
+  for (const auto& [key, energy] : totals)
+    Require(std::abs(energy - events[key]) <= 1.e-8, "Incident/event energy mismatch.");
 }
 }
 
 int main(int argc, char** argv) {
   try {
     if (argc == 5 && std::string(argv[1]) == "--inspect") {
-      const auto summary = cupid::RootOutput::InspectFile(argv[2]);
-      Require(summary.eventRows == std::stoll(argv[3]) && summary.incidentRows == std::stoll(argv[4]),
-              "Unexpected integrated output row counts.");
+      CheckIntegrated(argv[2], std::stoll(argv[3]), std::stoll(argv[4]));
       return 0;
     }
     Require(argc == 2, "Expected test output directory.");
@@ -75,7 +100,11 @@ int main(int argc, char** argv) {
     const auto dir = std::filesystem::path(argv[1]) / std::to_string(stamp);
     std::filesystem::create_directories(dir);
     const auto mixed = (dir / "mixed.root").string();
+    {
     cupid::RootOutput output;
+    Reject([] { cupid::RootOutput duplicate; }, "Second analysis adapter in same thread accepted.");
+    output.Book(std::vector<cupid::EventEnergyRecord>{});
+    output.Book(std::vector<cupid::IncidentEnergyRecord>{});
     TDirectory* previousDirectory = gDirectory;
     Reject([&] { output.WriteEventRecords(0, {}); }, "Writing before open was accepted.");
     Reject([&] { output.OpenFile(""); }, "Empty name was accepted.");
@@ -105,78 +134,41 @@ int main(int argc, char** argv) {
       TDirectory::TContext context;
       TFile file(mixed.c_str(), "READ");
       Require(!file.IsZombie(), "Cannot reopen ROOT file.");
-      CheckMetadata(file);
       CheckTree(file, "EventEnergy", false, {{7, 3, 0, 2500., "LMO0"}, {7, 3, 0, 0., "LMO1"}, {8, 3, 0, 0.25, "LD0"}});
       CheckTree(file, "IncidentEnergy", true, {{7, 3, 9, 1500., "LMO0"}, {7, 3, 11, 1000., "LMO0"},
                                                {7, 3, 12, 0., "LMO1"}, {8, 3, 1, 0.25, "LD0"}});
     }
-    // Reuse the same writer without retaining trees or rows from the previous file.
+    // Native CloseFile resets data; schemas persist across runs.
+    const auto repeated = (dir / "repeated.root").string();
+    output.OpenFile(repeated);
+    output.WriteEventRecords(9, {{2, 1. * keV, "NTD0"}});
+    output.CloseFile();
+    {
+      TFile file(repeated.c_str(), "READ");
+      CheckTree(file, "EventEnergy", false, {{9, 2, 0, 1., "NTD0"}});
+      CheckTree(file, "IncidentEnergy", true, {});
+    }
     const auto empty = (dir / "empty.root").string();
     output.OpenFile(empty);
-    output.WriteEventRecords(0, {});
     output.CloseFile();
+    Require(!std::filesystem::exists(empty), "Native empty-file removal did not occur.");
+    }
+    // A new adapter may book a different schema after its predecessor is destroyed.
     {
-      TDirectory::TContext context;
-      TFile file(empty.c_str(), "READ");
-      CheckTree(file, "EventEnergy", false, {});
-      Require(!file.Get("IncidentEnergy"), "Unrequested tree was created.");
-    }
-    const auto metadataOnly = (dir / "metadata-only.root").string();
-    output.OpenFile(metadataOnly);
-    output.CloseFile();
-    {
-      TDirectory::TContext context;
-      TFile file(metadataOnly.c_str(), "READ");
-      CheckMetadata(file);
-      Require(!file.Get("EventEnergy") && !file.Get("IncidentEnergy"), "Unexpected empty trees.");
-    }
-    // Exercise flush/autosave boundaries and destructor finalization with independent workers.
-    std::vector<std::future<void>> workers;
-    for (int worker = 0; worker < 2; ++worker) {
-      workers.push_back(std::async(std::launch::async, [&, worker] {
-        cupid::RootOutput local;
-        local.OpenFile((dir / ("worker" + std::to_string(worker) + ".root")).string());
-        for (int event = 0; event < 100005; ++event)
-          local.WriteIncidentRecords(worker, {{event, 1, event * keV, "NTD0"}});
-        if (worker == 0) local.CloseFile();
-      }));
-    }
-    for (auto& worker : workers) worker.get();
-    for (int worker = 0; worker < 2; ++worker) {
-      TDirectory::TContext context;
-      TFile file((dir / ("worker" + std::to_string(worker) + ".root")).c_str(), "READ");
-      Require(!file.IsZombie(), "Cannot read worker file.");
+      cupid::RootOutput output;
+      output.Book(std::vector<cupid::IncidentEnergyRecord>{});
+      output.OpenFile((dir / "large.root").string());
+      Reject([&] { output.Book(std::vector<cupid::EventEnergyRecord>{}); }, "Late booking accepted.");
+      Reject([&] { output.WriteEventRecords(0, {}); }, "Unbooked write accepted.");
+      for (int event = 0; event < 100005; ++event)
+        output.WriteIncidentRecords(3, {{event, event + 1, event * keV, "NTD0"}});
+      output.CloseFile();
+      TFile file((dir / "large.root").c_str(), "READ");
       std::vector<Row> rows;
-      for (int event = 0; event < 100005; ++event) rows.push_back({worker, event, 1, double(event), "NTD0"});
+      for (int event = 0; event < 100005; ++event) rows.push_back({3, event, event + 1, double(event), "NTD0"});
       CheckTree(file, "IncidentEnergy", true, rows);
-      Require(!file.Get("EventEnergy"), "Unrequested event tree was created.");
-      CheckMetadata(file);
+      Require(!file.Get("EventEnergy"), "Unselected schema created.");
     }
-    const auto merged = (dir / "merged.root").string();
-    const auto summary = cupid::RootOutput::MergeFiles(merged, {metadataOnly, mixed, empty});
-    Require(summary.eventRows == 3 && summary.incidentRows == 4, "Merged row count mismatch.");
-    Require(std::filesystem::exists(mixed) && std::filesystem::exists(empty), "Merger deleted inputs.");
-    Require(!std::filesystem::exists(merged + ".partial"), "Successful merge left a partial file.");
-    {
-      TDirectory::TContext context;
-      TFile file(merged.c_str(), "READ");
-      CheckMetadata(file);
-      CheckTree(file, "EventEnergy", false, {{7, 3, 0, 2500., "LMO0"}, {7, 3, 0, 0., "LMO1"}, {8, 3, 0, 0.25, "LD0"}});
-      CheckTree(file, "IncidentEnergy", true, {{7, 3, 9, 1500., "LMO0"}, {7, 3, 11, 1000., "LMO0"},
-                                               {7, 3, 12, 0., "LMO1"}, {8, 3, 1, 0.25, "LD0"}});
-    }
-    Reject([&] { cupid::RootOutput::MergeFiles(merged, {mixed}); }, "Merge overwrote existing output.");
-    const auto invalid = (dir / "invalid.root").string();
-    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {}); }, "Merge accepted no inputs.");
-    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, mixed}); }, "Merge accepted duplicate inputs.");
-    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, (dir / "missing.root").string()}); },
-           "Merge accepted missing input.");
-    const auto corrupt = (dir / "corrupt.root").string();
-    { std::ofstream file(corrupt); file << "not a ROOT file"; }
-    Reject([&] { cupid::RootOutput::MergeFiles(invalid, {mixed, corrupt}); }, "Merge accepted invalid input.");
-    Require(!std::filesystem::exists(invalid) && std::filesystem::exists(mixed), "Failed merge lost input data.");
-    const auto zeroSummary = cupid::RootOutput::MergeFiles((dir / "zero.root").string(), {metadataOnly, empty});
-    Require(zeroSummary.eventRows == 0 && zeroSummary.incidentRows == 0, "Empty merge failed.");
     std::cout << "ROOT output checks passed; files: " << dir << '\n';
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

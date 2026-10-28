@@ -8,10 +8,9 @@
 
 #include "generator/toolkit/sampler/DirectSurfaceSampler.hh"
 
-#include "G4PhysicalConstants.hh"
+#include "G4RandomDirection.hh"
 #include "Randomize.hh"
 
-#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -67,18 +66,11 @@ G4ThreeVector DirectSurfaceSampler::SampleRectangle(G4double halfX, G4double hal
 
 G4ThreeVector DirectSurfaceSampler::SampleSphere(G4double radius) const {
   RequirePositiveLength(radius);
-  // Surface area is uniform in cos(theta), phi, not in theta, phi.
-  const auto cosTheta = 2.*G4UniformRand() - 1.;
-  const auto phi = twopi * G4UniformRand();
-  const auto transverse = radius * std::sqrt(std::max(0., 1. - cosTheta*cosTheta));
-  return ToWorld({transverse * std::cos(phi), transverse * std::sin(phi), radius * cosTheta});
+  return ToWorld(radius * G4RandomDirection());
 }
 
 G4ThreeVector DirectSurfaceSampler::SampleHemisphere(G4double radius) const {
   RequirePositiveLength(radius);
-  const auto cosTheta = G4UniformRand();
-  const auto phi = twopi * G4UniformRand();
-  const auto transverse = radius * std::sqrt(std::max(0., 1. - cosTheta*cosTheta));
-  return ToWorld({transverse * std::cos(phi), transverse * std::sin(phi), radius * cosTheta});
+  return ToWorld(radius * G4RandomDirection(0.));
 }
 }

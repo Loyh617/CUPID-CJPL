@@ -22,6 +22,13 @@ parser.add_argument('--allow-empty-files', action='store_true',
                     help='Allow metadata-only idle-worker files; verify zero assigned events in the run log separately.')
 args = parser.parse_args()
 
+def detector_name(tree):
+    leaf = tree.GetLeaf('DetectorName')
+    if leaf and leaf.InheritsFrom('TLeafC'):
+        return str(leaf.GetValueString())
+    return str(tree.DetectorName)
+
+
 events = {}
 incident_totals = collections.defaultdict(float)
 incident_keys = set()
@@ -30,11 +37,17 @@ file_counts = []
 for path in args.files:
     file = ROOT.TFile.Open(str(path), 'READ')
     assert file and not file.IsZombie() and not file.TestBit(ROOT.TFile.kRecovered), f'Invalid ROOT file: {path}'
-    assert file.Get('EnergyUnit').GetTitle() == 'keV', 'Unexpected energy unit'
-    assert file.Get('SchemaVersion').GetTitle() == '1', 'Unexpected output schema'
+    schema = file.Get('SchemaVersion')
+    if schema:
+        assert schema.GetTitle() == '1' and file.Get('EnergyUnit').GetTitle() == 'keV', 'Unexpected legacy schema'
+    else:
+        for name in ['EventEnergy', 'IncidentEnergy']:
+            tree = file.Get(name)
+            if tree:
+                assert 'Edep in keV; CUPID schema 2' in tree.GetTitle(), 'Unexpected native schema'
     event_tree = file.Get('EventEnergy')
     incident_tree = file.Get('IncidentEnergy')
-    if not event_tree and not incident_tree and args.allow_empty_files:
+    if schema and not event_tree and not incident_tree and args.allow_empty_files:
         file_counts.append({'file': str(path.resolve()), 'event_rows': 0, 'incident_rows': 0,
                             'metadata_only': True})
         file.Close()
@@ -43,7 +56,7 @@ for path in args.files:
     file_counts.append({'file': str(path.resolve()), 'event_rows': int(event_tree.GetEntries()),
                         'incident_rows': int(incident_tree.GetEntries())})
     for row in event_tree:
-        key = (int(row.RunID), int(row.EventID), str(row.DetectorName))
+        key = (int(row.RunID), int(row.EventID), detector_name(row))
         energy = float(row.Edep)
         assert key not in events, f'Duplicate event/detector row: {key}'
         assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {key}'
@@ -51,7 +64,7 @@ for path in args.files:
             assert energy > 0., f'Zero-energy event row: {key}'
         events[key] = energy
     for row in incident_tree:
-        key = (int(row.RunID), int(row.EventID), str(row.DetectorName))
+        key = (int(row.RunID), int(row.EventID), detector_name(row))
         root_key = (*key, int(row.TrackID))
         energy = float(row.Edep)
         assert row.TrackID > 0 and root_key not in incident_keys, f'Invalid/duplicate incident key: {root_key}'
@@ -65,7 +78,7 @@ for path in args.files:
 assert args.events >= 0 and len(set(args.detectors)) == len(args.detectors), 'Invalid expected run layout'
 keys = set(events) | set(incident_totals)
 for run_id, event_id, detector in keys:
-    assert run_id == args.run and 0 <= event_id < args.events and detector in args.detectors, 'Unexpected record key'
+    assert run_id == args.run and 0 <= event_id < args.events and detector in args.detectors, f'Unexpected record key: {(run_id, event_id, detector)}'
 if args.event_policy == 'all':
     assert len(events) == args.events * len(args.detectors), 'Missing event/detector rows'
 else:

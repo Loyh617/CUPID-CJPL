@@ -10,6 +10,7 @@
 
 #include "TFile.h"
 #include "TLeaf.h"
+#include "TLeafC.h"
 #include "TTree.h"
 
 #include <chrono>
@@ -27,6 +28,11 @@ namespace {
 void Require(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
 }
+const char* DetectorName(TTree* tree) {
+  const auto* leaf = dynamic_cast<TLeafC*>(tree->GetLeaf("DetectorName"));
+  Require(leaf != nullptr, "Expected native Geant4 string leaf.");
+  return leaf->GetValueString();
+}
 template<class F> void Reject(F action, const char* message) {
   bool rejected = false;
   try { action(); } catch (const std::exception&) { rejected = true; }
@@ -39,19 +45,15 @@ void CheckTree(TFile& file, const char* treeName, bool expected, bool incident) 
   Require((tree != nullptr) == expected, "unselected tree created or selected tree missing");
   if (!tree) return;
   Require(tree->GetEntries() == (incident ? 3 : 2), "incorrect manager row count");
-  std::string* detector = nullptr;
-  tree->SetBranchAddress("DetectorName", &detector);
   std::map<std::pair<std::string, int>, double> actual;
   for (Long64_t row = 0; row < tree->GetEntries(); ++row) {
     Require(tree->GetEntry(row) > 0, "cannot read managed output row");
     Require(tree->GetLeaf("RunID")->GetValue() == 3 && tree->GetLeaf("EventID")->GetValue() == 7,
             "record IDs changed in manager dispatch");
     const auto track = incident ? static_cast<int>(tree->GetLeaf("TrackID")->GetValue()) : 0;
-    Require(actual.emplace(std::make_pair(*detector, track), tree->GetLeaf("Edep")->GetValue()).second,
+    Require(actual.emplace(std::make_pair(std::string(DetectorName(tree)), track), tree->GetLeaf("Edep")->GetValue()).second,
             "duplicate managed row");
   }
-  tree->ResetBranchAddresses();
-  delete detector;
   const std::map<std::pair<std::string, int>, double> wanted = incident
       ? std::map<std::pair<std::string, int>, double>{{{"LMO0", 1}, 2500.}, {{"LMO0", 3}, 0.}, {{"LD0", 2}, 1.}}
       : std::map<std::pair<std::string, int>, double>{{{"LMO0", 0}, 2500.}, {{"LD0", 0}, 1.}};
@@ -124,15 +126,16 @@ int main(int argc, char** argv) {
       Reject([&] { output.Write(3, std::vector<cupid::EventEnergyRecord>{}); }, "write before open accepted");
       const auto fileName = (directory / ("selection" + std::to_string(index) + output.GetFileExtension())).string();
       paths.push_back(fileName);
+      for (const auto& batch : records.GetBatches())
+        std::visit([&](const auto& rows) { output.Book(rows); }, batch);
       output.OpenFile(fileName);
       Require(output.IsOpen(), "manager did not open output");
       Reject([&] { output.InspectFile(fileName); }, "inspection with open writer accepted");
-      Reject([&] { output.MergeFiles((directory / "invalid.root").string(), {fileName}); },
-             "merge with open writer accepted");
       for (const auto& batch : records.GetBatches())
         std::visit([&](const auto& rows) { output.Write(3, rows); }, batch);
       output.CloseFile();
       Require(!output.IsOpen(), "manager did not close output");
+      if (events || incidents) {
       const auto summary = output.InspectFile(fileName);
       Require(summary.eventRows == (events ? 2 : 0) && summary.incidentRows == (incidents ? 3 : 0),
               "managed file summary differs");
@@ -141,6 +144,10 @@ int main(int argc, char** argv) {
       CheckTree(file, "EventEnergy", events, false);
       CheckTree(file, "IncidentEnergy", incidents, true);
       file.Close();
+
+      } else {
+        Require(!std::filesystem::exists(fileName), "Empty native output should be removed.");
+      }
 
       G4HCofThisEvent noCollections(0);
       records.Build(8, noCollections, emptyAncestry);
@@ -159,16 +166,6 @@ int main(int argc, char** argv) {
     Reject([&] { records.Build(7, duplicateCollections, ancestry); }, "duplicate detector accepted");
     Reject([&] { records.Build(-1, collections, ancestry); }, "negative EventID accepted");
 
-    cupid::OutputManager merger("RootOutput");
-    const auto merged = (directory / "merged.root").string();
-    const auto summary = merger.MergeFiles(merged, {paths[0], paths[1], paths[2]});
-    paths.push_back(merged);
-    Require(summary.eventRows == 2 && summary.incidentRows == 3, "managed merge lost rows");
-    TFile mergedFile(merged.c_str(), "READ");
-    CheckTree(mergedFile, "EventEnergy", true, false);
-    CheckTree(mergedFile, "IncidentEnergy", true, true);
-    mergedFile.Close();
-    for (const auto& path : paths) Require(std::filesystem::exists(path), "merge deleted an input");
     for (const auto& path : paths) std::filesystem::remove(path);
     std::filesystem::remove(directory);
     std::cout << "All record/output manager checks passed.\n";

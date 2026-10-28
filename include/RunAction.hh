@@ -1,34 +1,33 @@
 /// \file include/RunAction.hh
-/// \brief Declaration: Manage selected output for a run and coordinate completed worker files.
+/// \brief Configure matching output schemas and manage native analysis run hooks.
 ///
-/// ActionInitialization constructs this action; Geant4 invokes the run hooks.
-/// BeginOfRunAction() opens the worker or serial file. EventAction writes via
-/// GetOutput(). EndOfRunAction() closes files; the MT master merges and
-/// removes worker files only after validation. writeOutput=false is for the
-/// MT coordinator and does not disable its merge or summary responsibilities.
+/// ActionInitialization passes identical recorder names to master and workers.
+/// All threads open and finalize output; Geant4 handles merging. Only event
+/// threads fill records. The master inspects the completed file and logs counts.
 
 #pragma once
-
 #include "output/OutputManager.hh"
 
 #include "G4UserRunAction.hh"
 #include "globals.hh"
 
+#include <vector>
+
 namespace cupid {
 class RunAction final : public G4UserRunAction {
  public:
-  // Select the registered backend here; use the same name for master and workers.
-  explicit RunAction(const G4String& outputDirectory, G4bool writeOutput = true,
-                     const G4String& outputName = "RootOutput");
+  RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
+            const G4String& outputName = "RootOutput");
   void BeginOfRunAction(const G4Run*) override;
   void EndOfRunAction(const G4Run*) override;
   OutputManager& GetOutput() { return fOutput; }
   G4int GetRunId() const { return fRunId; }
+  const std::vector<G4String>& GetRecorderNames() const { return fRecorderNames; }
 
  private:
   OutputManager fOutput;
   const G4String fOutputDirectory;
-  const G4bool fWriteOutput;
+  const std::vector<G4String> fRecorderNames;
   G4String fFileName;
   G4int fRunId = -1;
 };

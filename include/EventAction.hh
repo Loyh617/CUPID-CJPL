@@ -20,6 +20,7 @@ class RunAction;
 
 class EventAction final : public G4UserEventAction {
  public:
+  static std::vector<G4String> DefaultRecorders();
   explicit EventAction(RunAction* runAction = nullptr);
   EventAction(const std::vector<G4String>& recorders, RunAction* runAction = nullptr);
   G4bool RequiresTrackAncestry() const { return fRecords.RequiresTrackAncestry(); }

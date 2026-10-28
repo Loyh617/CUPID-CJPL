@@ -8,10 +8,10 @@
 
 #include "generator/toolkit/sampler/DirectVolumeSampler.hh"
 
+#include "G4RandomDirection.hh"
 #include "G4PhysicalConstants.hh"
 #include "Randomize.hh"
 
-#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -77,11 +77,7 @@ G4ThreeVector DirectVolumeSampler::SampleCylinder(G4double radius, G4double half
 
 G4ThreeVector DirectVolumeSampler::SampleSphere(G4double radius) const {
   RequirePositiveLength(radius);
-  // The radial CDF is r^3 / R^3; solid angle is uniform in cos(theta), phi.
   const auto r = radius * std::cbrt(G4UniformRand());
-  const auto cosTheta = 2.*G4UniformRand() - 1.;
-  const auto phi = twopi * G4UniformRand();
-  const auto transverse = r * std::sqrt(std::max(0., 1. - cosTheta*cosTheta));
-  return ToWorld({transverse * std::cos(phi), transverse * std::sin(phi), r * cosTheta});
+  return ToWorld(r * G4RandomDirection());
 }
 }

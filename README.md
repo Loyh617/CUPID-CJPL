@@ -7,16 +7,16 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 公共组件提供固定点、直接体积、直接表面、体积拒绝四种采样器及核素发射工具，供后续具体发生器自行调用。
 当前支持晶体能量 ROOT 输出；岩石、大厅、电子学和波形尚未实现。
 `EventAction` 通过 `RecordManager` 按名称选择记录类，当前默认开启两种统计；`TrackingAction` 为逐入射统计登记当前事件的轨迹关系。
-`RunAction` 管理 ROOT 文件生命周期并在主线程合并结果；`SteppingAction` 保留空接口，`StackingAction` 维持默认分类。
+`RunAction` 管理各线程的文件生命周期，由 Geant4 原生分析管理器合并结果；`SteppingAction` 保留空接口，`StackingAction` 维持默认分类。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
 `LMOSensitiveDetector` 与 Action 类位于同一层，提供按探测器和 TrackID 区分的基础沉积。
-`record/` 实现逐事件、逐入射粒子两种统计；EventAction 通过 `OutputManager` 将原始记录向量交给 `RootOutput`，写入线程独立文件，run 结束后自动合并。
+`record/` 实现逐事件、逐入射粒子两种统计；EventAction 通过 `OutputManager` 将原始记录向量交给 `RootOutput`，通过 Geant4 原生 ntuple 合并写入同一个 run 文件。
 
 ## 1. 在 WSL Ubuntu 中构建
 
 要求 Geant4 **11.4.1**（启用多线程）、ROOT **6.36.10**、C++17、CMake >= 3.16。
-默认构建可视化版本，链接 ROOT Core/RIO/Tree。CTest 中的 Python 脚本使用标准库；
-额外的实际结果检查工具 `tests/check_root_records.py` 使用 ROOT 安装自带的 PyROOT。
+默认构建可视化版本，链接 ROOT Core/RIO/Tree。输出集成测试同时调用 PyROOT 回读检查；
+实际结果检查工具 `tests/check_root_records.py` 使用 ROOT 安装自带的 PyROOT。
 本机 Vdt 开发依赖位置与重建配置见后文 ROOT 输出模块部分。
 
 在 **WSL 的终端**中进入本工程目录：
@@ -128,7 +128,7 @@ include/ + src/                 头文件和实现一一对应
   ActionInitialization          创建线程局部的用户 actions
   PrimaryGeneratorAction        调用 GeneratorManager，统一传播源错误
   PhysicsList                   逐项注册物理构造器和设置参数
-  RunAction                     持有 OutputManager，管理文件生命周期及主线程合并
+  RunAction                     持有 OutputManager，管理各线程文件生命周期，使用 G4 原生合并
   EventAction                   调用 RecordManager，以强类型将记录交给 OutputManager
   SteppingAction                每步处理接口，暂为空
   TrackingAction                首次跟踪时登记 TrackID、ParentID 和出生体积
@@ -599,22 +599,24 @@ EventID 保留原编号，不因筛选而重新编号；不能用 EventEnergy �
 
 `ActionInitialization` 为每个工作线程分别创建 Action。`EventAction` 持有
 `RecordManager` 和 `TrackAncestry`；`RunAction` 持有 `OutputManager`，后者独占所选输出对象。
-没有全局管理器、共享记录向量或共享 ROOT 写入器。
+项目管理器与记录向量属于各线程；底层 G4AnalysisManager 是 Geant4 管理的线程局部单例。
 
 当前记录器选择入口位于 `src/EventAction.cc`：
 
 ```cpp
-EventAction::EventAction(RunAction* runAction)
-    : EventAction({"EventEnergyRecorder", "IncidentEnergyRecorder"}, runAction) {}
+std::vector<G4String> EventAction::DefaultRecorders() {
+  return {"EventEnergyRecorder", "IncidentEnergyRecorder"};
+}
 ```
 
 保留一个名称即只开启该记录器，保留两个即开启两种统计，空列表 `{}` 表示都不开启。
 名称区分大小写；未知名称或重复名称在创建管理器时立即报错，不会静默跳过。
-选择在 Action 创建时固定，修改默认选择后重新编译；没有新增宏命令。
+ActionInitialization 将同一选择传给主线程和工作线程的 RunAction，预先建立一致的数据表；
+EventAction 使用对应 RunAction 的选择，显式不一致的选择会报错。修改默认选择后重新编译；没有新增宏命令。
 `RequiresTrackAncestry()` 根据所选记录器的依赖决定是否启用 TrackingAction 的谱系登记。
 
 输出选择位于 `include/RunAction.hh` 的构造参数 `outputName`，当前默认 `"RootOutput"`。
-显式调用形式为 `RunAction(directory, writeOutput, "RootOutput")`；主线程和工作线程须选择同一模块。
+显式调用形式为 `RunAction(directory, recorderNames, "RootOutput")`；主线程和工作线程须选择同一模块。
 当前只实现 ROOT，不提供虚假的 CSV/其他输出选项。`RunLog` 独立记录整个作业日志，不作为事件数据后端选择。
 
 事件开始时清空谱系和记录；结束时 RecordManager 检查跨集合探测器名称唯一性，调用所选记录器的 Build()。
@@ -635,13 +637,14 @@ C++ 根据向量类型选择 Write 重载，输出管理器再调用已选后端
 文件开关、错误检查和 ROOT 分支创建条件仍由输出模块正常处理。
 
 新增记录器时：保持其结构体与实现独立，将结果向量加入 RecordBatch，并在 RecordManager 的注册表添加
-空结果类型、谱系需求和 Build 适配函数；新增的数据类型还须在 VOutput、OutputManager 和各后端实现明确的 Write 映射。
+空结果类型、谱系需求和 Build 适配函数；新增的数据类型还须在 VOutput、OutputManager 和各后端实现明确的 Book 和 Write 映射。
 这些纯虚接口要求后端提供实现，不能自动猜测任意结构的字段。无需为每个新类型修改 EventAction 的派发循环。
-新增输出模块时：实现 VOutput 的类型写入、扩展名、文件生命周期和合并检查接口，在 OutputManager 工厂表登记名称。
+新增输出模块时：实现 VOutput 的类型建表/写入、扩展名、文件生命周期和结果检查接口，在 OutputManager 工厂表登记名称。
 
 独立测试仍可省略 EventAction 的 RunAction 指针，只产生内存记录。
 `GetEventRecords()`、`GetIncidentRecords()` 保留只读访问；结果保留到下一事件清理。
-空向量在输出时仍可建立零行树；未选择的记录器不调用、不写入、不创建对应树。
+RunAction 用空向量的类型调用 Book()，只建立所选表结构，不写入任何行。
+建表必须在第一次 OpenFile() 之前完成；未选择的记录器不创建对应树。
 
 ### 待后续讨论的字段
 
@@ -673,15 +676,26 @@ LMO 内部源目录为 `generator/lmo_signal/`，下设 `lmo_radioactivity/` 和
 
 ### ROOT 输出模块与 Action 接线
 
-`include/output/RootOutput.hh` 和 `src/output/RootOutput.cc` 提供 `cupid::RootOutput`。
-该类只序列化传入的记录，不调用记录器、不做能量汇总、不选择生成器或探测器。
-当前 EventAction 通过 OutputManager 调用强类型写入接口；RunAction 管理该线程的输出器与文件生命周期。
-`--output DIR` 指定输出目录；省略时创建 `output/job_<timestamp>`。
-正常完成后，每个 run 保存一个 `run0.root`、`run1.root` 等文件，整个作业共用一份 `run.log`。
-MT 主线程不生成事件，而是在 EndOfRunAction 中合并工作线程结果；串行模式直接写最终文件。
-输出目录已有 run.log 或同名输出文件会报错，请为新作业使用新目录。
+`output/RootOutput` 是 `G4AnalysisManager` 的薄适配层：负责记录结构到列的映射、字段检查和 keV 换算，
+不调用记录器、不做能量汇总。`RunAction` 通过 `OutputManager` 管理生命周期；
+`EventAction` 通过强类型 Write 重载逐事件写入。
 
-构建增加 ROOT 6.36.10 的 Core、RIO、Tree 依赖，使用 CMake 导出目标；在 WSL 中配置：
+初始化时调用 `SetDefaultFileType("root")`，MT 模式启用 `SetNtupleMerging(true)`，
+并用 `SetNtupleRowWise(false, true)` 保留独立分支和同一行各列的对应关系。
+主线程与工作线程在构造 RunAction 时按相同顺序建立所选表结构。
+每个线程 BeginOfRunAction 调用 `SetFileName()`、`OpenFile()`；
+每个线程 EndOfRunAction 都调用 `Write()`、`CloseFile()`，由 Geant4 负责原生合并。
+MT 主线程不填写事件行，只在最终关闭后回读汇总结果。
+不再自行拼接工作线程文件名，也不调用 TFileMerger 或另行发布 .partial 文件。
+
+`--output DIR` 指定输出目录；省略时创建 `output/job_<timestamp>`。
+有记录的 run 保存 `run0.root`、`run1.root` 等文件，作业共用一份 `run.log`。
+如果所有已选表都没有数据行，Geant4 11.4.1 会删除空 ROOT 文件；日志明确写出
+`event_rows=0 incident_rows=0 ... file=none(empty)`。不为保留文件而插入虚假物理记录。
+IncidentEnergy 中的零沉积入射行仍是有效记录，因此“没有正沉积”并不必然意味着没有 ROOT 文件。
+输出目录已有 run.log 或同名目标文件会报错，请为新作业使用新目录。
+
+构建仍保留 ROOT 6.36.10 的 Core、RIO、Tree 依赖，使用 CMake 导出目标；在 WSL 中配置：
 
 ```bash
 source /home/loyh/geant4/install/bin/geant4.sh
@@ -702,65 +716,54 @@ ctest --test-dir build -R root-output-checks --output-on-failure
 -DVDT_LIBRARY=/home/loyh/simulation/CUPID-CJPL/build/local-deps/vdt/usr/lib/x86_64-linux-gnu/libvdt.so
 ```
 
-模块编译为 `cupid-output`，主程序和输出测试链接该目标。该类的基本调用顺序如下（生产 Action 已分担文件生命周期与逐事件写入）：
+模块编译为 `cupid-output`。当前 ROOT 链接用于关闭后的文件检查及分析测试，事件写入由 Geant4 执行。
+下面展示单线程中直接调用后端的顺序；生产程序由 Action 完成这些步骤：
 
 ```cpp
 #include "output/RootOutput.hh"
 
 cupid::RootOutput output;
-output.OpenFile("run0_worker0.root");
+output.Book(std::vector<cupid::EventEnergyRecord>{});
+output.Book(std::vector<cupid::IncidentEnergyRecord>{});
+output.OpenFile("run0.root");
 output.WriteEventRecords(runId, eventRecords);
-// Call this independently when incident records are wanted.
 output.WriteIncidentRecords(runId, incidentRecords);
 output.CloseFile();
 ```
 
-`runId` 由调用者提供，两个向量分别来自所选记录器。输出对象需跨事件存活，
-当前由 RunAction 管理打开/关闭，EventAction 每完成一个事件便写入。
-两种 Write 方法独立，首次调用才创建对应树，空向量也会创建一棵零行树。
-未调用的方法不会产生对应树。RootOutput 每次追加调用者传入的全部行，不去重、不重排或再次筛选。
-EventEnergyRecorder 在生成记录时已排除零沉积；IncidentEnergyRecorder 仍保留零沉积入射根。
-重复提交同一批记录会得到重复行，调用者负责仅提交一次。
+Book 的空向量仅表示记录类型，忽略其内容，不写数据行。只调用需要的类型的 Book 即可。
+输出对象跨事件存活；重复提交同一批记录会产生重复行。关闭后可用同一对象打开下一个新文件，
+已建立的表结构保留，Geant4 的默认 CloseFile 重置本次数据；不允许打开文件后再增加新表类型。
+同一线程只允许一个活动 RootOutput 适配器；不要在其他模块另行操作同一个分析单例。
+MT 中每线程有自己的适配器，不能跨线程共享对象。
 
 | 树 | 分支 | 一行含义 |
 | --- | --- | --- |
-| `EventEnergy` | `RunID`、`EventID`、`Edep`、`DetectorName` | 一个 event 中一个探测器的总沉积 |
-| `IncidentEnergy` | 上述字段加 `TrackID` | 一个 event 中一个探测器的一条入射根及其归属后代的总沉积 |
+| `EventEnergy` | `RunID`、`EventID`、`Edep`、`DetectorName` | 一个 event 中一个探测器的正沉积总量 |
+| `IncidentEnergy` | 上述字段加 `TrackID` | 一个 event 中一个探测器的一条入射根及其归属后代的总沉积，可为零 |
 
-ID 是 ROOT `Int_t`，Edep 是 `Double_t`，DetectorName 是 `std::string`。
-写入时从 Geant4 内部能量单位转换为 **keV**；文件中的 `EnergyUnit` 和 `SchemaVersion`
-两个 TNamed 分别标记 `keV` 和 `1`。不做权重、活度、时间或实验响应换算。
-支持 LMO、NTD、LD 等任意非空探测器名，不编码材料或命名规则。
-RunID 只能区分同一作业内的 run。运行配置、随机状态、请求/处理事件数保存到 run.log。
-ROOT 内仍没有跨作业唯一标识或归一化元数据，不能仅凭数据行数推导源事件总数或绝对本底率。
+ID 是 Int_t，Edep 是 Double_t，能量单位仍为 **keV**。
+DetectorName 使用 Geant4 字符串列，ROOT 6.36.10 读回表现为 **TLeafC**，不再是原来的 std::string 对象分支。
+现有手写 SetBranchAddress 分析程序应适配这个变化；项目 C++ 和 PyROOT 检查工具已适配。
+新文件格式标为 schema 2，树标题包含 `Edep in keV; CUPID schema 2`，run.log 同样记录单位与版本。
+不再额外写入 EnergyUnit/SchemaVersion TNamed；检查工具仍支持带这两个对象的历史 schema 1 文件。
 
-多线程使用**每线程一个对象、一个不同文件**；同一对象不可跨线程共享或并发调用，
-多个对象也不能同时写同一路径。模块一次性启用 ROOT 线程安全，不启用 ROOT 隐式线程池。
-RunAction 在主线程 EndOfRunAction 中调用 `OutputManager::MergeFiles()`，由 RootOutput 实现使用 ROOT 的
-`TFileMerger::Merge()`。已核对 Geant4 11.4.1 的 G4MTRunManager::RunTermination：
-主线程会先等待工作线程结束，因此合并时各线程文件已关闭。
-合并先写 `.partial` 文件，读回检查元数据与两棵树的行数总和后发布最终文件，再删除本 run
-明确列出的线程文件。合并失败保留输入及可能存在的 partial 文件用于检查，不把它们当作最终结果。
-不按 EventID 重新排序，分析时使用 RunID/EventID/DetectorName 关联，不能依赖文件内行顺序。
-每树每 10000 行刷新缓冲，每 100000 行自动保存树头，不在模块内积攒整个 run 的记录向量。
-模块初始化会在进程范围将 TTree 自动分卷上限设为最大 Long64_t，避免 ROOT 自动更换/销毁
-模块持有的 TFile；需要分卷时应由调用者显式关闭旧文件并打开新文件。
+所选表预先建立：只要文件保留，其中某个表可以是零行；未选择的表不存在。
+不按 EventID 排序；关联记录应使用 RunID/EventID/DetectorName，以及逐入射表中的 TrackID。
+不做权重、活度、实时时间或实验响应换算。RunID 仅区分同一作业中的 run，
+归一化需要日志里的请求/实际处理事件数，不能用数据行数代替。
 
-`OpenFile` 使用 CREATE 模式，已有同名文件报错，父目录须已存在。未打开时写入、
-非法记录、打开/写入/关闭失败会抛出标准 C++ 异常。整批记录在写入前先验证字段，
-但磁盘 I/O 错误不保证批次原子性，失败文件不应视为完整结果。
-应显式调用 `CloseFile()` 以处理最终写盘错误；析构只是兜底关闭，失败时向标准错误流报告。
-关闭后可复用同一对象打开另一个新文件；不提供追加已有文件或断点续写。
+打开/写入/关闭失败、无效记录、未建表写入等会抛出异常。整批记录先验证再填写，
+但写盘和合并不是事务；失败文件不能视为完整结果。应显式 CloseFile 处理最终写盘错误，析构仅兜底。
+父目录必须存在；不支持追加已有文件或断点续写。
 
-`root-output-checks` 用 ROOT 重新读取实际生成的文件，检查两种表、单位转换、零沉积、
-不同 run、泛用探测器名称、按需建树、空文件、对象复用、错误输入、已有文件保护、
-当前目录恢复，以及两个并行写入对象各 100005 行的刷新/自动保存/关闭与读回结果。
-合并测试还覆盖元数据空文件、空树、完整数据读回、重复/缺失/损坏输入拒绝、已有结果保护。
-`output-integration-checks` 检查实际串行/多线程、连续 run、正沉积与全零事件、日志内容、
-自动清理和失败日志。这些均为软件验证，不等同于物理验证。
+`root-output-checks` 检查实际文件回读、字段和单位、错误输入、覆盖保护、对象复用、空文件删除及 100005 行读回。
+`native-analysis-mt-*` 使用四线程和不同记录器选择（含反向顺序），逐行检查 RunID/EventID/TrackID/
+名称/能量对应关系，覆盖连续 run、空闲工作线程和完全空运行。
+`output-integration-checks` 使用生产程序检查串行及四线程输运、日志、输出文件集合、覆盖保护，
+同时通过 C++ 和 PyROOT 检查工具回读。均属于软件验证，不等同于能谱、本底率的物理验证。
 
-接口参考：ROOT 6.36 [TFile](https://root.cern.ch/doc/v636/classTFile.html)、
-[TTree](https://root.cern.ch/doc/v636/classTTree.html)；同时核对本机 ROOT 6.36.10 头文件和 CMake 配置。
+复用依据与现有模块审查见 [Geant4 源码复用审查](docs/geant4_reuse_audit.md)。
 
 
 ### 双 LMO、外置 Th-232 的 100000 事件运行
@@ -812,9 +815,9 @@ LMO0 有 5 个非零沉积事件，总沉积 794.2298914956012 keV；LMO1 有 4 
 `tests/check_root_records.py` 默认检查正沉积记录与逐入射总量的一致性，不能证明
 未出现在两棵树中的零沉积事件是否完成；完整运行数量需另外核对运行日志。
 
-小样本多线程运行可能有工作线程未分到任何事件，其输出仅含元数据，没有树。
+历史直接 ROOT 写入模式的小样本线程文件可能仅含元数据、没有树；以下兼容选项只用于这类旧文件。
 核对运行日志确认该线程事件数为零后，可给读回检查工具加 `--allow-empty-files`；
-默认仍拒绝缺树文件。仅缺其中一棵树的文件不在此例外内。
+默认仍拒绝缺树文件。仅缺其中一棵树的文件不在此例外内。当前原生合并模式不生成这类独立线程文件。
 
 
 ### 单一运行日志
@@ -823,7 +826,7 @@ LMO0 有 5 个非零沉积事件，总沉积 794.2298914956012 keV；LMO1 有 4 
 错误输出及 Geant4 转发的日志同时写入控制台和输出目录中的 `run.log`。
 无需另外重定向到该路径，尤其不要用 `> 输出目录/run.log`，以免提前创建文件触发保护。
 日志包含命令行、工作目录、Geant4/ROOT 版本、主宏和可解析的静态子宏内容、实际 gun 参数、
-run 的随机状态、各线程处理数、合并后的行数及能量单位说明。
+run 的随机状态、请求/实际处理事件数、合并后的行数、格式版本及能量单位说明。
 宏中的动态别名引用若无法预解析会在日志中注明；运行时实际 gun 参数仍在 run 开始时记录。
 交互式会话中的静态启动宏被保存，任意交互命令不保证全部回显；完整配置复现应使用保存的宏。
 
@@ -835,7 +838,7 @@ output/job_.../
   run.log
 ```
 
-同一进程多次 beamOn 时，每个 run 增加一个 ROOT 文件，全部运行参数、控制台日志和结果摘要
+同一进程多次 beamOn 时，每个有记录的 run 增加一个 ROOT 文件，全部运行参数、控制台日志和结果摘要
 继续写入同一 run.log。不再额外生成 manifest、结果说明、合并日志或自动源码快照。
 目录精简不改变数据含义：EventEnergy 仍只记录正沉积，IncidentEnergy 仍保留零沉积入射根。
 
@@ -844,5 +847,5 @@ output/job_.../
 
 `record-output-manager-checks` 检查无记录器、单一记录器、双记录器和反向选择顺序；
 拒绝未知/重复名称，检查谱系需求、多命中集合与重复探测器名、逐事件清空，以及真实 ROOT 回读中的
-RunID/EventID/TrackID/探测器名称/keV 能量。还验证只生成所选树、管理器文件生命周期和合并后保留输入。
+RunID/EventID/TrackID/探测器名称/keV 能量。还验证只生成所选树、管理器文件生命周期和完全空文件的删除。
 `output-integration-checks` 使用生产 Action 检查串行及四线程连续运行、自动合并和日志中的模块选择。

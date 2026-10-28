@@ -23,6 +23,8 @@ OutputManager::OutputManager(const std::string& name) : fName(name) {
 }
 
 std::string OutputManager::GetFileExtension() const { return fOutput->GetFileExtension(); }
+void OutputManager::Book(const std::vector<EventEnergyRecord>& records) { fOutput->Book(records); }
+void OutputManager::Book(const std::vector<IncidentEnergyRecord>& records) { fOutput->Book(records); }
 void OutputManager::OpenFile(const std::string& fileName) { fOutput->OpenFile(fileName); }
 bool OutputManager::IsOpen() const { return fOutput->IsOpen(); }
 void OutputManager::Write(G4int runId, const std::vector<EventEnergyRecord>& records) {
@@ -32,11 +34,6 @@ void OutputManager::Write(G4int runId, const std::vector<IncidentEnergyRecord>& 
   fOutput->Write(runId, records);
 }
 void OutputManager::CloseFile() { fOutput->CloseFile(); }
-OutputSummary OutputManager::MergeFiles(const std::string& outputName,
-                                        const std::vector<std::string>& inputNames) const {
-  if (IsOpen()) throw std::logic_error("OutputManager: close the file before merging.");
-  return fOutput->Merge(outputName, inputNames);
-}
 OutputSummary OutputManager::InspectFile(const std::string& fileName) const {
   if (IsOpen()) throw std::logic_error("OutputManager: close the file before inspection.");
   return fOutput->Inspect(fileName);
