@@ -38,13 +38,18 @@ for path in args.files:
     file = ROOT.TFile.Open(str(path), 'READ')
     assert file and not file.IsZombie() and not file.TestBit(ROOT.TFile.kRecovered), f'Invalid ROOT file: {path}'
     schema = file.Get('SchemaVersion')
+    format_version = 1
     if schema:
         assert schema.GetTitle() == '1' and file.Get('EnergyUnit').GetTitle() == 'keV', 'Unexpected legacy schema'
     else:
         for name in ['EventEnergy', 'IncidentEnergy']:
             tree = file.Get(name)
             if tree:
-                assert 'Edep in keV; CUPID schema 2' in tree.GetTitle(), 'Unexpected native schema'
+                title = str(tree.GetTitle())
+                version = 3 if 'Edep in keV; CUPID schema 3' in title else 2
+                assert f'Edep in keV; CUPID schema {version}' in title, 'Unexpected native schema'
+                assert format_version in (1, version), 'Mixed table schemas'
+                format_version = version
     event_tree = file.Get('EventEnergy')
     incident_tree = file.Get('IncidentEnergy')
     if schema and not event_tree and not incident_tree and args.allow_empty_files:
@@ -55,6 +60,10 @@ for path in args.files:
     assert event_tree and incident_tree, f'Missing requested tree: {path}'
     file_counts.append({'file': str(path.resolve()), 'event_rows': int(event_tree.GetEntries()),
                         'incident_rows': int(incident_tree.GetEntries())})
+    if format_version == 3:
+        assert [b.GetName() for b in incident_tree.GetListOfBranches()] == [
+            'RunID', 'EventID', 'TrackID', 'PDG', 'Edep', 'DetectorName'], 'Unexpected incident columns'
+        assert incident_tree.GetLeaf('PDG').GetTypeName() == 'Int_t', 'Unexpected PDG type'
     for row in event_tree:
         key = (int(row.RunID), int(row.EventID), detector_name(row))
         energy = float(row.Edep)
@@ -69,6 +78,10 @@ for path in args.files:
         energy = float(row.Edep)
         assert row.TrackID > 0 and root_key not in incident_keys, f'Invalid/duplicate incident key: {root_key}'
         assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {root_key}'
+        if format_version == 3:
+            assert energy > 0., f'Zero-energy incident row: {root_key}'
+            pdg = int(row.PDG)  # Preserve signed, zero and nuclear Geant4 encodings.
+            assert -(2**31) <= pdg < 2**31, f'Invalid PDG field: {root_key}'
         incident_keys.add(root_key)
         incident_totals[key] += energy
         incident_rows += 1

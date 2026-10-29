@@ -1,11 +1,12 @@
-# CUPID-CJPL 初级 Geant4 framework
+# CUPID-CJPL Simulation Framework
 
-v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行测试粒子输运。
+v0.1 原型框架；当前状态更新于 2026-10-29。支持宏控制几何、粒子输运、LMO 能量统计与 ROOT 多线程输出。
 
 这是独立的新工程。参考工程只用于理解尺寸和装置关系，没有作为构建依赖。
 当前仅测试粒子枪可运行；Th-232/Co-56 专属发生器保留接口占位，尚未确定源模型。
 公共组件提供固定点、直接体积、直接表面、体积拒绝四种采样器及核素发射工具，供后续具体发生器自行调用。
-当前支持晶体能量 ROOT 输出；岩石、大厅、电子学和波形尚未实现。
+当前支持 LMO 能量 ROOT 输出。两种记录器均只保留汇总后 `Edep > 0` 的记录；逐入射表包含入射根 TrackID 和 PDG。
+岩石、大厅、铜支架、NTD/LD 几何、电子学和波形尚未实现。
 `EventAction` 通过 `RecordManager` 按名称选择记录类，当前默认开启两种统计；`TrackingAction` 为逐入射统计登记当前事件的轨迹关系。
 `RunAction` 管理各线程的文件生命周期，由 Geant4 原生分析管理器合并结果；`SteppingAction` 保留空接口，`StackingAction` 维持默认分类。
 `StackingAction::ClassifyNewTrack()` 返回 `fUrgent`，所有轨迹留在当前事件中继续处理。
@@ -17,6 +18,8 @@ v0.1：通过 `.mac` 选择几何组件，显示装置、检查重叠，运行�
 要求 Geant4 **11.4.1**（启用多线程）、ROOT **6.36.10**、C++17、CMake >= 3.16。
 默认构建可视化版本，链接 ROOT Core/RIO/Tree。输出集成测试同时调用 PyROOT 回读检查；
 实际结果检查工具 `tests/check_root_records.py` 使用 ROOT 安装自带的 PyROOT。
+实际开发环境为 Windows 11 上的 WSL Ubuntu 24.04，可用 VSCode 的 WSL 窗口编辑和运行。
+以下命令均在 WSL 终端执行；不是 Windows 原生 Geant4/ROOT 构建说明。
 本机 Vdt 开发依赖位置与重建配置见后文 ROOT 输出模块部分。
 
 在 **WSL 的终端**中进入本工程目录：
@@ -41,7 +44,7 @@ cmake --build build -j4
 
 ```bash
 # 批处理；默认两条工作线程
-./build/cupid-sim run.mac --threads 2
+./build/cupid-sim run.mac --threads 2 --output results/run_001
 
 # 真正的串行运行管理器
 ./build/cupid-sim run.mac --serial
@@ -118,47 +121,73 @@ Run Summary
 示例 `macros/geometry.mac` 是共享的装置配置。修改示例宏后重新执行 CMake 配置，
 或直接把源文件路径传给程序，例如 `./build/cupid-sim macros/run.mac`。
 
-## 4. 文件职责
+## 4. 文件结构与模块职责
+
+![Current project file structure](docs/figures/file-structure.svg)
+
+`include/` 和 `src/` 按模块对应组织；下图用文件主名合并表示 `.hh/.cc`。
+`[H]` 表示只有头文件，`[P]` 表示类已建立但源模型未实现，`[E]` 表示仅有 `.gitkeep` 的预留目录。
 
 ```text
-main.cc                         程序入口、运行模式、物理列表注册
-include/ + src/                 头文件和实现一一对应
-  DetectorConstruction          世界创建、整体构造和灵敏探测器挂载
-  LMOSensitiveDetector      接收晶体 step，生成事件内的基础命中集合
-  ActionInitialization          创建线程局部的用户 actions
-  PrimaryGeneratorAction        调用 GeneratorManager，统一传播源错误
-  PhysicsList                   逐项注册物理构造器和设置参数
-  RunAction                     持有 OutputManager，管理各线程文件生命周期，使用 G4 原生合并
-  EventAction                   调用 RecordManager，以强类型将记录交给 OutputManager
-  SteppingAction                每步处理接口，暂为空
-  TrackingAction                首次跟踪时登记 TrackID、ParentID 和出生体积
-  StackingAction                新轨迹分类、新阶段、事件准备接口
-  generator/                    场景调度入口、公共组件及专属源占位目录
-  DetectorHit                   每个探测器的逐轨迹基础沉积集合
-  record/
-    RecordManager               按名称选择记录器，保存本事件各类型结果
-    EventEnergyRecorder         每事件、每探测器的总沉积及 EventEnergyRecord 结构体
-    IncidentEnergyRecorder      每入射根的总沉积及 IncidentEnergyRecord 结构体
-    TrackAncestry               本事件全部已跟踪粒子的父子关系和出生体积
-  geometry/
-    GeometryManager             组件开关、装配、源体积登记与查询、重叠检查
-    SourceVolumeInfo.hh         物理放置指针及局部到世界坐标变换
-    GeometryMessenger           /cupid/geometry/ 命令
-    GeometryParameters.hh       主要尺寸、坐标和晶体数量
-    Cryostat                    冷板、铜罩和铝罩
-    InnerShielding              三段内铜屏蔽
-    LMOArray                一颗或两颗 LMO
-  output/
-    VOutput                     文件生命周期、强类型 Write 重载及合并检查接口
-    OutputManager               按名称创建一个输出模块，转发数据及文件操作
-    RootOutput                  ROOT 分支映射、单位转换和文件合并
-    RunLog                      作业日志与终端输出同步
-  materials/Materials           统一材料定义
-macros/                         几何选择、显示、检查和运行示例
-tests/check_framework.py        小规模端到端检查
-tests/check_materials.cc        材料配方与查询一致性检查
-tests/check_physics.py          过程注册、衰变与输运冒烟检查
+CUPID-CJPL/
+├── main.cc                           应用入口与运行模式
+├── CMakeLists.txt                    构建依赖、源码目标与测试注册
+├── README.md / AGENTS.md / history.log
+├── include/ + src/
+│   ├── DetectorConstruction          世界与组件构造、SD 挂载
+│   ├── ActionInitialization          构造主线程/工作线程 Action
+│   ├── PrimaryGeneratorAction        调用 GeneratorManager
+│   ├── PhysicsList                   注册 G4 物理构造器
+│   ├── RunAction                     输出建表、文件生命周期与运行摘要
+│   ├── EventAction                   调用 RecordManager 并派发记录
+│   ├── TrackingAction                登记 TrackID、ParentID、出生体积、PDG
+│   ├── SteppingAction                当前为空的逐步回调
+│   ├── StackingAction                当前保留默认 urgent 分类
+│   ├── LMOSensitiveDetector          接收 LMO 中的 step
+│   ├── DetectorHit                   按探测器/TrackID 累加原始沉积
+│   ├── geometry/
+│   │   ├── GeometryManager / GeometryMessenger
+│   │   ├── GeometryParameters [H] / SourceVolumeInfo [H]
+│   │   └── Cryostat / InnerShielding / LMOArray
+│   ├── materials/
+│   │   └── Materials
+│   ├── generator/
+│   │   ├── GeneratorManager / GeneratorMessenger / VGenerator [H]
+│   │   ├── toolkit/
+│   │   │   ├── NuclideEmitter
+│   │   │   └── sampler/
+│   │   │       ├── PointSampler / RejectionVolumeSampler
+│   │   │       └── DirectVolumeSampler / DirectSurfaceSampler
+│   │   ├── background/
+│   │   │   └── environment/ [E] / copper_frame/ [E] / cosmic/ [E]
+│   │   ├── calibration/
+│   │   │   ├── th232/Th232Generator [P]
+│   │   │   └── co56/Co56Generator [P]
+│   │   └── lmo_signal/
+│   │       ├── lmo_radioactivity/ [E]
+│   │       └── double_beta_decay/
+│   │           ├── TwoNuDoubleBetaDecayGenerator [P]
+│   │           └── ZeroNuDoubleBetaDecayGenerator [P]
+│   ├── record/
+│   │   ├── RecordManager / TrackAncestry
+│   │   └── EventEnergyRecorder / IncidentEnergyRecorder
+│   └── output/
+│       └── OutputManager / VOutput [H] / RootOutput / RunLog
+├── macros/                           8 个运行/几何/可视化宏
+├── tests/                            14 个 C++/Python 检查源文件
+├── docs/                             源码复用审查、历史验证与结构图
+├── build/                            本地构建及测试产物，不纳入 Git
+└── results/                          本地模拟结果，不纳入 Git
 ```
+
+几何、发生器、记录和输出是四个主要功能模块；材料提供独立的共享定义。
+外层 DetectorConstruction 和 Action 类负责把模块接入 Geant4 生命周期。
+SD 位于顶层，与 Action 同层；record 中的类负责统计策略，output 中的类负责数据写入。
+
+![Current framework data flow](docs/figures/data-flow.svg)
+
+图中的模块组织表示当前实现。专属背景、刻度和 LMO 信号发生器仍为预留或占位；
+可运行的初级粒子路径是 `G4ParticleGun`，不应把已有占位文件视为完整物理源模型。
 
 ## 5. 几何事实与暂定假设
 
@@ -250,7 +279,7 @@ G4LEVELGAMMADATA 和 HP 中子所需的 G4NEUTRONHPDATA；请使用本机 Geant4
 默认 `gun` 模式仍支持 `/gun/particle ion` 和 `/gun/ion Z A 0 0`。
 Th-232/Co-56 专属发生器尚未实现。现有物理冒烟测试使用粒子枪发射初始核素，
 再由物理列表处理其衰变和输运；这不代表已经实现实验刻度源模型。
-暂不提供单次衰变截断、源平衡、活度归一化、衰变时间整理或 ROOT 计分。
+当前已实现 LMO 能量记录和 ROOT 输出；尚不提供单次衰变截断、源平衡、活度归一化或探测器时间分组。
 整链沉积总和不能直接当作单次探测器脉冲能量。
 宇宙线通量/角分布和双贝塔衰变末态发生器也尚未实现。
 本版不包含光学光子、声子、电荷收集或电子学响应。
@@ -263,7 +292,8 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 几何宏命令只由主线程处理，不广播到工作线程。
 `ActionInitialization::BuildForMaster()` 只注册 `RunAction`；
 `Build()` 为串行执行或每个工作线程分别注册粒子枪与上述五个 actions。
-当前接口不累计能量、不筛选轨迹、不保存记录；`StackingAction` 也不推迟轨迹到后续事件。
+LMOSensitiveDetector 累计基础沉积，EventAction 调用记录器并将结果交给输出模块。
+SteppingAction 当前为空；StackingAction 不筛选轨迹，也不推迟轨迹到后续事件。
 未实现的 generator 场景目录用 `.gitkeep` 保留；`record/` 提供当前的两种能量统计及溯源工具。
 
 ## 7. 添加组件
@@ -281,12 +311,18 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 
 ## 8. 小团队协作
 
-几何成员主要修改 `geometry/`；源成员主要修改 `generator/` 中各自的场景目录；
-运行与后续记录成员修改 actions。新增公共命令、坐标或晶体编号需在 README 中同步说明。
-采用个人分支及代码审查；提交前运行上述 CTest 检查。
+几何成员主要修改 `geometry/` 与 `materials/`；源成员修改 `generator/` 中各自的场景目录；
+记录与输出成员分别修改 `record/`、`output/`，生命周期接线通过外层 Action 完成。
+新增公共命令、坐标、探测器编号或输出字段需在 README 中同步说明。
+采用个人分支及代码审查；提交前完成与改动相关的 CTest 检查，合并前执行约定的完整回归。
+目前仓库提供 CTest 检查，尚未配置远程 CI 工作流。
+开发任何功能前先检查当前版本 Geant4 `source/` 下的 G4 头文件和实现，优先复用适用接口，不能仅参考 examples。
+需要核对单位、权重、线程与错误语义；复用决定见 [源码复用审查](docs/geant4_reuse_audit.md)。
+英文注释说明当前职责；修改经过统一记入 `history.log`，不在代码中堆积修改记录。
 类的私有/受保护成员采用 `fGenerator`、`fGeometry` 等命名；局部变量和参数使用普通小写开头名称。
 纯数据参数结构保留 `lmoCount` 等字段名，不为公开参数字段额外添加前缀。
-`build/`、输出文件和机器本地路径不提交 Git。
+按现有 `.gitignore`，`build*/`、`output/`、`results/`、ROOT 数据和普通日志不提交；
+`history.log` 是明确保留的例外。机器本地 CMake 配置也被忽略；README 中的本机路径仅为使用示例。
 
 ## 9. 已核对的官方接口资料
 
@@ -297,53 +333,33 @@ Th-232 链到 Pb-208，以及双工作线程的 Co-56 衰变。这些是软件�
 工程组织参考 [SimulationTool](https://github.com/Loyh617/SimulationTool) 的 `include/src` 对应结构；
 新工程不依赖或修改该仓库。
 
-## 10. 本次验证记录（2026-10-17）
+## 10. 验证范围与最近结果
 
-实际验证环境：WSL Ubuntu 24.04、GCC 13.3.0、CMake 3.28.3、
-Geant4 11.4.1 Release / MT / C++17。
+当前 CTest 注册 **21 项测试**。它们区分以下用途：
 
-- 开启可视化的版本与 `CUPID_WITH_VIS=OFF` 版本均编译成功。
-- 21 项自动检查通过：八种组件组合、双晶体、开关关闭、非法名称/数量/命令、
-  初始化后修改拒绝、嵌套宏错误传播、重复运行、串行/双线程输运、
-  晶体内部真实输运 step、缺失宏、无窗口 PNG 渲染。
-- 全部组件的 20 个物理放置体积通过每体积 20,000 次抽样重叠检查。
-- `run.mac` 在串行和四工作线程下分别完成 1,000 个事件。
-- `lmo_only.mac` 在双工作线程下完成 1,000 个事件。
-- 关闭可视化的版本在双工作线程下完成 1,000 个事件。
-- 已查看 `build/test-results/geometry.png`，确认完整装置可见。
-- 交互式 WSLg/OpenGL 窗口未在本次自动验证中启动；无窗口显示使用 `TSG_OFFSCREEN`。
+| 类别 | 覆盖范围 | 能证明什么 |
+| --- | --- | --- |
+| 几何检查 | 组件组合、名称、晶体布局、重叠抽样、源位置与坐标变换 | 软件装配与所检查几何条件一致；仍需机械图纸核对 |
+| 软件回归 | 采样分布、命令错误处理、SD、谱系归属、记录器选择、ROOT 回读与 MT 合并 | 给定输入下接口和数据行为符合预期 |
+| 物理冒烟 | 过程注册、Th-232/Co-56 衰变、电子/γ/中子/μ 子输运 | 配置可执行、过程能被触发；不等于物理精度验证 |
+| 待完成的物理验证 | 产生阈值收敛、刻度谱、分支比、中子产额、宇宙线及本底率 | 需要独立基准或实验数据，当前未完成 |
 
-日志在本地 `build/test-results/` 和 `build/Testing/Temporary/LastTest.log`。
-源码压缩包不包含编译产物和日志；可按上述命令重新生成。
-这些是软件与几何检查结果，不代表已完成刻度谱、本底率或实验几何的物理验证。
+最近已完成的验证：
 
-### 材料库更新验证（2026-10-18）
+- 2026-10-28：Geant4 11.4.1 / ROOT 6.36.10 环境下，全部 21 项 CTest 通过。
+- 2026-10-29：入射根正沉积筛选、PDG 与列顺序变更后，编译无告警，14 项相关回归测试通过；
+  包括真实串行/多线程输运、独立能量与 PDG 检查、四工作线程合并和 C++/PyROOT 回读。
+- 历史 100000-event Th-232 文件通过只读兼容检查，原结果未改写。
 
-- 已在上述 WSL / Geant4 11.4.1 环境重新编译可视化版本。
-- CTest 的 `material-checks` 和 `framework-checks` 均通过。
-- 新增材料检查覆盖 8 种参考材料的密度、配比、同位素条目、显式温度/压力、
-  材料名称查询、未知名称拒绝，以及重复初始化不新增材料/元素。
-- 原有 21 项端到端检查全部通过，包括串行/双线程输运和无窗口渲染。
+```bash
+source /home/loyh/geant4/install/bin/geant4.sh
+source /home/loyh/root/bin/thisroot.sh
+ctest --test-dir build --output-on-failure
+```
 
-### PhysicsList 接入验证（2026-10-18）
-
-- 在本地工程 `/home/loyh/simulation/CUPID-CJPL` 编译成功。
-- CTest 的材料、框架和物理接入三组检查全部通过。
-- 原有 21 项框架检查通过，包括串行/双线程输运与无窗口渲染。
-- 新增 3 项物理冒烟检查通过：实际过程列表和 μ 子/中子输运、
-  单事件 Th-232 子核链到 Pb-208、双工作线程下 4 个 Co-56 衰变事件。
-- 日志：`build/physics-test-results/`。本记录不代表已完成物理精度验证。
-
-
-### Action 接口占位验证（2026-10-21）
-
-- 已核对本机 Geant4 11.4.1 的五种用户 Action 头文件接口并编译成功。
-- `RunAction`、`EventAction`、`SteppingAction`、`TrackingAction` 的回调暂为空。
-- `StackingAction` 默认返回 `fUrgent`，其余回调为空。
-- CTest 三组检查全部通过：材料、21 项框架检查、3 项物理冒烟检查。
-- 事件完成数检查使用 `/run/verbose 1` 的 Geant4 原生摘要，包含串行、双线程及重复运行。
-- `include/` 和 `src/` 下的 `generator/`、`record/` 均已建立且为空。
-
+CTest 详细结果在 `build/Testing/Temporary/LastTest.log`，各专项检查还会在 build 下产生自己的结果目录。
+本机路径只作为示例，换机器时使用对应的 Geant4/ROOT 安装路径。
+早期开发过程与验证记录见 [历史验证记录](docs/validation_history.md) 和 [history.log](history.log)。
 
 ## 11. 分场景 generator 与独立采样器
 
@@ -377,8 +393,8 @@ include/generator/                  src/generator/ 有对应实现
 
 ### 发生器选择与命令
 
-`ActionInitialization` 只保存发生器名称和诊断输出级别两个成员，主线程在 PreInit
-阶段设置，工作线程运行期间只读。没有通用的源配置结构，也不集中决定采样算法。
+发生器选择相关配置是名称与诊断输出级别，由主线程在 PreInit 阶段设置，工作线程运行期间只读。
+ActionInitialization 还管理输出目录、命令接口及源失败状态。没有通用的源配置结构，也不集中决定采样算法。
 
 | 命令 | 当前用途 |
 | --- | --- |
@@ -389,8 +405,8 @@ include/generator/                  src/generator/ 有对应实现
 
 通用 `/cupid/generator/position`、`/cupid/generator/point`、
 `/cupid/generator/volume` 命令已移除，旧宏使用它们会明确报错。
-两份刻度源示例宏也已移除；重新构建不会再复制这些宏。
-测试粒子枪的 `/gun/position` 等命令保持可用。
+测试粒子枪的 `/gun/position` 等命令保持可用。当前 `macros/th232_two_lmo.mac` 基于 gun 发射 Th-232，
+不调用专属 Th232Generator，也不代表已完成源封装、活度或实验刻度模型。
 
 ### 由具体发生器选择采样方式
 
@@ -478,12 +494,14 @@ const auto onHemisphere = surface.SampleHemisphere(10.*mm);
 ```
 
 体积均匀与面积均匀使用不同的概率分布。圆柱横截面取 `r = R*sqrt(u)`；
-球体取 `r = R*cbrt(u)`，方向上取均匀 `cos(theta)` 和方位角。
-球面固定半径，`cos(theta)` 均匀分布于 [-1,1]；半球面为 [0,1]。
+球体取 `r = R*cbrt(u)`，再用 `G4RandomDirection()` 生成球心指向采样点的单位向量。
+球面固定半径并使用同一函数；半球面使用 `G4RandomDirection(0.)`，其局部 `cos(theta)` 均匀分布于 [0,1]。
+这里的方向只用于构造位置坐标，不设置粒子的动量或发射方向；实际发射方向由具体发生器决定。
 矩形和长方体各坐标独立均匀采样。所有随机数来自当前 Geant4 随机引擎，
 不在采样器内设置种子；运行仍由 `/random/` 命令管理。
 接口核对依据为本机 Geant4 11.4.1 源码，以及官方版本的
-[Randomize.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/HEPRandom/include/Randomize.hh) 和
+[Randomize.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/HEPRandom/include/Randomize.hh)、
+[G4RandomDirection.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/HEPRandom/include/G4RandomDirection.hh) 和
 [G4PhysicalConstants.hh](https://github.com/Geant4/geant4/blob/v11.4.1/source/global/management/include/G4PhysicalConstants.hh)。
 
 直接采样器只描述数学区域，不要求 World 或物理体已构建，也不自动检查 World 边界、
@@ -541,7 +559,7 @@ geometry.RegisterSourceVolume(physical, parent);
 当前事件中的数据流为：
 
 ```text
-TrackingAction → TrackAncestry：TrackID、ParentID、首次跟踪时的出生物理体名称
+TrackingAction → TrackAncestry：TrackID、ParentID、首次跟踪时的出生物理体名称、PDG
 LMOSensitiveDetector → LMOSD/Edep：每块 LMO、每条 Track 的原始沉积
 EventAction → RecordManager → 所选 Recorder → 原始记录向量 → OutputManager → RootOutput
 ```
@@ -561,9 +579,10 @@ TrackAncestry 和 EventAction 的记录向量。记录是值对象，后续输�
 | 记录类 | 记录字段 | 每行含义 |
 | --- | --- | --- |
 | EventEnergyRecorder | eventId、edep、detectorName | 一个事件中一块探测器的总沉积 |
-| IncidentEnergyRecorder | eventId、trackId、edep、detectorName | 一个事件中一块探测器的一个入射根及归属后代的总沉积 |
+| IncidentEnergyRecorder | eventId、trackId、pdg、edep、detectorName | 一个事件中一块探测器的一个入射根及归属后代的总沉积 |
 
 字段 `eventId`、`trackId`、`edep` 分别对应所需的 EventID、入射根 TrackID 和 Edep。
+`pdg` 记录对应探测器入射根的 `GetPDGEncoding()`，不是实际产生某一步沉积的后代粒子 PDG。
 `detectorName` 使用 `LMO0`、`LMO1` 等物理体名称；当前 LMO 的逻辑体名称与物理体相同。
 记录类不硬编码 LMO 前缀，后续 NTD/LD 的 SD 可生成相同类型的集合，但名称必须全局唯一。
 NTD/LD 几何和 SD 尚未实现；测试只用合成数据验证名称通用性。
@@ -571,8 +590,10 @@ NTD/LD 几何和 SD 尚未实现；测试只用合成数据验证名称通用性
 能量使用 Geant4 内部单位，未乘统计权重、未做展宽或阈值处理；输出时再明确转换为 keV 或 MeV。
 逐事件记录只包含该事件内总沉积 `Edep > 0` 的探测器，不额外设置能量阈值。
 若仅 LMO0 有沉积，只记录 LMO0；所有探测器都为零时，不生成 EventEnergy 记录。
-逐入射记录保留总沉积为零的根；完全没有轨迹访问的探测器没有入射记录。
-中止事件不生成结果行。正常零沉积事件不生成逐事件行，但若有粒子访问晶体，仍可有零沉积入射行。
+逐入射记录在完成谱系归属及每探测器、每入射根汇总后，仅保留总 `Edep > 0` 的记录，不设额外阈值。
+SD 和谱系表仍保留零沉积轨迹，避免丢失入射粒子的后代沉积；根自身沉积为零但后代沉积为正时仍保留。
+同一 Track 在不同探测器分别筛选，不因一块探测器中为零而删除其他探测器的记录。
+中止事件不生成结果行。正常全零沉积事件也不会生成任何一种能量记录；IncidentEnergy 行数不再代表全部入射根数量。
 
 ### 逐入射粒子的归属规则
 
@@ -648,12 +669,12 @@ RunAction 用空向量的类型调用 Book()，只建立所选表结构，不写
 
 ### 待后续讨论的字段
 
-- RunID、作业/配置标识、随机种子：EventID 在不同 run/job 中会重复，需要组合标识保证追溯。
-- 入射根粒子名称/PDG、ParentID、产生过程，以及“外部入射/内部初级/边界出生”分类。
+- 跨作业唯一标识、输出内的配置和随机状态关联：已有 RunID 仅区分单个作业内的运行。
+- 入射根粒子名称、ParentID、产生过程，以及“外部入射/内部初级/边界出生”分类。
 - 入射能量、位置、方向及首次入射时间；若要做时间分组，还需保存分段时间数据而非一个总量。
-- 统计权重、零沉积筛选策略、中止事件计数和归一化信息。
+- 统计权重、独立的全部入射根计数、中止事件计数和归一化信息。
 
-这些字段尚未加入最终记录结构；ParentID 和出生体积目前仅作为内部溯源信息使用。
+RunID 已由输出模块补充，PDG 已加入逐入射记录。其他扩展尚未加入最终记录结构；ParentID 和出生体积目前仅作为内部溯源信息使用。
 
 ### 验证范围
 
@@ -692,7 +713,7 @@ MT 主线程不填写事件行，只在最终关闭后回读汇总结果。
 有记录的 run 保存 `run0.root`、`run1.root` 等文件，作业共用一份 `run.log`。
 如果所有已选表都没有数据行，Geant4 11.4.1 会删除空 ROOT 文件；日志明确写出
 `event_rows=0 incident_rows=0 ... file=none(empty)`。不为保留文件而插入虚假物理记录。
-IncidentEnergy 中的零沉积入射行仍是有效记录，因此“没有正沉积”并不必然意味着没有 ROOT 文件。
+当前两种记录器都只输出正沉积；正常完成的全零沉积 run 因此只留下日志，不保留空 ROOT 文件。
 输出目录已有 run.log 或同名目标文件会报错，请为新作业使用新目录。
 
 构建仍保留 ROOT 6.36.10 的 Core、RIO、Tree 依赖，使用 CMake 导出目标；在 WSL 中配置：
@@ -740,13 +761,15 @@ MT 中每线程有自己的适配器，不能跨线程共享对象。
 | 树 | 分支 | 一行含义 |
 | --- | --- | --- |
 | `EventEnergy` | `RunID`、`EventID`、`Edep`、`DetectorName` | 一个 event 中一个探测器的正沉积总量 |
-| `IncidentEnergy` | 上述字段加 `TrackID` | 一个 event 中一个探测器的一条入射根及其归属后代的总沉积，可为零 |
+| `IncidentEnergy` | `RunID`、`EventID`、`TrackID`、`PDG`、`Edep`、`DetectorName` | 一个 event 中一个探测器的一条入射根及其归属后代的正沉积总量 |
 
-ID 是 Int_t，Edep 是 Double_t，能量单位仍为 **keV**。
+上表分支按列出的顺序建立，TrackID 紧跟 EventID。ID 和 PDG 是 Int_t，Edep 是 Double_t，能量单位仍为 **keV**。
+PDG 原样保存 Geant4 编码，例如 γ 为 22、电子为 11、正电子为 -11；允许负值、0 和核素编码，不通过名称自行推算。
 DetectorName 使用 Geant4 字符串列，ROOT 6.36.10 读回表现为 **TLeafC**，不再是原来的 std::string 对象分支。
 现有手写 SetBranchAddress 分析程序应适配这个变化；项目 C++ 和 PyROOT 检查工具已适配。
-新文件格式标为 schema 2，树标题包含 `Edep in keV; CUPID schema 2`，run.log 同样记录单位与版本。
-不再额外写入 EnergyUnit/SchemaVersion TNamed；检查工具仍支持带这两个对象的历史 schema 1 文件。
+新文件格式标为 schema 3，树标题包含 `Edep in keV; CUPID schema 3`，run.log 同样记录单位与版本。
+不额外写入 EnergyUnit/SchemaVersion TNamed；检查工具仍支持历史 schema 1 和 schema 2 文件。
+历史格式没有 PDG 列，可能含零沉积入射根，读取时按原格式检查，不伪造 PDG，也不重写旧结果。
 
 所选表预先建立：只要文件保留，其中某个表可以是零行；未选择的表不存在。
 不按 EventID 排序；关联记录应使用 RunID/EventID/DetectorName，以及逐入射表中的 TrackID。
@@ -759,7 +782,7 @@ DetectorName 使用 Geant4 字符串列，ROOT 6.36.10 读回表现为 **TLeafC*
 
 `root-output-checks` 检查实际文件回读、字段和单位、错误输入、覆盖保护、对象复用、空文件删除及 100005 行读回。
 `native-analysis-mt-*` 使用四线程和不同记录器选择（含反向顺序），逐行检查 RunID/EventID/TrackID/
-名称/能量对应关系，覆盖连续 run、空闲工作线程和完全空运行。
+PDG/名称/能量对应关系及分支顺序，覆盖连续 run、空闲工作线程和完全空运行。
 `output-integration-checks` 使用生产程序检查串行及四线程输运、日志、输出文件集合、覆盖保护，
 同时通过 C++ 和 PyROOT 检查工具回读。均属于软件验证，不等同于能谱、本底率的物理验证。
 
@@ -802,13 +825,11 @@ LMO0 有 5 个非零沉积事件，总沉积 794.2298914956012 keV；LMO1 有 4 
 单位为 keV，事件聚合不使用探测器时间窗口，结果不能直接按实验脉冲解释。
 
 
-### build 测试产物清理与零沉积筛选
+### 测试产物与零沉积筛选
 
-已清理旧的 `build/test-results`、`physics-test-results`、`generator-test-results`、
-`root-output-test-results` 和 `Testing` 日志，以及废弃的 `check-crystal-sd` 可执行文件与对象目录。
-当前可执行文件、CMake 缓存、编译对象和 `build/local-deps/vdt` 构建依赖保留。
-`results/` 中的正式 Th-232 输出及其追溯文件不属于这次清理范围。
-验证后只保留最新测试日志及当前检查结果，不自动删除历史生产数据。
+`build/` 保存可执行文件、CMake 缓存、编译对象、本机依赖及测试结果，不参与 Git 提交。
+`results/` 和默认的 `output/` 保存本地运行结果；测试不自动删除历史生产数据。
+版本控制记录源码、宏、测试和文档，运行日志记录实际参数及处理事件数。
 
 逐事件记录现在仅保存严格大于零的总沉积。零沉积事件不会占 EventEnergy 行，但
 仍是实际运行事件的一部分；归一化分母应读取运行日志或运行配置。
@@ -840,12 +861,81 @@ output/job_.../
 
 同一进程多次 beamOn 时，每个有记录的 run 增加一个 ROOT 文件，全部运行参数、控制台日志和结果摘要
 继续写入同一 run.log。不再额外生成 manifest、结果说明、合并日志或自动源码快照。
-目录精简不改变数据含义：EventEnergy 仍只记录正沉积，IncidentEnergy 仍保留零沉积入射根。
+当前 EventEnergy 与 IncidentEnergy 均只记录汇总后的正沉积。零沉积轨迹仍保留在事件内部，供正确追溯入射根。
 
 
 ### 管理器验证
 
 `record-output-manager-checks` 检查无记录器、单一记录器、双记录器和反向选择顺序；
 拒绝未知/重复名称，检查谱系需求、多命中集合与重复探测器名、逐事件清空，以及真实 ROOT 回读中的
-RunID/EventID/TrackID/探测器名称/keV 能量。还验证只生成所选树、管理器文件生命周期和完全空文件的删除。
+RunID/EventID/TrackID/PDG/探测器名称/keV 能量。还验证只生成所选树、管理器文件生命周期和完全空文件的删除。
 `output-integration-checks` 使用生产 Action 检查串行及四线程连续运行、自动合并和日志中的模块选择。
+
+
+## 查看 ROOT 文件
+
+在已加载 ROOT 环境的 WSL 终端中，替换为自己的结果路径：
+
+```bash
+rootls -t results/run_001/run0.root
+root -l
+```
+
+随后在 ROOT 提示符中执行：
+
+```cpp
+auto* f = TFile::Open("results/run_001/run0.root", "READ");
+f->ls();
+auto* events = f->Get<TTree>("EventEnergy");
+auto* incidents = f->Get<TTree>("IncidentEnergy");
+events->Print();
+incidents->Print();
+incidents->Scan("RunID:EventID:TrackID:PDG:Edep:DetectorName", "", "", 10);
+```
+
+此示例针对启用两种记录器且有正沉积的新格式结果。只启用一个记录器时仅查看对应树；
+历史 schema 1/2 没有 PDG 列，应从 Scan 表达式中去掉 PDG。全零运行没有 ROOT 文件，查看 run.log 即可。
+使用 `.q` 退出 ROOT。树的行数不等于模拟事件总数。
+
+## Git 提交与远程推送
+
+`git commit` 保存本地版本；`git push` 把提交发送到远程仓库。已有本地 Git 历史，无需重新 `git init`。
+以下命令从 WSL 中的项目根目录执行，示例分支为 `main`。
+
+先查看并提交当前源码与文档：
+
+```bash
+cd /home/loyh/simulation/CUPID-CJPL
+git status --short
+git diff --stat
+git add README.md history.log include/ src/ tests/ docs/
+git diff --cached --stat
+git diff --cached --check
+git commit -m "Record positive incident deposits with PDG and refresh documentation"
+```
+
+此暂存列表针对本次修改。以后若修改宏、CMake 或其他项目文件，也应把相应路径加入暂存。
+首次在另一台机器提交若提示作者身份未设置，可用 `git config user.name "Your Name"` 和
+`git config user.email "your-email@example.com"` 配置该仓库的作者信息。
+
+首次连接远程仓库时，先在所用平台建立空仓库，复制其 HTTPS 或 SSH 地址。
+例如 GitHub 新建仓库时，不另行初始化 README、.gitignore 或 License，避免创建另一份初始提交。
+不要将参考项目的仓库地址当作本项目的推送地址。
+
+```bash
+git remote -v
+# Replace YOUR_REMOTE_REPOSITORY_URL with your repository's clone URL.
+git remote add origin YOUR_REMOTE_REPOSITORY_URL
+git push -u origin main
+```
+
+`remote add` 仅在还没有 origin 时执行；已有 origin 时先检查它是否指向正确仓库。
+`-u` 为 main 建立上游关系，之后提交新的修改再执行 `git push` 即可。
+推送需要远程平台的有效身份认证；使用平台支持的凭据或已配置的 SSH 密钥。
+若远程已有独立提交，应先检查并整合历史，不通过强制推送覆盖它。
+
+多人开发建议使用功能分支，例如 `git switch -c feature/source-th232`，完成后推送该分支并通过代码审查合并。
+本项目当前的自动化验证入口是 CTest；远程 CI 可在后续配置。
+
+操作参考：[Git add](https://git-scm.com/docs/git-add)、[Git push](https://git-scm.com/docs/git-push)、
+[GitHub 导入本地仓库](https://docs.github.com/en/migrations/importing-source-code/using-the-command-line-to-import-source-code/adding-locally-hosted-code-to-github)。

@@ -65,20 +65,24 @@ G4int RootOutput::BookNtuple(const char* name, const char* title, bool incident)
   Require(id >= 0, "create ntuple");
   Require(fAnalysis->CreateNtupleIColumn(id, "RunID") == 0, "book RunID");
   Require(fAnalysis->CreateNtupleIColumn(id, "EventID") == 1, "book EventID");
-  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == 2, "book Edep");
-  Require(fAnalysis->CreateNtupleSColumn(id, "DetectorName") == 3, "book DetectorName");
-  if (incident) Require(fAnalysis->CreateNtupleIColumn(id, "TrackID") == 4, "book TrackID");
+  if (incident) {
+    Require(fAnalysis->CreateNtupleIColumn(id, "TrackID") == 2, "book TrackID");
+    Require(fAnalysis->CreateNtupleIColumn(id, "PDG") == 3, "book PDG");
+  }
+  const auto energyColumn = incident ? 4 : 2;
+  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == energyColumn, "book Edep");
+  Require(fAnalysis->CreateNtupleSColumn(id, "DetectorName") == energyColumn + 1, "book DetectorName");
   fAnalysis->FinishNtuple(id);
   return id;
 }
 
 void RootOutput::Book(const std::vector<EventEnergyRecord>&) {
   if (fEventNtuple < 0)
-    fEventNtuple = BookNtuple("EventEnergy", "Energy per event and detector; Edep in keV; CUPID schema 2", false);
+    fEventNtuple = BookNtuple("EventEnergy", "Energy per event and detector; Edep in keV; CUPID schema 3", false);
 }
 void RootOutput::Book(const std::vector<IncidentEnergyRecord>&) {
   if (fIncidentNtuple < 0)
-    fIncidentNtuple = BookNtuple("IncidentEnergy", "Energy per incident root and detector; Edep in keV; CUPID schema 2", true);
+    fIncidentNtuple = BookNtuple("IncidentEnergy", "Energy per incident root and detector; Edep in keV; CUPID schema 3", true);
 }
 
 void RootOutput::OpenFile(const std::string& fileName) {
@@ -104,12 +108,17 @@ void RootOutput::RequireWritable(G4int ntupleId) const {
 }
 
 void RootOutput::Fill(G4int id, G4int runId, G4int eventId, G4double edep,
-                       const G4String& detectorName, G4int trackId) {
+                       const G4String& detectorName, G4int trackId, G4int pdg) {
   Require(fAnalysis->FillNtupleIColumn(id, 0, runId), "fill RunID");
   Require(fAnalysis->FillNtupleIColumn(id, 1, eventId), "fill EventID");
-  Require(fAnalysis->FillNtupleDColumn(id, 2, edep / keV), "fill Edep");
-  Require(fAnalysis->FillNtupleSColumn(id, 3, detectorName), "fill DetectorName");
-  if (trackId > 0) Require(fAnalysis->FillNtupleIColumn(id, 4, trackId), "fill TrackID");
+  const bool incident = id == fIncidentNtuple;
+  if (incident) {
+    Require(fAnalysis->FillNtupleIColumn(id, 2, trackId), "fill TrackID");
+    Require(fAnalysis->FillNtupleIColumn(id, 3, pdg), "fill PDG");
+  }
+  const auto energyColumn = incident ? 4 : 2;
+  Require(fAnalysis->FillNtupleDColumn(id, energyColumn, edep / keV), "fill Edep");
+  Require(fAnalysis->FillNtupleSColumn(id, energyColumn + 1, detectorName), "fill DetectorName");
   Require(fAnalysis->AddNtupleRow(id), "append row");
 }
 
@@ -133,7 +142,7 @@ void RootOutput::WriteIncidentRecords(G4int runId, const std::vector<IncidentEne
     if (record.trackId <= 0) throw std::invalid_argument("RootOutput: non-positive TrackID.");
   }
   for (const auto& record : records)
-    Fill(fIncidentNtuple, runId, record.eventId, record.edep, record.detectorName, record.trackId);
+    Fill(fIncidentNtuple, runId, record.eventId, record.edep, record.detectorName, record.trackId, record.pdg);
 }
 
 void RootOutput::CloseFile() {
@@ -164,13 +173,17 @@ OutputSummary RootOutput::InspectFile(const std::string& fileName) {
     file->GetObject(name, tree);
     if (!tree) continue;
     found = true;
-    if (!legacy && std::string(tree->GetTitle()).find("Edep in keV; CUPID schema 2") == std::string::npos)
+    const std::string title = tree->GetTitle();
+    const bool current = title.find("Edep in keV; CUPID schema 3") != std::string::npos;
+    if (!legacy && !current && title.find("Edep in keV; CUPID schema 2") == std::string::npos)
       throw std::runtime_error("RootOutput: unknown schema or energy unit.");
     for (const auto* column : {"RunID", "EventID", "Edep", "DetectorName"})
       if (!tree->GetBranch(column)) throw std::runtime_error("RootOutput: missing column.");
     if (std::string(name) == "EventEnergy") result.eventRows = tree->GetEntries();
     else {
       if (!tree->GetBranch("TrackID")) throw std::runtime_error("RootOutput: missing TrackID.");
+      if (current && (!tree->GetLeaf("PDG") || std::string(tree->GetLeaf("PDG")->GetTypeName()) != "Int_t"))
+        throw std::runtime_error("RootOutput: missing or invalid incident PDG column.");
       result.incidentRows = tree->GetEntries();
     }
   }

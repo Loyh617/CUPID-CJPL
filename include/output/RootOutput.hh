@@ -41,7 +41,7 @@ class RootOutput final : public VOutput {
   G4int BookNtuple(const char* name, const char* title, bool incident);
   void RequireWritable(G4int ntupleId) const;
   void Fill(G4int ntupleId, G4int runId, G4int eventId, G4double edep,
-            const G4String& detectorName, G4int trackId = 0);
+            const G4String& detectorName, G4int trackId = 0, G4int pdg = 0);
   G4GenericAnalysisManager* fAnalysis = nullptr;  // Owned by Geant4.
   G4int fEventNtuple = -1;
   G4int fIncidentNtuple = -1;

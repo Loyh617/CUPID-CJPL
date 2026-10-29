@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<title>CUPID-CJPL Simulation Framework — File Structure</title>
+<desc>Current project layout. Matching include and src files are shown once by their base name. Geometry, generator, record, output, materials and top-level Geant4 integration files are listed. Header-only files, placeholder generators and reserved directories are explicitly marked.</desc>
+<rect width="1920" height="1080" fill="white"/>
+<text x="48" y="61" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#23344b">CUPID-CJPL Simulation Framework</text>
+<text x="48" y="99" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#607087">File structure  |  Current implementation and reserved extension points</text>
+<rect x="48" y="140" width="330" height="870" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
+<text x="70" y="182" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#243c5b">CUPID-CJPL/</text>
+<text x="73" y="224" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">main.cc</text>
+<text x="73" y="254" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">CMakeLists.txt</text>
+<text x="73" y="284" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">README.md</text>
+<text x="73" y="314" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">AGENTS.md</text>
+<text x="73" y="344" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">history.log</text>
+<text x="73" y="374" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#23344b">.gitignore</text>
+<text x="73" y="431" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#23344b">include/</text>
+<text x="73" y="465" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#23344b">src/</text>
+<text x="73" y="497" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">Expanded together on the right</text>
+<text x="73" y="548" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#607087">SUPPORT &amp; GENERATED FILES</text>
+<text x="73" y="592" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">macros/</text>
+<text x="73" y="618" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">8 runtime / visualization macros</text>
+<text x="73" y="666" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">tests/</text>
+<text x="73" y="692" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">14 C++ / Python validation files</text>
+<text x="73" y="740" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">docs/</text>
+<text x="73" y="767" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">geant4_reuse_audit.md</text>
+<text x="73" y="814" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">build/</text>
+<text x="73" y="840" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">Generated build and test files</text>
+<text x="73" y="888" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">results/</text>
+<text x="73" y="914" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">Saved ROOT data and run logs</text>
+<text x="73" y="971" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#607087">main.cc is the application entry point.</text>
+<rect x="430" y="140" width="1442" height="84" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
+<text x="452" y="180" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#40536f">include/  +  src/</text>
+<text x="452" y="205" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#607087">File stems shown once: .hh in include/, .cc in src/.  [H] marks files with no matching .cc.</text>
+<polyline points="378,442 402,442 402,182 430,182" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1151,224 1151,244 640,244 640,270" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1151,244 1160,244 1160,270" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1151,244 1671,244 1671,270" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<rect x="430" y="270" width="420" height="370" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
+<text x="452" y="307" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#40536f">Top-level integration files</text>
+<text x="452" y="339" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">ActionInitialization</text>
+<text x="452" y="366" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">DetectorConstruction</text>
+<text x="452" y="393" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">PrimaryGeneratorAction</text>
+<text x="452" y="420" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">PhysicsList</text>
+<text x="452" y="447" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RunAction</text>
+<text x="452" y="474" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">EventAction</text>
+<text x="452" y="501" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">TrackingAction</text>
+<text x="452" y="528" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">SteppingAction</text>
+<text x="452" y="555" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">StackingAction</text>
+<text x="452" y="582" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">LMOSensitiveDetector</text>
+<text x="452" y="609" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">DetectorHit</text>
+<rect x="430" y="670" width="420" height="245" rx="12" fill="#eff6ff" stroke="#bed4ec" stroke-width="1.5"/>
+<text x="452" y="707" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#245a90">geometry/</text>
+<text x="452" y="735" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryManager</text>
+<text x="452" y="761" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryMessenger</text>
+<text x="452" y="787" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryParameters [H]</text>
+<text x="452" y="813" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">SourceVolumeInfo [H]</text>
+<text x="452" y="839" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">Cryostat</text>
+<text x="452" y="865" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">InnerShielding</text>
+<text x="452" y="891" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">LMOArray</text>
+<polyline points="420,244 420,950" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="420,285 430,285" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="420,685 430,685" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="420,955 430,955" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="420,244 640,244" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<rect x="430" y="940" width="420" height="70" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
+<text x="452" y="975" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#40536f">materials/</text>
+<text x="452" y="995" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">Materials</text>
+<rect x="890" y="270" width="540" height="740" rx="12" fill="#f6f1fd" stroke="#d9c9ee" stroke-width="1.5"/>
+<text x="912" y="307" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#72509e">generator/</text>
+<text x="912" y="335" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">GeneratorManager</text>
+<text x="912" y="361" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">GeneratorMessenger</text>
+<text x="912" y="387" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">VGenerator [H]</text>
+<text x="912" y="422" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">toolkit/</text>
+<text x="930" y="448" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">NuclideEmitter</text>
+<text x="930" y="483" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">sampler/</text>
+<text x="948" y="509" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">PointSampler</text>
+<text x="948" y="535" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">DirectVolumeSampler</text>
+<text x="948" y="561" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">DirectSurfaceSampler</text>
+<text x="948" y="587" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">RejectionVolumeSampler</text>
+<text x="912" y="622" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">background/</text>
+<text x="930" y="648" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">environment/ [E]</text>
+<text x="930" y="674" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">copper_frame/ [E]</text>
+<text x="930" y="700" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">cosmic/ [E]</text>
+<text x="912" y="735" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">calibration/</text>
+<text x="930" y="761" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">th232/Th232Generator [P]</text>
+<text x="930" y="787" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">co56/Co56Generator [P]</text>
+<text x="912" y="822" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">lmo_signal/</text>
+<text x="930" y="848" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">lmo_radioactivity/ [E]</text>
+<text x="930" y="883" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#72509e">double_beta_decay/</text>
+<text x="948" y="909" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">TwoNuDoubleBetaDecayGenerator [P]</text>
+<text x="948" y="935" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#23344b">ZeroNuDoubleBetaDecayGenerator [P]</text>
+<rect x="1470" y="270" width="402" height="210" rx="12" fill="#eef8f4" stroke="#b9dbcc" stroke-width="1.5"/>
+<text x="1492" y="307" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#286a51">record/</text>
+<text x="1492" y="342" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RecordManager</text>
+<text x="1492" y="374" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">EventEnergyRecorder</text>
+<text x="1492" y="406" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">IncidentEnergyRecorder</text>
+<text x="1492" y="438" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">TrackAncestry</text>
+<rect x="1470" y="510" width="402" height="210" rx="12" fill="#fff6ec" stroke="#eacdac" stroke-width="1.5"/>
+<text x="1492" y="547" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#97612b">output/</text>
+<text x="1492" y="582" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">OutputManager</text>
+<text x="1492" y="614" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">VOutput [H]</text>
+<text x="1492" y="646" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RootOutput</text>
+<text x="1492" y="678" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RunLog</text>
+<polyline points="1453,244 1453,525 1470,525" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1453,244 1671,244" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1470" y="760" width="402" height="250" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
+<text x="1492" y="793" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#40536f">READING THE DIAGRAM</text>
+<text x="1492" y="826" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">[H]  Header-only file</text>
+<text x="1492" y="862" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">[P]  Placeholder implementation</text>
+<text x="1492" y="896" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#23344b">[E]  Reserved directory (.gitkeep only)</text>
+<text x="1492" y="943" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Particle-gun generation is operational.</text>
+<text x="1492" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Dedicated source models are scaffolds.</text>
+<text x="48" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#607087">Source inventory verified on 29 Oct 2026.  Diagram groups matching files; it does not change the physical directory layout.</text>
+</svg>

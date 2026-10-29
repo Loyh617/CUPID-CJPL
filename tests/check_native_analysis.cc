@@ -36,6 +36,10 @@
 
 namespace {
 void Require(bool ok, const char* text) { if (!ok) throw std::runtime_error(text); }
+int TestPDG(int id) {
+  const int codes[] = {22, -11, 1000902320, 0};
+  return codes[id % 4];
+}
 class Geometry final : public G4VUserDetectorConstruction {
  public:
   G4VPhysicalVolume* Construct() override {
@@ -61,7 +65,7 @@ class Event final : public G4UserEventAction {
     const auto name = "LMO" + std::to_string(id % 2);
     const auto energy = (id + 0.25) * keV;
     if (fEvents) fRun->GetOutput().Write(run, std::vector<cupid::EventEnergyRecord>{{id, energy, name}});
-    if (fIncidents) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, energy, name}});
+    if (fIncidents) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, TestPDG(id), energy, name}});
   }
  private:
   cupid::RunAction* fRun;
@@ -93,6 +97,12 @@ void Check(TFile& file, const char* name, bool selected, int run, int count, boo
   Require(tree->GetEntries() == count, "Native merge lost or duplicated rows");
   auto* detector = dynamic_cast<TLeafC*>(tree->GetLeaf("DetectorName"));
   Require(detector != nullptr, "Missing native string leaf");
+  const std::vector<std::string> columns = incident
+      ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep", "DetectorName"}
+      : std::vector<std::string>{"RunID", "EventID", "Edep", "DetectorName"};
+  Require(tree->GetListOfBranches()->GetEntries() == static_cast<int>(columns.size()), "Wrong column count");
+  for (std::size_t i = 0; i < columns.size(); ++i)
+    Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Merged column order changed");
   std::set<int> ids;
   for (int row = 0; row < count; ++row) {
     Require(tree->GetEntry(row) > 0, "Cannot read native row");
@@ -101,7 +111,10 @@ void Check(TFile& file, const char* name, bool selected, int run, int count, boo
     Require(tree->GetLeaf("RunID")->GetValue() == run, "Run IDs not preserved");
     Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (id + 0.25)) < 1.e-10, "Column association or energy changed");
     Require(std::string(detector->GetValueString()) == "LMO" + std::to_string(id % 2), "Detector association changed");
-    if (incident) Require(tree->GetLeaf("TrackID")->GetValue() == id + 1000, "Track association changed");
+    if (incident) {
+      Require(tree->GetLeaf("TrackID")->GetValue() == id + 1000, "Track association changed");
+      Require(tree->GetLeaf("PDG")->GetValue() == TestPDG(id), "PDG association changed");
+    }
   }
 }
 }

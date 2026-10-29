@@ -8,6 +8,7 @@
 #include "TrackingAction.hh"
 #include "record/TrackAncestry.hh"
 
+#include "G4ParticleDefinition.hh"
 #include "G4Track.hh"
 #include "G4VPhysicalVolume.hh"
 
@@ -24,7 +25,8 @@ void TrackingAction::PreUserTrackingAction(const G4Track* track) {
   if (fAncestry.Contains(track->GetTrackID())) return;
   const auto* volume = track->GetVolume();
   if (!volume) throw std::runtime_error("Cannot register a track without its initial volume.");
-  fAncestry.RegisterTrack(track->GetTrackID(), track->GetParentID(), volume->GetName());
+  fAncestry.RegisterTrack(track->GetTrackID(), track->GetParentID(), volume->GetName(),
+                          track->GetDefinition()->GetPDGEncoding());
 }
 
 void TrackingAction::PostUserTrackingAction(const G4Track*) {

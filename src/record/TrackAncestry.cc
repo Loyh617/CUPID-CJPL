@@ -1,5 +1,5 @@
 /// \file src/record/TrackAncestry.cc
-/// \brief Implementation: Store event-local parent IDs and birth-volume names for all tracked particles.
+/// \brief Implementation: Store event-local parent IDs, birth-volume names and PDG codes.
 ///
 /// EventAction owns and clears this table at event start. TrackingAction
 /// calls RegisterTrack() when incident recording is enabled, including
@@ -14,12 +14,12 @@ namespace cupid {
 
 void TrackAncestry::Clear() { fTracks.clear(); }
 
-void TrackAncestry::RegisterTrack(G4int trackId, G4int parentId, const G4String& birthVolume) {
+void TrackAncestry::RegisterTrack(G4int trackId, G4int parentId, const G4String& birthVolume, G4int pdg) {
   if (trackId <= 0 || parentId < 0 || trackId == parentId || birthVolume.empty())
     throw std::invalid_argument("Invalid track ancestry entry.");
-  const auto result = fTracks.emplace(trackId, TrackOrigin{parentId, birthVolume});
+  const auto result = fTracks.emplace(trackId, TrackOrigin{parentId, birthVolume, pdg});
   if (!result.second && (result.first->second.parentId != parentId ||
-                         result.first->second.birthVolume != birthVolume))
+                         result.first->second.birthVolume != birthVolume || result.first->second.pdg != pdg))
     throw std::runtime_error("Conflicting ancestry for TrackID " + std::to_string(trackId));
 }
 

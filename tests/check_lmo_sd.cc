@@ -8,6 +8,7 @@
 
 #include "G4Event.hh"
 #include "G4LogicalVolume.hh"
+#include "G4ParticleDefinition.hh"
 #include "G4ParticleGun.hh"
 #include "G4ParticleTable.hh"
 #include "G4RunManager.hh"
@@ -92,6 +93,7 @@ class TestEvent final : public G4UserEventAction {
     Check(fEventAction.GetEventRecords().empty() && fEventAction.GetIncidentRecords().empty(),
           "record vectors reset at the start of the event");
     fReference.clear();
+    fReferencePDG.clear();
     const auto& geometry = fDetector.GetGeometryManager();
     const auto& lmos = geometry.GetLMOLogicalVolumes();
     Check(lmos.size() == static_cast<std::size_t>(fCount), "crystal registry size");
@@ -114,6 +116,8 @@ class TestEvent final : public G4UserEventAction {
   }
 
   void AddReference(const G4Step* step) {
+    const auto* track = step->GetTrack();
+    fReferencePDG.emplace(track->GetTrackID(), track->GetDefinition()->GetPDGEncoding());
     const auto energy = step->GetTotalEnergyDeposit();
     if (energy == 0.) return;
     auto* physical = step->GetPreStepPoint()->GetPhysicalVolume();
@@ -150,8 +154,10 @@ class TestEvent final : public G4UserEventAction {
 
     std::map<G4String, G4double> incidentTotals;
     for (const auto& row : incidentRows) {
-      Check(row.eventId == event->GetEventID() && row.trackId > 0 && row.edep >= 0., "incident fields");
+      Check(row.eventId == event->GetEventID() && row.trackId > 0 && row.edep > 0., "incident fields");
       Check(fEventAction.GetTrackAncestry().Contains(row.trackId), "root exists in event ancestry");
+      Check(fReferencePDG.count(row.trackId) && fReferencePDG.at(row.trackId) == row.pdg,
+            "incident PDG matches independently observed root track");
       incidentTotals[row.detectorName] += row.edep;
     }
     G4double total = 0.;
@@ -176,19 +182,19 @@ class TestEvent final : public G4UserEventAction {
     const auto mode = event->GetEventID() % 6;
     if (mode == 3) {
       Check(total == 0. && eventRows.empty(), "geantino event has no event-energy rows");
-      Check(!incidentRows.empty(), "zero-deposit incident root is retained");
+      Check(incidentRows.empty(), "zero-deposit incident roots are omitted after grouping");
     } else if (mode < 3) {
       const auto primaries = mode == 2 ? 2 : 1;
       Check(total > 0. && total <= primaries * MeV + 1.e-8 * MeV, "no duplicated event energy");
       for (int primary = 1; primary <= primaries; ++primary) {
         Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
-          return row.trackId == primary && row.edep > 0.;
+          return row.trackId == primary && row.edep > 0. && row.pdg == 11;
         }), "each in-detector primary has a separate positive root");
       }
     } else if (mode == 5) {
       for (int lmoId = 0; lmoId < fCount; ++lmoId) {
         Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
-          return row.trackId == 1 && row.detectorName == "LMO" + std::to_string(lmoId) && row.edep > 0.;
+          return row.trackId == 1 && row.detectorName == "LMO" + std::to_string(lmoId) && row.edep > 0. && row.pdg == 13;
         }), "same external primary records separate deposits in each traversed LMO");
       }
     }
@@ -198,6 +204,7 @@ class TestEvent final : public G4UserEventAction {
   const cupid::DetectorConstruction& fDetector;
   int fCount;
   std::map<int, G4double> fReference;
+  std::map<int, G4int> fReferencePDG;
   cupid::EventAction fEventAction{{"EventEnergyRecorder", "IncidentEnergyRecorder"}};
 };
 

@@ -3,8 +3,8 @@
 ///
 /// EventAction calls Build(eventId, hits, ancestry) after tracking completes.
 /// Grouping is detector-local and follows parent IDs and birth volumes;
-/// zero-deposit roots are retained. Returned IncidentEnergyRecord energies
-/// remain in Geant4 internal units; this recorder performs no file I/O.
+/// only positive root totals are returned, with the root particle PDG code.
+/// Energies remain in Geant4 internal units; this recorder performs no file I/O.
 
 #include "record/IncidentEnergyRecorder.hh"
 
@@ -54,8 +54,10 @@ std::vector<IncidentEnergyRecord> IncidentEnergyRecorder::Build(
       for (const auto id : path) roots[id] = root;
       totals[root] += edep;
     }
-    for (const auto& [trackId, edep] : totals)
-      records.push_back({eventId, trackId, edep, name});
+    for (const auto& [trackId, edep] : totals) {
+      if (edep > 0.)
+        records.push_back({eventId, trackId, ancestry.Get(trackId).pdg, edep, name});
+    }
   }
   return records;
 }

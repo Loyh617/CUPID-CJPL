@@ -3,8 +3,8 @@
 ///
 /// EventAction calls Build(eventId, hits, ancestry) after tracking completes.
 /// Grouping is detector-local and follows parent IDs and birth volumes;
-/// zero-deposit roots are retained. Returned IncidentEnergyRecord energies
-/// remain in Geant4 internal units; this recorder performs no file I/O.
+/// only positive root totals are returned, with the root particle PDG code.
+/// Energies remain in Geant4 internal units; this recorder performs no file I/O.
 
 #pragma once
 
@@ -21,6 +21,7 @@ namespace cupid {
 struct IncidentEnergyRecord {
   G4int eventId;
   G4int trackId;
+  G4int pdg;  // Geant4 PDG encoding of this detector-local incident root.
   G4double edep;
   G4String detectorName;
 };

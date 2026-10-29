@@ -35,12 +35,18 @@ template<class F> void Reject(F action, const char* message) {
   try { action(); } catch (const std::exception&) { rejected = true; }
   Require(rejected, message);
 }
-struct Row { int runId; int eventId; int trackId; double edep; std::string name; };
+struct Row { int runId; int eventId; int trackId; double edep; std::string name; int pdg = 0; };
 void CheckTree(TFile& file, const char* name, bool incident, const std::vector<Row>& rows) {
   TTree* tree = nullptr;
   file.GetObject(name, tree);
   Require(tree && tree->GetEntries() == static_cast<Long64_t>(rows.size()), "Wrong tree/row count.");
-  Require(tree->GetListOfBranches()->GetEntries() == (incident ? 5 : 4), "Wrong branch count.");
+  Require(tree->GetListOfBranches()->GetEntries() == (incident ? 6 : 4), "Wrong branch count.");
+  const std::vector<std::string> columns = incident
+      ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep", "DetectorName"}
+      : std::vector<std::string>{"RunID", "EventID", "Edep", "DetectorName"};
+  for (std::size_t i = 0; i < columns.size(); ++i)
+    Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Wrong branch order.");
+  if (incident) Require(std::string(tree->GetLeaf("PDG")->GetTypeName()) == "Int_t", "Wrong PDG type.");
   Require(std::string(tree->GetLeaf("Edep")->GetTypeName()) == "Double_t", "Wrong energy type.");
   Require(std::string(tree->GetLeaf("EventID")->GetTypeName()) == "Int_t", "Wrong ID type.");
   for (std::size_t i = 0; i < rows.size(); ++i) {
@@ -48,7 +54,8 @@ void CheckTree(TFile& file, const char* name, bool incident, const std::vector<R
     const auto& expected = rows[i];
     Require(tree->GetLeaf("RunID")->GetValue() == expected.runId &&
             tree->GetLeaf("EventID")->GetValue() == expected.eventId &&
-            (!incident || tree->GetLeaf("TrackID")->GetValue() == expected.trackId) &&
+            (!incident || (tree->GetLeaf("TrackID")->GetValue() == expected.trackId &&
+                           tree->GetLeaf("PDG")->GetValue() == expected.pdg)) &&
             std::string(DetectorName(tree)) == expected.name &&
             std::abs(tree->GetLeaf("Edep")->GetValue() - expected.edep) <= 1.e-9,
             "Round-trip value mismatch.");
@@ -78,6 +85,9 @@ void CheckIntegrated(const char* name, long long eventRows, long long incidentRo
       } else {
         const int track = tree->GetLeaf("TrackID")->GetValue();
         Require(track > 0 && roots.emplace(key, track).second, "Duplicate or invalid incident root.");
+        Require(energy > 0., "Zero incident row from production recorder.");
+        Require(tree->GetLeaf("PDG") && tree->GetLeaf("PDG")->GetValue() == 11,
+                "Electron root PDG missing or changed.");
         totals[key] += energy;
       }
     }
@@ -114,16 +124,16 @@ int main(int argc, char** argv) {
     Require(gDirectory == previousDirectory, "Open changed caller's current directory.");
     Reject([&] { output.OpenFile((dir / "other.root").string()); }, "Double open accepted.");
     output.WriteEventRecords(7, {{3, 2.5 * MeV, "LMO0"}, {3, 0., "LMO1"}});
-    output.WriteIncidentRecords(7, {{3, 9, 1.5 * MeV, "LMO0"}, {3, 11, 1. * MeV, "LMO0"},
-                                    {3, 12, 0., "LMO1"}});
+    output.WriteIncidentRecords(7, {{3, 9, 22, 1.5 * MeV, "LMO0"}, {3, 11, -11, 1. * MeV, "LMO0"},
+                                    {3, 12, 0, 0., "LMO1"}});
     output.WriteEventRecords(8, {{3, 0.25 * keV, "LD0"}});
-    output.WriteIncidentRecords(8, {{3, 1, 0.25 * keV, "LD0"}});
+    output.WriteIncidentRecords(8, {{3, 1, 1000902320, 0.25 * keV, "LD0"}});
     Reject([&] { output.WriteEventRecords(0, {{4, 1., "NTD0"}, {4, -1., "NTD0"}}); }, "Invalid batch accepted.");
     Reject([&] { output.WriteEventRecords(-1, {}); }, "Invalid RunID accepted.");
     Reject([&] { output.WriteEventRecords(0, {{-1, 1., "LMO0"}}); }, "Invalid EventID accepted.");
     Reject([&] { output.WriteEventRecords(0, {{0, 1., ""}}); }, "Empty detector name accepted.");
     Reject([&] { output.WriteEventRecords(0, {{0, std::numeric_limits<double>::infinity(), "LMO0"}}); }, "Infinite energy accepted.");
-    Reject([&] { output.WriteIncidentRecords(0, {{0, 0, 1., "LMO0"}}); }, "Invalid TrackID accepted.");
+    Reject([&] { output.WriteIncidentRecords(0, {{0, 0, 22, 1., "LMO0"}}); }, "Invalid TrackID accepted.");
     output.CloseFile();
     Require(!output.IsOpen(), "File stayed open.");
     output.CloseFile();
@@ -135,8 +145,8 @@ int main(int argc, char** argv) {
       TFile file(mixed.c_str(), "READ");
       Require(!file.IsZombie(), "Cannot reopen ROOT file.");
       CheckTree(file, "EventEnergy", false, {{7, 3, 0, 2500., "LMO0"}, {7, 3, 0, 0., "LMO1"}, {8, 3, 0, 0.25, "LD0"}});
-      CheckTree(file, "IncidentEnergy", true, {{7, 3, 9, 1500., "LMO0"}, {7, 3, 11, 1000., "LMO0"},
-                                               {7, 3, 12, 0., "LMO1"}, {8, 3, 1, 0.25, "LD0"}});
+      CheckTree(file, "IncidentEnergy", true, {{7, 3, 9, 1500., "LMO0", 22}, {7, 3, 11, 1000., "LMO0", -11},
+                                               {7, 3, 12, 0., "LMO1"}, {8, 3, 1, 0.25, "LD0", 1000902320}});
     }
     // Native CloseFile resets data; schemas persist across runs.
     const auto repeated = (dir / "repeated.root").string();
@@ -161,11 +171,11 @@ int main(int argc, char** argv) {
       Reject([&] { output.Book(std::vector<cupid::EventEnergyRecord>{}); }, "Late booking accepted.");
       Reject([&] { output.WriteEventRecords(0, {}); }, "Unbooked write accepted.");
       for (int event = 0; event < 100005; ++event)
-        output.WriteIncidentRecords(3, {{event, event + 1, event * keV, "NTD0"}});
+        output.WriteIncidentRecords(3, {{event, event + 1, event % 2 ? -11 : 1000902320, event * keV, "NTD0"}});
       output.CloseFile();
       TFile file((dir / "large.root").c_str(), "READ");
       std::vector<Row> rows;
-      for (int event = 0; event < 100005; ++event) rows.push_back({3, event, event + 1, double(event), "NTD0"});
+      for (int event = 0; event < 100005; ++event) rows.push_back({3, event, event + 1, double(event), "NTD0", event % 2 ? -11 : 1000902320});
       CheckTree(file, "IncidentEnergy", true, rows);
       Require(!file.Get("EventEnergy"), "Unselected schema created.");
     }

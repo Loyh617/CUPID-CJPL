@@ -44,18 +44,20 @@ void CheckTree(TFile& file, const char* treeName, bool expected, bool incident) 
   file.GetObject(treeName, tree);
   Require((tree != nullptr) == expected, "unselected tree created or selected tree missing");
   if (!tree) return;
-  Require(tree->GetEntries() == (incident ? 3 : 2), "incorrect manager row count");
+  Require(tree->GetEntries() == 2, "incorrect manager row count");
   std::map<std::pair<std::string, int>, double> actual;
   for (Long64_t row = 0; row < tree->GetEntries(); ++row) {
     Require(tree->GetEntry(row) > 0, "cannot read managed output row");
     Require(tree->GetLeaf("RunID")->GetValue() == 3 && tree->GetLeaf("EventID")->GetValue() == 7,
             "record IDs changed in manager dispatch");
     const auto track = incident ? static_cast<int>(tree->GetLeaf("TrackID")->GetValue()) : 0;
+    if (incident) Require(tree->GetLeaf("PDG")->GetValue() == (track == 1 ? 22 : 11),
+                          "root PDG changed in typed manager dispatch");
     Require(actual.emplace(std::make_pair(std::string(DetectorName(tree)), track), tree->GetLeaf("Edep")->GetValue()).second,
             "duplicate managed row");
   }
   const std::map<std::pair<std::string, int>, double> wanted = incident
-      ? std::map<std::pair<std::string, int>, double>{{{"LMO0", 1}, 2500.}, {{"LMO0", 3}, 0.}, {{"LD0", 2}, 1.}}
+      ? std::map<std::pair<std::string, int>, double>{{{"LMO0", 1}, 2500.}, {{"LD0", 2}, 1.}}
       : std::map<std::pair<std::string, int>, double>{{{"LMO0", 0}, 2500.}, {{"LD0", 0}, 1.}};
   Require(actual.size() == wanted.size(), "managed row key count");
   for (const auto& [key, energy] : wanted) {
@@ -74,9 +76,9 @@ int main(int argc, char** argv) {
     physics->RegisterPhysics(new G4DecayPhysics(0));
     run.SetUserInitialization(physics);
     cupid::TrackAncestry ancestry;
-    ancestry.RegisterTrack(1, 0, "World");
-    ancestry.RegisterTrack(2, 1, "LMO0");
-    ancestry.RegisterTrack(3, 0, "World");
+    ancestry.RegisterTrack(1, 0, "World", 22);
+    ancestry.RegisterTrack(2, 1, "LMO0", 11);
+    ancestry.RegisterTrack(3, 0, "World", 11);
 
     G4HCofThisEvent collections(4);
     auto* first = new cupid::DetectorHitsCollection("LMOSD", "Edep");
@@ -119,7 +121,7 @@ int main(int argc, char** argv) {
       const cupid::TrackAncestry emptyAncestry;
       records.Build(7, collections, incidents ? ancestry : emptyAncestry);
       Require(records.GetRecords<cupid::EventEnergyRecord>().size() == (events ? 2u : 0u), "event selection failed");
-      Require(records.GetRecords<cupid::IncidentEnergyRecord>().size() == (incidents ? 3u : 0u), "incident selection failed");
+      Require(records.GetRecords<cupid::IncidentEnergyRecord>().size() == (incidents ? 2u : 0u), "incident selection failed");
 
       cupid::OutputManager output("RootOutput");
       Require(output.GetName() == "RootOutput" && output.GetFileExtension() == ".root", "wrong output backend");
@@ -137,7 +139,7 @@ int main(int argc, char** argv) {
       Require(!output.IsOpen(), "manager did not close output");
       if (events || incidents) {
       const auto summary = output.InspectFile(fileName);
-      Require(summary.eventRows == (events ? 2 : 0) && summary.incidentRows == (incidents ? 3 : 0),
+      Require(summary.eventRows == (events ? 2 : 0) && summary.incidentRows == (incidents ? 2 : 0),
               "managed file summary differs");
       TFile file(fileName.c_str(), "READ");
       Require(!file.IsZombie(), "managed ROOT file invalid");

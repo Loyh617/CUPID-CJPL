@@ -37,7 +37,7 @@ void RunAction::BeginOfRunAction(const G4Run* run) {
     if (std::filesystem::exists(finalName))
       throw std::runtime_error("Run output already exists: " + finalName.string());
     G4cout << "CUPID_OUTPUT_MODULE name=" << fOutput.GetName()
-           << " backend=G4AnalysisManager schema=2 energy_unit=keV" << G4endl;
+           << " backend=G4AnalysisManager schema=3 energy_unit=keV" << G4endl;
     G4cout << "CUPID_RUN_BEGIN run=" << fRunId << " requested_events=" << run->GetNumberOfEventToBeProcessed()
            << " threads=" << G4RunManager::GetRunManager()->GetNumberOfThreads() << G4endl;
     G4cout << "CUPID_RANDOM_STATE_BEGIN\n" << run->GetRandomNumberStatus() << "\nCUPID_RANDOM_STATE_END" << G4endl;
