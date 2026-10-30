@@ -260,3 +260,22 @@
 
 2026-10-29 | Git submission preparation
 - Normalize documentation SVG line endings to LF and remove the extra trailing blank line from validation_history.md after staged diff checks identified formatting issues. Both SVGs still parse successfully; no simulation behavior changed.
+
+2026-10-30 | Simplify README
+- Rewrite README.md as a short build, current features, directory layout and usage guide. Remove embedded diagrams, reference links, detailed module/API explanations, historical validation narratives and Git tutorials from README. Keep existing documentation assets unchanged.
+- Verify documented versions, options, macros, output behavior and paths against CMakeLists.txt and current application files. Markdown structure and git diff --check passed. Documentation-only change; no source changes or simulation tests rerun.
+
+2026-10-30 | Team onboarding and reproducibility documentation
+- Reorganize README.md into the requested 12 concise onboarding sections: scope, quick start, actual environment, architecture, physics defaults, CLI/macros, schema-3 output/analysis, reproducibility, validation, collaboration, data management and maintenance/license status. Keep diagrams out.
+- Add CONTRIBUTING.md, docs/runtime.md and a portable docs/environment.sh.example. Clearly separate recorded metadata from manual provenance requirements, software checks from physical validation, and implemented sources from placeholders. Do not invent a license, physical accuracy claim or independent clean-environment validation.
+- Verify Geant4 11.4.1 local source/installed configuration and official 11.4 installation, execution and production-cut documentation. Existing build passed; lmo_only.mac with 1000 gamma events and two workers completed in 5.32 s, geometry PASS, processed_events=1000, 592 event/incident rows, and 570 LMO0 histogram entries on this machine. Actual ROOT fields and histogram expression verified by PyROOT. This is not a fresh dependency installation or physical benchmark.
+- Markdown links/structure and git diff --check passed. Simulation sources and existing outputs unchanged; temporary verification results are under ignored build/readme-smoke-a0013d59. Further environment-template validation pending.
+- Environment template passes bash syntax/source checks; README prefix-based CMake configuration succeeds in a new build subdirectory with existing local Vdt paths supplied explicitly. ROOT Draw/SaveAs analysis example creates a nonempty spectrum PNG. Independent clean-environment dependency installation remains unverified. Final git diff --check passed; no commit or push performed.
+
+2026-10-30 | Consolidate onboarding documentation in README
+- Merge collaboration rules, dataset versions, physics constructors, environment commands and provenance examples into README.md, retaining the 12-section structure and removing duplicate explanations. Remove only the three untracked documents introduced in the preceding task: CONTRIBUTING.md, docs/runtime.md and docs/environment.sh.example. Existing docs assets and simulation sources remain unchanged.
+- Check that no references to the removed files remain, Markdown fences are balanced, and all 12 sections are present. git diff --check passed. Documentation consolidation only; previously verified build/run/analysis commands retained, with environment sourcing now written inline.
+
+2026-10-30 | English README and documentation commit
+- Translate the consolidated 12-section README into English, including tables, directory annotations, collaboration rules, physics defaults and reproducibility guidance. Preserve executable examples, URLs and technical meanings; remove a duplicated physics-settings sentence.
+- Verify all bash/C++ code blocks and external URLs match the prior README, all 12 sections remain, fenced blocks are balanced, and no Chinese text or references to removed documents remain. git diff --check passed. Documentation-only change; no simulation tests rerun. Commit README.md and accumulated history.log documentation entries at the user's request.
