@@ -25,6 +25,10 @@ OutputManager::OutputManager(const std::string& name) : fName(name) {
 std::string OutputManager::GetFileExtension() const { return fOutput->GetFileExtension(); }
 void OutputManager::Book(const std::vector<EventEnergyRecord>& records) { fOutput->Book(records); }
 void OutputManager::Book(const std::vector<IncidentEnergyRecord>& records) { fOutput->Book(records); }
+void OutputManager::SetDetectorNames(const std::vector<G4String>& names) { fOutput->SetDetectorNames(names); }
+std::vector<std::string> OutputManager::GetFileNames(const std::string& baseName) const {
+  return fOutput->GetFileNames(baseName);
+}
 void OutputManager::OpenFile(const std::string& fileName) { fOutput->OpenFile(fileName); }
 bool OutputManager::IsOpen() const { return fOutput->IsOpen(); }
 void OutputManager::Write(G4int runId, const std::vector<EventEnergyRecord>& records) {

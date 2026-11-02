@@ -3,7 +3,8 @@
 ///
 /// OutputManager selects this adapter. Master and workers book the same schemas;
 /// only event-processing threads fill them. ROOT is used solely to inspect closed
-/// files. Geant4 removes files with no recorded rows; run.log retains that result.
+/// files. SetNtupleFileName routes each record type to its own file; detector
+/// names become tree names. Geant4 handles merging and removal of empty files.
 
 #include "output/RootOutput.hh"
 
@@ -13,21 +14,33 @@
 
 #include "TDirectory.h"
 #include "TFile.h"
+#include "TKey.h"
 #include "TLeaf.h"
 #include "TNamed.h"
 #include "TTree.h"
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <utility>
+#include <regex>
 
 namespace cupid {
 namespace {
 thread_local bool outputInUse = false;
 void Require(bool success, const char* operation) {
   if (!success) throw std::runtime_error(std::string("RootOutput: Geant4 analysis failed to ") + operation);
+}
+std::string RecordFileName(const std::string& baseName, const char* recordType) {
+  const std::filesystem::path base(baseName);
+  return (base.parent_path() / (base.stem().string() + "_" + recordType + ".root")).string();
+}
+bool ValidDetectorName(const G4String& name) {
+  static const std::regex pattern("[A-Za-z_][A-Za-z0-9_]*");
+  return std::regex_match(name, pattern);
 }
 void Validate(G4int runId, G4int eventId, G4double edep, const G4String& detectorName) {
   if (runId < 0 || eventId < 0 || detectorName.empty() || !std::isfinite(edep) || edep < 0. ||
@@ -59,9 +72,24 @@ RootOutput::~RootOutput() {
   outputInUse = false;
 }
 
-G4int RootOutput::BookNtuple(const char* name, const char* title, bool incident) {
-  if (fHasOpened) throw std::logic_error("RootOutput: book all schemas before the first OpenFile.");
-  const auto id = fAnalysis->CreateNtuple(name, title);
+void RootOutput::SetDetectorNames(const std::vector<G4String>& names) {
+  auto sorted = names;
+  std::sort(sorted.begin(), sorted.end());
+  for (const auto& name : sorted)
+    if (!ValidDetectorName(name))
+      throw std::invalid_argument("RootOutput: detector names must be ROOT identifiers: " + name);
+  if (std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end())
+    throw std::invalid_argument("RootOutput: duplicate detector name.");
+  if ((fHasOpened || fSchemasBooked) && sorted != fDetectorNames)
+    throw std::logic_error("RootOutput: detector catalog cannot change after booking.");
+  fDetectorNames = std::move(sorted);
+  fDetectorsSet = true;
+}
+
+G4int RootOutput::BookNtuple(const G4String& detectorName, bool incident) {
+  const auto title = std::string(incident ? "IncidentEnergy" : "EventEnergy") +
+                     "; Edep in keV; CUPID schema 4";
+  const auto id = fAnalysis->CreateNtuple(detectorName, title);
   Require(id >= 0, "create ntuple");
   Require(fAnalysis->CreateNtupleIColumn(id, "RunID") == 0, "book RunID");
   Require(fAnalysis->CreateNtupleIColumn(id, "EventID") == 1, "book EventID");
@@ -69,56 +97,81 @@ G4int RootOutput::BookNtuple(const char* name, const char* title, bool incident)
     Require(fAnalysis->CreateNtupleIColumn(id, "TrackID") == 2, "book TrackID");
     Require(fAnalysis->CreateNtupleIColumn(id, "PDG") == 3, "book PDG");
   }
-  const auto energyColumn = incident ? 4 : 2;
-  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == energyColumn, "book Edep");
-  Require(fAnalysis->CreateNtupleSColumn(id, "DetectorName") == energyColumn + 1, "book DetectorName");
+  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == (incident ? 4 : 2), "book Edep");
   fAnalysis->FinishNtuple(id);
   return id;
 }
 
 void RootOutput::Book(const std::vector<EventEnergyRecord>&) {
-  if (fEventNtuple < 0)
-    fEventNtuple = BookNtuple("EventEnergy", "Energy per event and detector; Edep in keV; CUPID schema 3", false);
+  if (fHasOpened || fSchemasBooked) throw std::logic_error("RootOutput: select schemas before opening.");
+  fEvents = true;
 }
 void RootOutput::Book(const std::vector<IncidentEnergyRecord>&) {
-  if (fIncidentNtuple < 0)
-    fIncidentNtuple = BookNtuple("IncidentEnergy", "Energy per incident root and detector; Edep in keV; CUPID schema 3", true);
+  if (fHasOpened || fSchemasBooked) throw std::logic_error("RootOutput: select schemas before opening.");
+  fIncidents = true;
+}
+void RootOutput::BookSchemas() {
+  if (fSchemasBooked) return;
+  // A stable type/name order keeps ntuple IDs identical on master and workers,
+  // including workers with no events and detectors with no deposited energy.
+  for (const auto& name : fDetectorNames) {
+    if (fEvents) fEventNtuples.emplace(name, BookNtuple(name, false));
+    if (fIncidents) fIncidentNtuples.emplace(name, BookNtuple(name, true));
+  }
+  fSchemasBooked = true;
+}
+std::vector<std::string> RootOutput::GetFileNames(const std::string& baseName) const {
+  std::vector<std::string> files;
+  if (fDetectorNames.empty()) return files;
+  if (fEvents) files.push_back(RecordFileName(baseName, "EventEnergy"));
+  if (fIncidents) files.push_back(RecordFileName(baseName, "IncidentEnergy"));
+  return files;
 }
 
 void RootOutput::OpenFile(const std::string& fileName) {
-  if (fOpen) throw std::logic_error("RootOutput: close the file before opening another.");
+  if (fOpen) throw std::logic_error("RootOutput: close the run before opening another.");
+  if (!fDetectorsSet) throw std::logic_error("RootOutput: configure detector names before opening.");
   if (fileName.empty() || std::filesystem::path(fileName).extension() != ".root")
-    throw std::invalid_argument("RootOutput: provide a nonempty .root file name.");
+    throw std::invalid_argument("RootOutput: provide a nonempty .root base name.");
   const auto parent = std::filesystem::absolute(fileName).parent_path();
   if (!std::filesystem::is_directory(parent)) throw std::runtime_error("RootOutput: output directory is missing.");
-  // The master opens this same path before workers; only the file owner checks existence.
-  if (!G4Threading::IsWorkerThread() && std::filesystem::exists(fileName))
-    throw std::runtime_error("RootOutput: output already exists: " + fileName);
-  Require(fAnalysis->SetFileName(fileName), "set file name");
-  Require(fAnalysis->OpenFile(), "open file");
+  if (!G4Threading::IsWorkerThread()) {
+    auto files = GetFileNames(fileName);
+    files.push_back(fileName);
+    for (const auto& path : files)
+      if (std::filesystem::exists(path))
+        throw std::runtime_error("RootOutput: output already exists: " + path);
+  }
+  BookSchemas();
+  if (!fEventNtuples.empty() || !fIncidentNtuples.empty()) {
+    for (const auto& [name, id] : fEventNtuples)
+      fAnalysis->SetNtupleFileName(id, RecordFileName(fileName, "EventEnergy"));
+    for (const auto& [name, id] : fIncidentNtuples)
+      fAnalysis->SetNtupleFileName(id, RecordFileName(fileName, "IncidentEnergy"));
+    Require(fAnalysis->SetFileName(fileName), "set run base name");
+    Require(fAnalysis->OpenFile(), "open files");
+    fBackendOpen = true;
+  }
   fOpen = true;
   fHasOpened = true;
 }
 
-void RootOutput::RequireWritable(G4int ntupleId) const {
+void RootOutput::RequireWritable(bool selected) const {
   if (!fOpen) throw std::logic_error("RootOutput: no open run.");
-  if (ntupleId < 0) throw std::logic_error("RootOutput: record schema was not booked.");
+  if (!selected) throw std::logic_error("RootOutput: record schema was not booked.");
   if (G4Threading::IsMultithreadedApplication() && !G4Threading::IsWorkerThread())
     throw std::logic_error("RootOutput: the MT master must not fill event ntuples.");
 }
 
-void RootOutput::Fill(G4int id, G4int runId, G4int eventId, G4double edep,
-                       const G4String& detectorName, G4int trackId, G4int pdg) {
+void RootOutput::Fill(G4int id, bool incident, G4int runId, G4int eventId,
+                      G4double edep, G4int trackId, G4int pdg) {
   Require(fAnalysis->FillNtupleIColumn(id, 0, runId), "fill RunID");
   Require(fAnalysis->FillNtupleIColumn(id, 1, eventId), "fill EventID");
-  const bool incident = id == fIncidentNtuple;
   if (incident) {
     Require(fAnalysis->FillNtupleIColumn(id, 2, trackId), "fill TrackID");
     Require(fAnalysis->FillNtupleIColumn(id, 3, pdg), "fill PDG");
   }
-  const auto energyColumn = incident ? 4 : 2;
-  Require(fAnalysis->FillNtupleDColumn(id, energyColumn, edep / keV), "fill Edep");
-  Require(fAnalysis->FillNtupleSColumn(id, energyColumn + 1, detectorName), "fill DetectorName");
+  Require(fAnalysis->FillNtupleDColumn(id, incident ? 4 : 2, edep / keV), "fill Edep");
   Require(fAnalysis->AddNtupleRow(id), "append row");
 }
 
@@ -129,28 +182,41 @@ void RootOutput::Write(G4int runId, const std::vector<IncidentEnergyRecord>& rec
   WriteIncidentRecords(runId, records);
 }
 void RootOutput::WriteEventRecords(G4int runId, const std::vector<EventEnergyRecord>& records) {
-  RequireWritable(fEventNtuple);
+  RequireWritable(fEvents);
   if (runId < 0) throw std::invalid_argument("RootOutput: negative RunID.");
-  for (const auto& record : records) Validate(runId, record.eventId, record.edep, record.detectorName);
-  for (const auto& record : records) Fill(fEventNtuple, runId, record.eventId, record.edep, record.detectorName);
+  for (const auto& record : records) {
+    Validate(runId, record.eventId, record.edep, record.detectorName);
+    if (!fEventNtuples.count(record.detectorName))
+      throw std::invalid_argument("RootOutput: unregistered detector: " + record.detectorName);
+  }
+  for (const auto& record : records)
+    Fill(fEventNtuples.at(record.detectorName), false, runId, record.eventId, record.edep);
 }
 void RootOutput::WriteIncidentRecords(G4int runId, const std::vector<IncidentEnergyRecord>& records) {
-  RequireWritable(fIncidentNtuple);
+  RequireWritable(fIncidents);
   if (runId < 0) throw std::invalid_argument("RootOutput: negative RunID.");
   for (const auto& record : records) {
     Validate(runId, record.eventId, record.edep, record.detectorName);
     if (record.trackId <= 0) throw std::invalid_argument("RootOutput: non-positive TrackID.");
+    if (!fIncidentNtuples.count(record.detectorName))
+      throw std::invalid_argument("RootOutput: unregistered detector: " + record.detectorName);
   }
   for (const auto& record : records)
-    Fill(fIncidentNtuple, runId, record.eventId, record.edep, record.detectorName, record.trackId, record.pdg);
+    Fill(fIncidentNtuples.at(record.detectorName), true, runId, record.eventId,
+         record.edep, record.trackId, record.pdg);
 }
 
 void RootOutput::CloseFile() {
   if (!fOpen) return;
-  const bool written = fAnalysis->Write();
-  const bool closed = fAnalysis->CloseFile();
+  bool success = true;
+  if (fBackendOpen) {
+    const bool written = fAnalysis->Write();
+    const bool closed = fAnalysis->CloseFile();
+    success = written && closed;
+  }
   fOpen = false;
-  Require(written && closed, "write and close file");
+  fBackendOpen = false;
+  Require(success, "write and close files");
 }
 
 OutputSummary RootOutput::Inspect(const std::string& fileName) const {
@@ -161,6 +227,36 @@ OutputSummary RootOutput::InspectFile(const std::string& fileName) {
   std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
   if (!file || file->IsZombie() || file->TestBit(TFile::kRecovered))
     throw std::runtime_error("RootOutput: invalid file: " + fileName);
+  OutputSummary splitSummary;
+  std::string recordType;
+  TIter next(file->GetListOfKeys());
+  while (auto* key = dynamic_cast<TKey*>(next())) {
+    if (std::string(key->GetClassName()) != "TTree") continue;
+    auto* tree = dynamic_cast<TTree*>(file->Get(key->GetName()));
+    const std::string title = tree->GetTitle();
+    if (title.find("CUPID schema 4") == std::string::npos) continue;
+    const bool incident = title == "IncidentEnergy; Edep in keV; CUPID schema 4";
+    const std::string type = incident ? "IncidentEnergy" : "EventEnergy";
+    if (title != type + "; Edep in keV; CUPID schema 4" ||
+        (!recordType.empty() && recordType != type) || !ValidDetectorName(tree->GetName()))
+      throw std::runtime_error("RootOutput: invalid split-file schema.");
+    recordType = type;
+    const std::vector<std::string> columns = incident
+        ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep"}
+        : std::vector<std::string>{"RunID", "EventID", "Edep"};
+    if (tree->GetListOfBranches()->GetEntries() != static_cast<int>(columns.size()))
+      throw std::runtime_error("RootOutput: unexpected split-file columns.");
+    for (std::size_t i = 0; i < columns.size(); ++i) {
+      const auto& column = columns[i];
+      const auto* leaf = tree->GetLeaf(column.c_str());
+      if (column != tree->GetListOfBranches()->At(i)->GetName() || !leaf ||
+          std::string(leaf->GetTypeName()) != (column == "Edep" ? "Double_t" : "Int_t"))
+        throw std::runtime_error("RootOutput: invalid split-file column.");
+    }
+    if (incident) splitSummary.incidentRows += tree->GetEntries();
+    else splitSummary.eventRows += tree->GetEntries();
+  }
+  if (!recordType.empty()) return splitSummary;
   // Accept historical direct-ROOT files as well as the native Geant4 layout.
   auto* schema = dynamic_cast<TNamed*>(file->Get("SchemaVersion"));
   auto* unit = dynamic_cast<TNamed*>(file->Get("EnergyUnit"));

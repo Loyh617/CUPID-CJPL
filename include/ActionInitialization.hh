@@ -4,6 +4,7 @@
 /// Register with the run manager in main(). Geant4 calls Build() for event
 /// processing and BuildForMaster() for the MT coordinator. Each worker owns
 /// its actions; EventAction shares that worker's RunAction and track ancestry.
+/// The geometry manager supplies the scoring-volume names at run start.
 
 #pragma once
 
@@ -15,15 +16,19 @@
 
 namespace cupid {
 class GeneratorMessenger;
+class GeometryManager;
+class RunAction;
 class ActionInitialization final : public G4VUserActionInitialization {
  public:
-  explicit ActionInitialization(const G4String& outputDirectory);
+  ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry);
   ~ActionInitialization() override;
   void BuildForMaster() const override;
   void Build() const override;
   bool HasGeneratorError() const { return fGeneratorFailed.load(); }
 
  private:
+  RunAction* CreateRunAction() const;
+  const GeometryManager& fGeometry;
   const G4String fOutputDirectory;
   // Set on the master in PreInit; read-only while events are processed.
   G4String fGeneratorSelection = "gun";

@@ -10,7 +10,6 @@
 
 #include "TFile.h"
 #include "TLeaf.h"
-#include "TLeafC.h"
 #include "TTree.h"
 
 #include <chrono>
@@ -28,44 +27,29 @@ namespace {
 void Require(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
 }
-const char* DetectorName(TTree* tree) {
-  const auto* leaf = dynamic_cast<TLeafC*>(tree->GetLeaf("DetectorName"));
-  Require(leaf != nullptr, "Expected native Geant4 string leaf.");
-  return leaf->GetValueString();
-}
 template<class F> void Reject(F action, const char* message) {
   bool rejected = false;
   try { action(); } catch (const std::exception&) { rejected = true; }
   Require(rejected, message);
 }
 
-void CheckTree(TFile& file, const char* treeName, bool expected, bool incident) {
-  TTree* tree = nullptr;
-  file.GetObject(treeName, tree);
-  Require((tree != nullptr) == expected, "unselected tree created or selected tree missing");
-  if (!tree) return;
-  Require(tree->GetEntries() == 2, "incorrect manager row count");
-  std::map<std::pair<std::string, int>, double> actual;
-  for (Long64_t row = 0; row < tree->GetEntries(); ++row) {
-    Require(tree->GetEntry(row) > 0, "cannot read managed output row");
-    Require(tree->GetLeaf("RunID")->GetValue() == 3 && tree->GetLeaf("EventID")->GetValue() == 7,
-            "record IDs changed in manager dispatch");
-    const auto track = incident ? static_cast<int>(tree->GetLeaf("TrackID")->GetValue()) : 0;
-    if (incident) Require(tree->GetLeaf("PDG")->GetValue() == (track == 1 ? 22 : 11),
-                          "root PDG changed in typed manager dispatch");
-    Require(actual.emplace(std::make_pair(std::string(DetectorName(tree)), track), tree->GetLeaf("Edep")->GetValue()).second,
-            "duplicate managed row");
-  }
-  const std::map<std::pair<std::string, int>, double> wanted = incident
-      ? std::map<std::pair<std::string, int>, double>{{{"LMO0", 1}, 2500.}, {{"LD0", 2}, 1.}}
-      : std::map<std::pair<std::string, int>, double>{{{"LMO0", 0}, 2500.}, {{"LD0", 0}, 1.}};
-  Require(actual.size() == wanted.size(), "managed row key count");
-  for (const auto& [key, energy] : wanted) {
-    const auto found = actual.find(key);
-    Require(found != actual.end() && std::abs(found->second - energy) < 1.e-9,
-            "managed record identity, ancestry or unit conversion changed");
+void CheckTree(TFile& file, const char* treeName, bool incident) {
+  auto* tree = dynamic_cast<TTree*>(file.Get(treeName));
+  Require(tree && !tree->GetBranch("DetectorName"), "detector tree missing or redundant branch");
+  const bool lmo = std::string(treeName) == "LMO0";
+  const bool empty = std::string(treeName) == "LMO1";
+  Require(tree->GetEntries() == (empty ? 0 : 1), "incorrect manager row count");
+  if (empty) return;
+  Require(tree->GetEntry(0) > 0, "cannot read managed output row");
+  Require(tree->GetLeaf("RunID")->GetValue() == 3 && tree->GetLeaf("EventID")->GetValue() == 7,
+          "record IDs changed in manager dispatch");
+  Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (lmo ? 2500. : 1.)) < 1.e-9, "managed energy changed");
+  if (incident) {
+    Require(tree->GetLeaf("TrackID")->GetValue() == (lmo ? 1 : 2), "managed root changed");
+    Require(tree->GetLeaf("PDG")->GetValue() == (lmo ? 22 : 11), "managed root PDG changed");
   }
 }
+
 }
 
 int main(int argc, char** argv) {
@@ -127,7 +111,7 @@ int main(int argc, char** argv) {
       Require(output.GetName() == "RootOutput" && output.GetFileExtension() == ".root", "wrong output backend");
       Reject([&] { output.Write(3, std::vector<cupid::EventEnergyRecord>{}); }, "write before open accepted");
       const auto fileName = (directory / ("selection" + std::to_string(index) + output.GetFileExtension())).string();
-      paths.push_back(fileName);
+      output.SetDetectorNames({"LMO0", "LMO1", "LD0"});
       for (const auto& batch : records.GetBatches())
         std::visit([&](const auto& rows) { output.Book(rows); }, batch);
       output.OpenFile(fileName);
@@ -137,18 +121,17 @@ int main(int argc, char** argv) {
         std::visit([&](const auto& rows) { output.Write(3, rows); }, batch);
       output.CloseFile();
       Require(!output.IsOpen(), "manager did not close output");
-      if (events || incidents) {
-      const auto summary = output.InspectFile(fileName);
-      Require(summary.eventRows == (events ? 2 : 0) && summary.incidentRows == (incidents ? 2 : 0),
-              "managed file summary differs");
-      TFile file(fileName.c_str(), "READ");
-      Require(!file.IsZombie(), "managed ROOT file invalid");
-      CheckTree(file, "EventEnergy", events, false);
-      CheckTree(file, "IncidentEnergy", incidents, true);
-      file.Close();
-
-      } else {
-        Require(!std::filesystem::exists(fileName), "Empty native output should be removed.");
+      Require(!std::filesystem::exists(fileName), "Unexpected default file.");
+      const auto files = output.GetFileNames(fileName);
+      Require(files.size() == static_cast<std::size_t>(events + incidents), "Wrong selected output files.");
+      for (const auto& path : files) {
+        paths.push_back(path);
+        const bool incident = path.find("_IncidentEnergy.root") != std::string::npos;
+        const auto summary = output.InspectFile(path);
+        Require(summary.eventRows == (incident ? 0 : 2) && summary.incidentRows == (incident ? 2 : 0), "Managed summary mismatch.");
+        TFile file(path.c_str(), "READ");
+        Require(!file.IsZombie(), "Invalid managed ROOT file.");
+        for (const auto* name : {"LMO0", "LMO1", "LD0"}) CheckTree(file, name, incident);
       }
 
       G4HCofThisEvent noCollections(0);

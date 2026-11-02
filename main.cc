@@ -4,7 +4,7 @@
 /// Run cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR].
 /// main() creates RunLog, the run manager, DetectorConstruction, PhysicsList
 /// and ActionInitialization, then executes the macro or interactive session.
-/// Actions produce runN.root files; run.log records the job-level console output.
+/// Actions produce runN_<Recorder>.root files; run.log captures job-level output.
 
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
       std::cout << "Usage: cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR]\n"
                    "Default: 2 worker threads; no macro starts interactive visualization.\n"
                    "--vis also enables visualization commands in a batch macro.\n"
-                   "--output selects a directory for merged runN.root files and run.log.\n"
+                   "--output selects a directory for merged runN_<Recorder>.root files and run.log.\n"
                    "Default output: a new output/job_<timestamp> directory.\n";
       return 0;
     }
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
               << "CUPID_COMMAND";
     for (int i = 0; i < argc; ++i) std::cout << " " << std::quoted(argv[i]);
     std::cout << "\nCUPID_CWD " << std::filesystem::current_path().string()
-              << "\nCUPID_RECORD_POLICY EventEnergy: positive detector totals only; IncidentEnergy: includes zero deposits."
+              << "\nCUPID_RECORD_POLICY EventEnergy: positive detector totals only; IncidentEnergy: positive detector-local root totals only."
               << "\nCUPID_RESULT_NOTE Energies are unweighted keV, without detector response or a time window."
               << " Use processed_events, not tree row counts, for the simulated event count.\n";
     log->RecordMacro(macro.string(), {".", macro.parent_path().string(), CUPID_MACRO_DIR});
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     // physics->SetVerboseLevel(0);
     // runManager->SetUserInitialization(physics);
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    auto* actions = new cupid::ActionInitialization(outputDirectory.string());
+    auto* actions = new cupid::ActionInitialization(outputDirectory.string(), detector->GetGeometryManager());
     runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS

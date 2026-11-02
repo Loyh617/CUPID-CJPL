@@ -21,7 +21,6 @@
 
 #include "TFile.h"
 #include "TLeaf.h"
-#include "TLeafC.h"
 #include "TTree.h"
 
 #include <chrono>
@@ -64,8 +63,8 @@ class Event final : public G4UserEventAction {
     const auto id = event->GetEventID();
     const auto name = "LMO" + std::to_string(id % 2);
     const auto energy = (id + 0.25) * keV;
-    if (fEvents) fRun->GetOutput().Write(run, std::vector<cupid::EventEnergyRecord>{{id, energy, name}});
-    if (fIncidents) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, TestPDG(id), energy, name}});
+    if (fEvents && run != 4) fRun->GetOutput().Write(run, std::vector<cupid::EventEnergyRecord>{{id, energy, name}});
+    if (fIncidents && run != 3) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, TestPDG(id), energy, name}});
   }
  private:
   cupid::RunAction* fRun;
@@ -78,9 +77,9 @@ class Actions final : public G4VUserActionInitialization {
     if (incidents) fNames.push_back("IncidentEnergyRecorder");
     if (events) fNames.push_back("EventEnergyRecorder");
   }
-  void BuildForMaster() const override { SetUserAction(new cupid::RunAction(fDirectory, fNames)); }
+  void BuildForMaster() const override { SetUserAction(new cupid::RunAction(fDirectory, fNames, "RootOutput", [] { return std::vector<G4String>{"LMO1", "LD0", "LMO0"}; })); }
   void Build() const override {
-    auto* run = new cupid::RunAction(fDirectory, fNames);
+    auto* run = new cupid::RunAction(fDirectory, fNames, "RootOutput", [] { return std::vector<G4String>{"LMO1", "LD0", "LMO0"}; });
     SetUserAction(run);
     SetUserAction(new Generator);
     SetUserAction(new Event(run, fEvents, fIncidents));
@@ -90,33 +89,36 @@ class Actions final : public G4VUserActionInitialization {
   std::vector<G4String> fNames;
   bool fEvents, fIncidents;
 };
-void Check(TFile& file, const char* name, bool selected, int run, int count, bool incident) {
-  auto* tree = dynamic_cast<TTree*>(file.Get(name));
-  Require((tree != nullptr) == selected, "Selected schema mismatch");
-  if (!selected) return;
-  Require(tree->GetEntries() == count, "Native merge lost or duplicated rows");
-  auto* detector = dynamic_cast<TLeafC*>(tree->GetLeaf("DetectorName"));
-  Require(detector != nullptr, "Missing native string leaf");
-  const std::vector<std::string> columns = incident
-      ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep", "DetectorName"}
-      : std::vector<std::string>{"RunID", "EventID", "Edep", "DetectorName"};
-  Require(tree->GetListOfBranches()->GetEntries() == static_cast<int>(columns.size()), "Wrong column count");
-  for (std::size_t i = 0; i < columns.size(); ++i)
-    Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Merged column order changed");
+void Check(TFile& file, int run, int count, bool incident) {
+  Require(file.GetListOfKeys()->GetEntries() == 3, "Unexpected tree keys or cycles");
   std::set<int> ids;
-  for (int row = 0; row < count; ++row) {
-    Require(tree->GetEntry(row) > 0, "Cannot read native row");
-    const int id = tree->GetLeaf("EventID")->GetValue();
-    Require(id >= 0 && id < count && ids.insert(id).second, "Event IDs not preserved");
-    Require(tree->GetLeaf("RunID")->GetValue() == run, "Run IDs not preserved");
-    Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (id + 0.25)) < 1.e-10, "Column association or energy changed");
-    Require(std::string(detector->GetValueString()) == "LMO" + std::to_string(id % 2), "Detector association changed");
-    if (incident) {
-      Require(tree->GetLeaf("TrackID")->GetValue() == id + 1000, "Track association changed");
-      Require(tree->GetLeaf("PDG")->GetValue() == TestPDG(id), "PDG association changed");
+  for (const auto* name : {"LMO0", "LMO1", "LD0"}) {
+    auto* tree = dynamic_cast<TTree*>(file.Get(name));
+    Require(tree && !tree->GetBranch("DetectorName"), "Detector tree schema mismatch");
+    const int expected = std::string(name) == "LMO0" ? (count + 1) / 2 : std::string(name) == "LMO1" ? count / 2 : 0;
+    Require(tree->GetEntries() == expected, "Native merge lost/duplicated/misrouted rows");
+    const std::vector<std::string> columns = incident
+        ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep"}
+        : std::vector<std::string>{"RunID", "EventID", "Edep"};
+    Require(tree->GetListOfBranches()->GetEntries() == static_cast<int>(columns.size()), "Wrong column count");
+    for (std::size_t i = 0; i < columns.size(); ++i)
+      Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Merged column order changed");
+    for (int row = 0; row < expected; ++row) {
+      Require(tree->GetEntry(row) > 0, "Cannot read native row");
+      const int id = tree->GetLeaf("EventID")->GetValue();
+      Require(id >= 0 && id < count && ids.insert(id).second, "Event IDs not preserved");
+      Require(tree->GetLeaf("RunID")->GetValue() == run, "Run IDs not preserved");
+      Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (id + 0.25)) < 1.e-10, "Column association or energy changed");
+      Require(std::string(name) == "LMO" + std::to_string(id % 2), "Detector association changed");
+      if (incident) {
+        Require(tree->GetLeaf("TrackID")->GetValue() == id + 1000, "Track association changed");
+        Require(tree->GetLeaf("PDG")->GetValue() == TestPDG(id), "PDG association changed");
+      }
     }
   }
+  Require(static_cast<int>(ids.size()) == count, "Incomplete merged event coverage");
 }
+
 }
 int main(int argc, char** argv) {
   try {
@@ -140,18 +142,22 @@ int main(int argc, char** argv) {
       run->BeamOn(29);
       run->BeamOn(1);
       run->BeamOn(7);
+      run->BeamOn(5);
+      run->BeamOn(5);
     }
-    for (int run = 0; run < 3; ++run) {
-      const auto path = directory / ("run" + std::to_string(run) + ".root");
-      const bool hasFile = run < 2 && (events || incidents);
-      Require(std::filesystem::exists(path) == hasFile, "Empty-file policy mismatch");
-      if (!hasFile) continue;
-      TFile file(path.c_str(), "READ");
-      Require(!file.IsZombie(), "Invalid native file");
-      Check(file, "EventEnergy", events, run, run == 0 ? 29 : 1, false);
-      Check(file, "IncidentEnergy", incidents, run, run == 0 ? 29 : 1, true);
-      file.Close();
-      std::filesystem::remove(path);
+    for (int run = 0; run < 5; ++run) {
+      Require(!std::filesystem::exists(directory / ("run" + std::to_string(run) + ".root")), "Unexpected default file");
+      for (bool incident : {false, true}) {
+        const auto path = directory / ("run" + std::to_string(run) + (incident ? "_IncidentEnergy.root" : "_EventEnergy.root"));
+        const bool hasFile = run != 2 && (incident ? incidents && run != 3 : events && run != 4);
+        Require(std::filesystem::exists(path) == hasFile, "Empty/selected file policy mismatch");
+        if (!hasFile) continue;
+        TFile file(path.c_str(), "READ");
+        Require(!file.IsZombie(), "Invalid native file");
+        Check(file, run, run == 0 ? 29 : run == 1 ? 1 : 5, incident);
+        file.Close();
+        std::filesystem::remove(path);
+      }
     }
     Require(std::filesystem::is_empty(directory), "Unexpected worker/extra files");
     std::filesystem::remove(directory);

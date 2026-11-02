@@ -1,6 +1,7 @@
 """Read actual simulation ROOT files and compare event and incident energy totals.
 
-Requires PyROOT from the ROOT installation (source thisroot.sh first).
+Pass both recorder files for schema 4; historical combined schema 1/2/3 files
+remain supported. Requires PyROOT from the ROOT installation (source thisroot.sh first).
 """
 import argparse
 import collections
@@ -34,58 +35,91 @@ incident_totals = collections.defaultdict(float)
 incident_keys = set()
 incident_rows = 0
 file_counts = []
+seen_types = set()
 for path in args.files:
     file = ROOT.TFile.Open(str(path), 'READ')
     assert file and not file.IsZombie() and not file.TestBit(ROOT.TFile.kRecovered), f'Invalid ROOT file: {path}'
     schema = file.Get('SchemaVersion')
-    format_version = 1
     if schema:
         assert schema.GetTitle() == '1' and file.Get('EnergyUnit').GetTitle() == 'keV', 'Unexpected legacy schema'
-    else:
-        for name in ['EventEnergy', 'IncidentEnergy']:
-            tree = file.Get(name)
-            if tree:
-                title = str(tree.GetTitle())
-                version = 3 if 'Edep in keV; CUPID schema 3' in title else 2
+    tables = []
+    file_types = set()
+    versions = set()
+    tree_names = set()
+    for entry in file.GetListOfKeys():
+        if entry.GetClassName() != 'TTree':
+            continue
+        name = str(entry.GetName())
+        assert name not in tree_names, f'Duplicate tree cycle: {path}/{name}'
+        tree_names.add(name)
+        tree = file.Get(name)
+        title = str(tree.GetTitle())
+        if 'CUPID schema 4' in title:
+            kind = title.split(';')[0]
+            assert kind in ('EventEnergy', 'IncidentEnergy'), 'Unknown record type'
+            assert title == f'{kind}; Edep in keV; CUPID schema 4', 'Unexpected units/schema'
+            assert name in args.detectors, f'Unexpected detector tree: {name}'
+            version = 4
+            detector = name
+        else:
+            kind = name
+            assert kind in ('EventEnergy', 'IncidentEnergy'), f'Unknown legacy tree: {name}'
+            version = 1 if schema else (3 if 'CUPID schema 3' in title else 2)
+            if version > 1:
                 assert f'Edep in keV; CUPID schema {version}' in title, 'Unexpected native schema'
-                assert format_version in (1, version), 'Mixed table schemas'
-                format_version = version
-    event_tree = file.Get('EventEnergy')
-    incident_tree = file.Get('IncidentEnergy')
-    if schema and not event_tree and not incident_tree and args.allow_empty_files:
-        file_counts.append({'file': str(path.resolve()), 'event_rows': 0, 'incident_rows': 0,
-                            'metadata_only': True})
-        file.Close()
-        continue
-    assert event_tree and incident_tree, f'Missing requested tree: {path}'
-    file_counts.append({'file': str(path.resolve()), 'event_rows': int(event_tree.GetEntries()),
-                        'incident_rows': int(incident_tree.GetEntries())})
-    if format_version == 3:
-        assert [b.GetName() for b in incident_tree.GetListOfBranches()] == [
-            'RunID', 'EventID', 'TrackID', 'PDG', 'Edep', 'DetectorName'], 'Unexpected incident columns'
-        assert incident_tree.GetLeaf('PDG').GetTypeName() == 'Int_t', 'Unexpected PDG type'
-    for row in event_tree:
-        key = (int(row.RunID), int(row.EventID), detector_name(row))
-        energy = float(row.Edep)
-        assert key not in events, f'Duplicate event/detector row: {key}'
-        assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {key}'
-        if args.event_policy == 'positive':
-            assert energy > 0., f'Zero-energy event row: {key}'
-        events[key] = energy
-    for row in incident_tree:
-        key = (int(row.RunID), int(row.EventID), detector_name(row))
-        root_key = (*key, int(row.TrackID))
-        energy = float(row.Edep)
-        assert row.TrackID > 0 and root_key not in incident_keys, f'Invalid/duplicate incident key: {root_key}'
-        assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {root_key}'
-        if format_version == 3:
-            assert energy > 0., f'Zero-energy incident row: {root_key}'
-            pdg = int(row.PDG)  # Preserve signed, zero and nuclear Geant4 encodings.
-            assert -(2**31) <= pdg < 2**31, f'Invalid PDG field: {root_key}'
-        incident_keys.add(root_key)
-        incident_totals[key] += energy
-        incident_rows += 1
+            detector = None
+        columns = ['RunID', 'EventID']
+        if kind == 'IncidentEnergy' and version >= 3:
+            columns += ['TrackID', 'PDG']
+        columns += ['Edep']
+        if version < 4:
+            columns += ['DetectorName']
+        if kind == 'IncidentEnergy' and version < 3:
+            columns += ['TrackID']
+        assert [b.GetName() for b in tree.GetListOfBranches()] == columns, f'Unexpected columns: {path}/{name}'
+        if version >= 3 and kind == 'IncidentEnergy':
+            assert tree.GetLeaf('PDG').GetTypeName() == 'Int_t', 'Unexpected PDG type'
+        versions.add(version)
+        file_types.add(kind)
+        seen_types.add(kind)
+        tables.append((tree, kind, version, detector))
+    if not tables:
+        assert schema and args.allow_empty_files, f'No data trees: {path}'
+    assert len(versions) <= 1, 'Mixed schemas in one file'
+    if 4 in versions:
+        assert len(file_types) == 1, 'Different recorders in the same schema-4 file'
+        assert tree_names == set(args.detectors), 'Incomplete detector catalog'
+    elif tables:
+        assert file_types == {'EventEnergy', 'IncidentEnergy'}, f'Missing legacy tree: {path}'
+    counts = {'file': str(path.resolve()), 'event_rows': 0, 'incident_rows': 0}
+    if not tables:
+        counts['metadata_only'] = True
+    for tree, kind, version, detector in tables:
+        counts['event_rows' if kind == 'EventEnergy' else 'incident_rows'] += int(tree.GetEntries())
+        for row in tree:
+            key = (int(row.RunID), int(row.EventID), detector if detector is not None else detector_name(row))
+            energy = float(row.Edep)
+            assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {key}'
+            if kind == 'EventEnergy':
+                assert key not in events, f'Duplicate event/detector row: {key}'
+                if args.event_policy == 'positive':
+                    assert energy > 0., f'Zero-energy event row: {key}'
+                events[key] = energy
+            else:
+                root_key = (*key, int(row.TrackID))
+                assert row.TrackID > 0 and root_key not in incident_keys, f'Invalid/duplicate incident key: {root_key}'
+                if version >= 3:
+                    assert energy > 0., f'Zero-energy incident row: {root_key}'
+                    pdg = int(row.PDG)
+                    assert -(2**31) <= pdg < 2**31, f'Invalid PDG field: {root_key}'
+                incident_keys.add(root_key)
+                incident_totals[key] += energy
+                incident_rows += 1
+    file_counts.append(counts)
     file.Close()
+
+assert seen_types == {'EventEnergy', 'IncidentEnergy'} or (args.allow_empty_files and not seen_types), \
+    'Energy comparison requires both recorder files'
 
 # The requested event count comes from the caller/run log, not from sparse rows.
 assert args.events >= 0 and len(set(args.detectors)) == len(args.detectors), 'Invalid expected run layout'

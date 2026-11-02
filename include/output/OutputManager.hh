@@ -22,6 +22,8 @@ class OutputManager final {
   std::string GetFileExtension() const;
   void Book(const std::vector<EventEnergyRecord>& records);
   void Book(const std::vector<IncidentEnergyRecord>& records);
+  void SetDetectorNames(const std::vector<G4String>& names);
+  std::vector<std::string> GetFileNames(const std::string& baseName) const;
   void OpenFile(const std::string& fileName);
   bool IsOpen() const;
   void Write(G4int runId, const std::vector<EventEnergyRecord>& records);

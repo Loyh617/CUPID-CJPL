@@ -7,6 +7,7 @@
 
 #include "ActionInitialization.hh"
 #include "generator/GeneratorMessenger.hh"
+#include "geometry/GeometryManager.hh"
 #include "PrimaryGeneratorAction.hh"
 #include "RunAction.hh"
 #include "EventAction.hh"
@@ -14,16 +15,27 @@
 #include "TrackingAction.hh"
 #include "StackingAction.hh"
 
+#include "G4LogicalVolume.hh"
+
 namespace cupid {
-ActionInitialization::ActionInitialization(const G4String& outputDirectory)
-    : fOutputDirectory(outputDirectory), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
+ActionInitialization::ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry)
+    : fGeometry(geometry), fOutputDirectory(outputDirectory), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
 ActionInitialization::~ActionInitialization() = default;
+RunAction* ActionInitialization::CreateRunAction() const {
+  // Resolve the complete scoring catalog after geometry construction, including
+  // on the MT master whose RunAction is created before geometry initialization.
+  return new RunAction(fOutputDirectory, EventAction::DefaultRecorders(), "RootOutput", [this] {
+    std::vector<G4String> names;
+    for (const auto* logical : fGeometry.GetLMOLogicalVolumes()) names.push_back(logical->GetName());
+    return names;
+  });
+}
 void ActionInitialization::BuildForMaster() const {
-  SetUserAction(new RunAction(fOutputDirectory, EventAction::DefaultRecorders()));
+  SetUserAction(CreateRunAction());
 }
 void ActionInitialization::Build() const {
   SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
-  auto* runAction = new RunAction(fOutputDirectory, EventAction::DefaultRecorders());
+  auto* runAction = CreateRunAction();
   SetUserAction(runAction);
   auto* eventAction = new EventAction(runAction);
   SetUserAction(eventAction);

@@ -28,6 +28,7 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
 /run/beamOn 32
 /gun/particle e-
 /gun/energy 100 keV
+/gun/position 25 -350 0 mm
 /run/beamOn 1
 /gun/particle geantino
 /gun/position 0 1000 0 mm
@@ -38,12 +39,12 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
         command = [str(executable), str(macro), *options, '--output', str(output)]
         result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=90)
         assert result.returncode == 0, result.stdout + result.stderr
-        assert {p.name for p in output.iterdir()} == {'run0.root', 'run2.root', 'run.log'}
+        assert {p.name for p in output.iterdir()} == {'run0_EventEnergy.root', 'run0_IncidentEnergy.root', 'run2_EventEnergy.root', 'run2_IncidentEnergy.root', 'run.log'}
         assert 'Analysis_W' not in result.stdout + result.stderr, result.stdout + result.stderr
         log = (output / 'run.log').read_text()
         for expected in ['CUPID_OUTPUT_MODULE name=RootOutput',
                          'CUPID_RECORDERS selected=EventEnergyRecorder IncidentEnergyRecorder',
-                         'backend=G4AnalysisManager schema=3 energy_unit=keV',
+                         'backend=G4AnalysisManager schema=4 energy_unit=keV',
                          'processed_events=3 event_rows=0 incident_rows=0 energy_unit=keV file=none(empty)',
                          'CUPID_VERSIONS', 'ROOT=6.36.10', '/random/setSeeds 12567 76521',
                          '/cupid/geometry/lmoCount 2', 'CUPID_SOURCE /gun/position',
@@ -54,7 +55,7 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
             subprocess.run([str(checker), '--inspect', str(output / f'run{run}.root'), str(rows), str(incidents)], check=True)
             validation = subprocess.run(
                 [sys.executable, str(pathlib.Path(__file__).with_name('check_root_records.py')),
-                 str(output / f'run{run}.root'), '--events', str(1 if run == 2 else 32), '--run', str(run)],
+                 str(output / f'run{run}_EventEnergy.root'), str(output / f'run{run}_IncidentEnergy.root'), '--events', str(1 if run == 2 else 32), '--run', str(run)],
                 capture_output=True, text=True, timeout=30)
             assert validation.returncode == 0, validation.stdout + validation.stderr
         before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in output.iterdir()}
@@ -62,6 +63,15 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
         assert again.returncode != 0, 'Existing job output was overwritten'
         assert before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in output.iterdir()}
         print('PASS', mode, 'merge, sparse rows, repeated runs, logs and overwrite protection', flush=True)
+    # With no scoring volumes, both selected recorders must still finish cleanly.
+    world_macro = directory / 'world.mac'
+    world_macro.write_text('/run/initialize\n/gun/particle geantino\n/gun/energy 1 MeV\n/run/beamOn 1\n')
+    world_output = directory / 'world'
+    result = subprocess.run([str(executable), str(world_macro), '--threads', '4', '--output', str(world_output)],
+                            cwd=directory, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert {p.name for p in world_output.iterdir()} == {'run.log'}
+    assert 'processed_events=1 event_rows=0 incident_rows=0 energy_unit=keV file=none(empty)' in (world_output / 'run.log').read_text()
     bad_macro = directory / 'invalid.mac'
     bad_macro.write_text('/cupid/invalidCommand\n')
     failed_output = directory / 'failed'

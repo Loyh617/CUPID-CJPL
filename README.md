@@ -31,7 +31,7 @@ cmake --build build -j4
 echo "Exit status: $?"
 ```
 
-This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/run.log`, and a `run0.root` file. Use a new output directory when repeating the run; existing logs are not overwritten.
+This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/run.log`, and `run0_EventEnergy.root` / `run0_IncidentEnergy.root` files. Use a new output directory when repeating the run; existing logs are not overwritten.
 
 Compilation, execution, and ROOT readback have been checked in the existing development environment. **Independent installation and execution by another member in a clean environment remain pending.** Dependency requirements and installation guidance follow below.
 
@@ -137,25 +137,47 @@ Command-line options set the initial mode, thread count, and output. Macros then
 
 ## 7. Output Format and Minimal Analysis
 
-The selected directory contains `run.log` and a `runN.root` file for each run with records. Without `--output`, the application creates `output/job_*`. The current format is schema 3, with both recorders enabled by default. Geant4's native analysis manager merges worker output into one file per run; rows are not guaranteed to follow EventID order.
+The output directory contains one `run.log` and separate files for each enabled recorder and run. Without `--output`, the application creates `output/job_*`. The current format is **schema 4**:
 
-| ROOT tree | Meaning of one row | Columns, in order |
+```text
+run0_EventEnergy.root
+  LMO0    (TTree)
+  LMO1    (TTree)
+run0_IncidentEnergy.root
+  LMO0    (TTree)
+  LMO1    (TTree)
+run.log
+```
+
+| File | Meaning of one row in a detector tree | Columns, in order |
 | --- | --- | --- |
-| `EventEnergy` | Total deposited energy in one LMO within one event | `RunID, EventID, Edep, DetectorName` |
-| `IncidentEnergy` | Total deposited energy attributed to one incident root and its associated descendants in one LMO within one event | `RunID, EventID, TrackID, PDG, Edep, DetectorName` |
+| `runN_EventEnergy.root` | Total energy deposited in that detector within one event | `RunID, EventID, Edep` |
+| `runN_IncidentEnergy.root` | Total deposited energy attributed to one incident root and its associated descendants in that detector/event | `RunID, EventID, TrackID, PDG, Edep` |
 
-`Edep` is unweighted deposited energy in keV, not incident energy. `DetectorName` identifies `LMO0` or `LMO1`; TrackID and PDG identify that crystal's incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. A run without positive deposits may produce no ROOT file. Row counts are not simulated event counts: use `processed_events` from the log as the simulation normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
+The **tree name identifies the detector**; there is no `DetectorName` branch. Internal recorder data retain `detectorName` for routing. Detector names come from the constructed scoring geometry, must be unique identifiers (`[A-Za-z_][A-Za-z0-9_]*`), and are booked consistently on master and workers before a run. The current geometry registers LMOs; future detector components must also supply their scoring names. A detector without deposits has an empty tree in a retained recorder file. A recorder file with no rows in any detector is removed; a wholly empty run leaves only the log. Unknown detector names in records are errors, not silently created trees.
 
-From the repository root, run `root -l results/quickstart/run0.root`, then enter at the ROOT prompt:
+Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. Each subsequent run gets its own file pair (`run1_*`, etc.); existing results are not overwritten.
+
+`Edep` is unweighted deposited energy in keV, not incident energy. TrackID and PDG identify the detector-local incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. Row counts are not simulated event counts: use `processed_events` from the log as the normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
+
+From the repository root, run `root -l results/quickstart/run0_EventEnergy.root`, then enter at the ROOT prompt:
 
 ```cpp
-auto* events = _file0->Get<TTree>("EventEnergy");
+auto* events = _file0->Get<TTree>("LMO0");
 events->Print();
-events->Draw("Edep>>hLMO0(200,0,1100)", "DetectorName==\"LMO0\"");
+events->Draw("Edep>>hLMO0(200,0,1100)");
 gPad->SaveAs("results/quickstart/LMO0-spectrum.png");
 ```
 
-This plots the event-level LMO0 energy-deposition spectrum: the horizontal axis is in keV and the vertical axis counts records per bin. Exit with `.q`. Automated data checks are available in `tests/check_root_records.py`.
+This plots the event-level LMO0 spectrum: keV on the horizontal axis and records per bin on the vertical axis. Exit with `.q`. To check energy agreement between recorders, pass both files:
+
+```bash
+python3 tests/check_root_records.py \
+  results/quickstart/run0_EventEnergy.root \
+  results/quickstart/run0_IncidentEnergy.root --events 1000 --run 0
+```
+
+The checker also supports historical combined schema 1/2/3 files; their original tree names and `DetectorName` branches remain unchanged. Existing data are not converted automatically.
 
 ## 8. Reproducibility and Run Records
 
@@ -199,7 +221,7 @@ ctest --test-dir build --output-on-failure
 
 Compilation and minimal runs check usability. Geometry checks sample for overlaps. CTest covers sampling, materials, ancestry attribution, positive-deposit filtering, ROOT fields, and serial/multithreaded output. Passing sampled overlap checks does not prove every geometric detail is correct.
 
-There are currently 21 configured CTest cases. All passed on 2026-10-28; 14 affected tests passed after the PDG changes on 2026-10-29. The quick-start run and spectrum readback were checked again on 2026-10-30. No acceptance benchmarks have yet been established for experimental spectra, efficiencies, or absolute background rates. New physics validation must document reference sources, event counts, statistical and systematic uncertainties, and acceptance tolerances agreed in advance. Software regression is not a substitute for physics validation.
+There are currently 21 configured CTest cases. All passed on 2026-10-28; 14 affected tests passed after the PDG changes on 2026-10-29. The quick-start run and spectrum readback were checked again on 2026-10-30. All 21 tests passed on 2026-11-02 after the schema-4 output change, including recorder-specific files, detector trees, empty runs, and native multithreaded merging. Historical schema-1 readback also passed. No acceptance benchmarks have yet been established for experimental spectra, efficiencies, or absolute background rates. New physics validation must document reference sources, event counts, statistical and systematic uncertainties, and acceptance tolerances agreed in advance. Software regression is not a substitute for physics validation.
 
 ## 10. Team Collaboration
 
@@ -236,6 +258,5 @@ No Git LFS or centralized data repository policy is established yet. Before addi
 | Macro not found or edits ineffective | Run `macros/xxx.mac` from the root; check submacro paths and build-directory copies |
 | No ROOT file | Check exit status and `run.log`; `file=none(empty)` indicates no saved records |
 | Output already exists | Choose a new directory rather than overwriting `run.log` |
-| Log says IncidentEnergy includes zero deposits | The startup `CUPID_RECORD_POLICY` line contains outdated text; schema 3 saves only positive deposits. Use the definitions above and the run-result summary |
 
 Maintenance and feedback: [repository Issues](https://github.com/Loyh617/CUPID-CJPL/issues), owned by Loyh617; team responsibilities remain to be documented. No LICENSE file is provided yet, and no open-source license grant is declared. For now, cite the repository URL and commit used; the maintainer has yet to establish the formal license and citation format.

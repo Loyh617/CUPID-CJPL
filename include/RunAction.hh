@@ -3,7 +3,8 @@
 ///
 /// ActionInitialization passes identical recorder names to master and workers.
 /// All threads open and finalize output; Geant4 handles merging. Only event
-/// threads fill records. The master inspects the completed file and logs counts.
+/// threads fill records. A geometry callback supplies names at run start, after
+/// geometry construction. The master inspects completed recorder files and logs counts.
 
 #pragma once
 #include "output/OutputManager.hh"
@@ -11,13 +12,15 @@
 #include "G4UserRunAction.hh"
 #include "globals.hh"
 
+#include <functional>
 #include <vector>
 
 namespace cupid {
 class RunAction final : public G4UserRunAction {
  public:
+  using DetectorNames = std::function<std::vector<G4String>()>;
   RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
-            const G4String& outputName = "RootOutput");
+            const G4String& outputName = "RootOutput", DetectorNames detectorNames = {});
   void BeginOfRunAction(const G4Run*) override;
   void EndOfRunAction(const G4Run*) override;
   OutputManager& GetOutput() { return fOutput; }
@@ -28,7 +31,8 @@ class RunAction final : public G4UserRunAction {
   OutputManager fOutput;
   const G4String fOutputDirectory;
   const std::vector<G4String> fRecorderNames;
-  G4String fFileName;
+  DetectorNames fDetectorNames;
+  std::vector<std::string> fFileNames;
   G4int fRunId = -1;
 };
 }  // namespace cupid
