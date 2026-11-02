@@ -1,3 +1,5 @@
+#include "record/IncidentEnergyRecorder.hh"
+#include "record/EventEnergyRecorder.hh"
 #include "DetectorConstruction.hh"
 #include "DetectorHit.hh"
 #include "EventAction.hh"
@@ -90,7 +92,7 @@ class TestEvent final : public G4UserEventAction {
 
   void BeginOfEventAction(const G4Event* event) override {
     fEventAction.BeginOfEventAction(event);
-    Check(fEventAction.GetEventRecords().empty() && fEventAction.GetIncidentRecords().empty(),
+    Check(fEventAction.GetRecords<cupid::EventEnergyRecord>().empty() && fEventAction.GetRecords<cupid::IncidentEnergyRecord>().empty(),
           "record vectors reset at the start of the event");
     fReference.clear();
     fReferencePDG.clear();
@@ -134,8 +136,8 @@ class TestEvent final : public G4UserEventAction {
     fEventAction.EndOfEventAction(event);
     ++checkedEvents;
     Check(!event->IsAborted(), "event completed");
-    const auto& eventRows = fEventAction.GetEventRecords();
-    const auto& incidentRows = fEventAction.GetIncidentRecords();
+    const auto& eventRows = fEventAction.GetRecords<cupid::EventEnergyRecord>();
+    const auto& incidentRows = fEventAction.GetRecords<cupid::IncidentEnergyRecord>();
     const auto positiveCount = std::count_if(fReference.begin(), fReference.end(),
                                              [](const auto& entry) { return entry.second > 0.; });
     Check(eventRows.size() == static_cast<std::size_t>(positiveCount), "one event row per positive-energy LMO");

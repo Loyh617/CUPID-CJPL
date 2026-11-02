@@ -1,11 +1,13 @@
 /// \file src/record/RecordManager.cc
 /// \brief Bind recorder names to typed builders and aggregate event collections.
 ///
-/// Register each recorder's empty result type, ancestry requirement and Build()
+/// Register each recorder's batch factory, ancestry requirement and Build()
 /// adapter here. Selection is validated once; Build() invokes only selected
 /// adapters, preserving detector-name uniqueness across all hit collections.
 
 #include "record/RecordManager.hh"
+#include "record/EventEnergyRecorder.hh"
+#include "record/IncidentEnergyRecorder.hh"
 
 #include "G4HCofThisEvent.hh"
 
@@ -13,40 +15,45 @@
 #include <map>
 #include <set>
 #include <stdexcept>
+#include <utility>
 
 namespace cupid {
 namespace {
 template<class Record>
 void Append(RecordBatch& batch, const std::vector<Record>& records) {
-  auto& destination = std::get<std::vector<Record>>(batch);
+  auto& destination = *batch.Get<Record>();
   destination.insert(destination.end(), records.begin(), records.end());
 }
 }
 
 RecordManager::RecordManager(const std::vector<G4String>& names) {
   struct Registration {
-    RecordBatch empty;
+    RecordBatch (*create)();
     bool requiresTrackAncestry;
     Builder build;
   };
   static const std::map<G4String, Registration> registry{
-      {"EventEnergyRecorder", {std::vector<EventEnergyRecord>{}, false,
+      {"EventEnergyRecorder", {&RecordBatch::Create<EventEnergyRecord>, false,
           [](RecordBatch& batch, G4int eventId, const DetectorHitsCollection& hits,
              const TrackAncestry&) {
             Append(batch, EventEnergyRecorder{}.Build(eventId, hits));
           }}},
-      {"IncidentEnergyRecorder", {std::vector<IncidentEnergyRecord>{}, true,
+      {"IncidentEnergyRecorder", {&RecordBatch::Create<IncidentEnergyRecord>, true,
           [](RecordBatch& batch, G4int eventId, const DetectorHitsCollection& hits,
              const TrackAncestry& ancestry) {
             Append(batch, IncidentEnergyRecorder{}.Build(eventId, hits, ancestry));
           }}}};
+  std::set<G4String> datasets;
   for (const auto& name : names) {
     const auto found = registry.find(name);
     if (found == registry.end()) throw std::invalid_argument("Unknown recorder: " + name);
     if (IsEnabled(name)) throw std::invalid_argument("Duplicate recorder selection: " + name);
     fNames.push_back(name);
     fBuilders.push_back(found->second.build);
-    fBatches.push_back(found->second.empty);
+    auto batch = found->second.create();
+    if (!datasets.insert(batch.View().Schema().name).second)
+      throw std::invalid_argument("RecordManager: selected recorders must use distinct dataset names.");
+    fBatches.push_back(std::move(batch));
     fRequiresTrackAncestry = fRequiresTrackAncestry || found->second.requiresTrackAncestry;
   }
 }
@@ -56,7 +63,7 @@ bool RecordManager::IsEnabled(const G4String& name) const {
 }
 
 void RecordManager::Clear() {
-  for (auto& batch : fBatches) std::visit([](auto& rows) { rows.clear(); }, batch);
+  for (auto& batch : fBatches) batch.Clear();
 }
 
 void RecordManager::Build(G4int eventId, G4HCofThisEvent& collections,

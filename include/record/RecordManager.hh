@@ -2,24 +2,20 @@
 /// \brief Select named recorders and retain their typed results for one event.
 ///
 /// EventAction owns this manager and calls Clear() and Build(). GetBatches()
-/// exposes original record vectors in a type-safe variant for Action dispatch.
+/// exposes owned typed vectors through generic batch views for Action dispatch.
 /// The manager has no dependency on output modules and performs no file I/O.
 
 #pragma once
 
-#include "record/EventEnergyRecorder.hh"
-#include "record/IncidentEnergyRecorder.hh"
+#include "DetectorHit.hh"
+#include "record/RecordBatch.hh"
 #include "record/TrackAncestry.hh"
 
-#include <variant>
 #include <vector>
 
 class G4HCofThisEvent;
 
 namespace cupid {
-
-using RecordBatch = std::variant<std::vector<EventEnergyRecord>,
-                                 std::vector<IncidentEnergyRecord>>;
 
 class RecordManager final {
  public:
@@ -36,7 +32,7 @@ class RecordManager final {
   template<class Record>
   const std::vector<Record>& GetRecords() const {
     for (const auto& batch : fBatches)
-      if (const auto* rows = std::get_if<std::vector<Record>>(&batch)) return *rows;
+      if (const auto* rows = batch.Get<Record>()) return *rows;
     static const std::vector<Record> empty;
     return empty;
   }

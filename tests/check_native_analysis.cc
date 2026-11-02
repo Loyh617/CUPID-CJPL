@@ -1,5 +1,7 @@
 // Exercise production RunAction/OutputManager with synthetic, distinct row values.
 // This verifies native Geant4 MT booking/merging, not detector physics.
+#include "record/IncidentEnergyRecorder.hh"
+#include "record/EventEnergyRecorder.hh"
 #include "RunAction.hh"
 
 #include "G4Box.hh"

@@ -8,9 +8,13 @@
 #pragma once
 
 #include "DetectorHit.hh"
+#include "record/RecordSchema.hh"
 
+#include "G4SystemOfUnits.hh"
 #include "globals.hh"
 
+#include <cmath>
+#include <stdexcept>
 #include <vector>
 
 namespace cupid {
@@ -20,6 +24,21 @@ struct EventEnergyRecord {
   G4int eventId;
   G4double edep;
   G4String detectorName;
+};
+
+template<> struct RecordTraits<EventEnergyRecord> {
+  static const RecordDescription<EventEnergyRecord>& Get() {
+    using R = EventEnergyRecord;
+    static const auto description = Describe<R>(
+        "EventEnergy", DetectorKey(&R::detectorName),
+        Column("EventID", &R::eventId),
+        Column("Edep", &R::edep, keV, "keV"))
+        .WithValidation([](const R& record) {
+          if (record.eventId < 0 || !std::isfinite(record.edep) || record.edep < 0.)
+            throw std::invalid_argument("EventEnergyRecord: invalid record.");
+        });
+    return description;
+  }
 };
 
 class EventEnergyRecorder {

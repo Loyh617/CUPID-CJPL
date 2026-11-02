@@ -1,3 +1,5 @@
+#include "record/IncidentEnergyRecorder.hh"
+#include "record/EventEnergyRecorder.hh"
 #include "output/RootOutput.hh"
 
 #include "G4SystemOfUnits.hh"
@@ -77,8 +79,8 @@ void CheckFiles(const std::string& base, const std::vector<Row>& events, const s
     for (const auto* name : {"LMO0", "LMO1", "LD0", "NTD0"})
       CheckTree(file, name, incident, incident ? incidents : events);
     const auto summary = cupid::RootOutput::InspectFile(path);
-    Require(summary.eventRows == static_cast<long long>(incident ? 0 : events.size()) &&
-            summary.incidentRows == static_cast<long long>(incident ? incidents.size() : 0), "Split-file summary mismatch.");
+    Require(summary.Count("EventEnergy") == static_cast<long long>(incident ? 0 : events.size()) &&
+            summary.Count("IncidentEnergy") == static_cast<long long>(incident ? incidents.size() : 0), "Split-file summary mismatch.");
   }
 }
 void CheckIntegrated(const char* base, long long eventRows, long long incidentRows) {
@@ -88,8 +90,8 @@ void CheckIntegrated(const char* base, long long eventRows, long long incidentRo
   for (bool incident : {false, true}) {
     const auto path = FileName(base, incident ? "IncidentEnergy" : "EventEnergy");
     const auto summary = cupid::RootOutput::InspectFile(path);
-    Require(summary.eventRows == (incident ? 0 : eventRows) &&
-            summary.incidentRows == (incident ? incidentRows : 0), "Integrated row counts differ.");
+    Require(summary.Count("EventEnergy") == (incident ? 0 : eventRows) &&
+            summary.Count("IncidentEnergy") == (incident ? incidentRows : 0), "Integrated row counts differ.");
     TFile file(path.c_str(), "READ");
     for (const auto* detector : {"LMO0", "LMO1"}) {
       auto* tree = dynamic_cast<TTree*>(file.Get(detector));
@@ -139,7 +141,7 @@ int main(int argc, char** argv) {
     Reject([&] { output.SetDetectorNames({"bad/name"}); }, "Unsafe tree name accepted.");
     output.SetDetectorNames({"NTD0", "LMO1", "LMO0", "LD0"});
     TDirectory* previousDirectory = gDirectory;
-    Reject([&] { output.WriteEventRecords(0, {}); }, "Writing before open was accepted.");
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {}); }, "Writing before open was accepted.");
     Reject([&] { output.OpenFile(""); }, "Empty name was accepted.");
     Reject([&] { output.OpenFile((dir / "missing" / "bad.root").string()); }, "Missing directory was accepted.");
     output.OpenFile(mixed);
@@ -147,23 +149,23 @@ int main(int argc, char** argv) {
     Require(gDirectory == previousDirectory, "Open changed caller's current directory.");
     Reject([&] { output.OpenFile((dir / "other.root").string()); }, "Double open accepted.");
     Reject([&] { output.SetDetectorNames({"New0"}); }, "Late detector catalog change accepted.");
-    Reject([&] { output.WriteEventRecords(7, {{0, 1., "LMO0"}, {0, 1., "Unknown0"}}); }, "Unknown detector accepted.");
-    output.WriteEventRecords(7, {{3, 2.5 * MeV, "LMO0"}, {3, 0., "LMO1"}});
-    output.WriteIncidentRecords(7, {{3, 9, 22, 1.5 * MeV, "LMO0"}, {3, 11, -11, 1. * MeV, "LMO0"},
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(7, {{0, 1., "LMO0"}, {0, 1., "Unknown0"}}); }, "Unknown detector accepted.");
+    output.Write<cupid::EventEnergyRecord>(7, {{3, 2.5 * MeV, "LMO0"}, {3, 0., "LMO1"}});
+    output.Write<cupid::IncidentEnergyRecord>(7, {{3, 9, 22, 1.5 * MeV, "LMO0"}, {3, 11, -11, 1. * MeV, "LMO0"},
                                     {3, 12, 0, 0., "LMO1"}});
-    output.WriteEventRecords(8, {{3, 0.25 * keV, "LD0"}});
-    output.WriteIncidentRecords(8, {{3, 1, 1000902320, 0.25 * keV, "LD0"}});
-    Reject([&] { output.WriteEventRecords(0, {{4, 1., "NTD0"}, {4, -1., "NTD0"}}); }, "Invalid batch accepted.");
-    Reject([&] { output.WriteEventRecords(-1, {}); }, "Invalid RunID accepted.");
-    Reject([&] { output.WriteEventRecords(0, {{-1, 1., "LMO0"}}); }, "Invalid EventID accepted.");
-    Reject([&] { output.WriteEventRecords(0, {{0, 1., ""}}); }, "Empty detector name accepted.");
-    Reject([&] { output.WriteEventRecords(0, {{0, std::numeric_limits<double>::infinity(), "LMO0"}}); }, "Infinite energy accepted.");
-    Reject([&] { output.WriteIncidentRecords(0, {{0, 0, 22, 1., "LMO0"}}); }, "Invalid TrackID accepted.");
+    output.Write<cupid::EventEnergyRecord>(8, {{3, 0.25 * keV, "LD0"}});
+    output.Write<cupid::IncidentEnergyRecord>(8, {{3, 1, 1000902320, 0.25 * keV, "LD0"}});
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {{4, 1., "NTD0"}, {4, -1., "NTD0"}}); }, "Invalid batch accepted.");
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(-1, {}); }, "Invalid RunID accepted.");
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {{-1, 1., "LMO0"}}); }, "Invalid EventID accepted.");
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {{0, 1., ""}}); }, "Empty detector name accepted.");
+    Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {{0, std::numeric_limits<double>::infinity(), "LMO0"}}); }, "Infinite energy accepted.");
+    Reject([&] { output.Write<cupid::IncidentEnergyRecord>(0, {{0, 0, 22, 1., "LMO0"}}); }, "Invalid TrackID accepted.");
     output.CloseFile();
     Require(!output.IsOpen(), "File stayed open.");
     output.CloseFile();
     Require(gDirectory == previousDirectory, "Writing changed caller's current directory.");
-    Reject([&] { output.WriteIncidentRecords(0, {}); }, "Writing after close accepted.");
+    Reject([&] { output.Write<cupid::IncidentEnergyRecord>(0, {}); }, "Writing after close accepted.");
     Reject([&] { output.OpenFile(mixed); }, "Existing file was overwritten.");
     CheckFiles(mixed, {{7, 3, 0, 2500., "LMO0"}, {7, 3, 0, 0., "LMO1"}, {8, 3, 0, 0.25, "LD0"}},
                      {{7, 3, 9, 1500., "LMO0", 22}, {7, 3, 11, 1000., "LMO0", -11},
@@ -171,7 +173,7 @@ int main(int argc, char** argv) {
     // Native CloseFile resets data; schemas persist across runs.
     const auto repeated = (dir / "repeated.root").string();
     output.OpenFile(repeated);
-    output.WriteEventRecords(9, {{2, 1. * keV, "NTD0"}});
+    output.Write<cupid::EventEnergyRecord>(9, {{2, 1. * keV, "NTD0"}});
     output.CloseFile();
     CheckFiles(repeated, {{9, 2, 0, 1., "NTD0"}}, {}, true, false);
     const auto empty = (dir / "empty.root").string();
@@ -186,9 +188,9 @@ int main(int argc, char** argv) {
       output.SetDetectorNames({"NTD0"});
       output.OpenFile((dir / "large.root").string());
       Reject([&] { output.Book(std::vector<cupid::EventEnergyRecord>{}); }, "Late booking accepted.");
-      Reject([&] { output.WriteEventRecords(0, {}); }, "Unbooked write accepted.");
+      Reject([&] { output.Write<cupid::EventEnergyRecord>(0, {}); }, "Unbooked write accepted.");
       for (int event = 0; event < 100005; ++event)
-        output.WriteIncidentRecords(3, {{event, event + 1, event % 2 ? -11 : 1000902320, event * keV, "NTD0"}});
+        output.Write<cupid::IncidentEnergyRecord>(3, {{event, event + 1, event % 2 ? -11 : 1000902320, event * keV, "NTD0"}});
       output.CloseFile();
       TFile file((dir / "large_IncidentEnergy.root").c_str(), "READ");
       std::vector<Row> rows;
@@ -203,7 +205,7 @@ int main(int argc, char** argv) {
       output.SetDetectorNames({});
       const auto empty = (dir / "no-detectors.root").string();
       output.OpenFile(empty);
-      output.WriteEventRecords(0, {});
+      output.Write<cupid::EventEnergyRecord>(0, {});
       output.CloseFile();
       Require(output.GetFileNames(empty).empty() && !std::filesystem::exists(empty), "Zero-detector output created a file.");
     }

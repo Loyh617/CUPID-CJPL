@@ -18,7 +18,6 @@
 #include <stdexcept>
 #include <utility>
 #include <string>
-#include <variant>
 
 namespace cupid {
 RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
@@ -27,7 +26,7 @@ RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String
       fDetectorNames(std::move(detectorNames)) {
   const RecordManager selection(recorders);
   for (const auto& batch : selection.GetBatches())
-    std::visit([&](const auto& rows) { fOutput.Book(rows); }, batch);
+    fOutput.Book(batch.View().Schema());
 }
 
 void RunAction::BeginOfRunAction(const G4Run* run) {
@@ -40,7 +39,7 @@ void RunAction::BeginOfRunAction(const G4Run* run) {
     if (std::filesystem::exists(finalName))
       throw std::runtime_error("Run output already exists: " + finalName.string());
     G4cout << "CUPID_OUTPUT_MODULE name=" << fOutput.GetName()
-           << " backend=G4AnalysisManager schema=4 energy_unit=keV" << G4endl;
+           << " backend=G4AnalysisManager schema=4" << G4endl;
     G4cout << "CUPID_RUN_BEGIN run=" << fRunId << " requested_events=" << run->GetNumberOfEventToBeProcessed()
            << " threads=" << G4RunManager::GetRunManager()->GetNumberOfThreads() << G4endl;
     G4cout << "CUPID_RANDOM_STATE_BEGIN\n" << run->GetRandomNumberStatus() << "\nCUPID_RANDOM_STATE_END" << G4endl;
@@ -61,21 +60,23 @@ void RunAction::EndOfRunAction(const G4Run* run) {
   if (!IsMaster()) return;
   // Geant4 has completed worker run-end callbacks before this master callback.
   OutputSummary summary;
+  const RecordManager selection(fRecorderNames);
+  for (const auto& batch : selection.GetBatches()) summary.rows[batch.View().Schema().name] = 0;
   std::string files;
   for (const auto& fileName : fFileNames) {
     if (!std::filesystem::exists(fileName)) continue;
     const auto counts = fOutput.InspectFile(fileName);
-    summary.eventRows += counts.eventRows;
-    summary.incidentRows += counts.incidentRows;
+    for (const auto& [name, count] : counts.rows) summary.rows[name] += count;
     if (!files.empty()) files += ",";
     files += fileName;
-    G4cout << "CUPID_OUTPUT_FILE file=" << fileName << " event_rows=" << counts.eventRows
-           << " incident_rows=" << counts.incidentRows << G4endl;
+    G4cout << "CUPID_OUTPUT_FILE file=" << fileName;
+    for (const auto& [name, count] : counts.rows) G4cout << " rows_" << name << "=" << count;
+    G4cout << G4endl;
   }
   G4cout << "CUPID_RUN_RESULT run=" << fRunId
          << " requested_events=" << run->GetNumberOfEventToBeProcessed()
-         << " processed_events=" << run->GetNumberOfEvent()
-         << " event_rows=" << summary.eventRows << " incident_rows=" << summary.incidentRows
-         << " energy_unit=keV file=" << (files.empty() ? "none(empty)" : files) << G4endl;
+         << " processed_events=" << run->GetNumberOfEvent();
+  for (const auto& [name, count] : summary.rows) G4cout << " rows_" << name << "=" << count;
+  G4cout << " file=" << (files.empty() ? "none(empty)" : files) << G4endl;
 }
 }  // namespace cupid

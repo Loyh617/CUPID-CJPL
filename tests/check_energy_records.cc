@@ -173,13 +173,13 @@ int main() {
     action.BeginOfEventAction(&event);
     action.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
     action.EndOfEventAction(&event);
-    Require(action.GetEventRecords().size() == 1 && action.GetIncidentRecords().size() == 1,
+    Require(action.GetRecords<cupid::EventEnergyRecord>().size() == 1 && action.GetRecords<cupid::IncidentEnergyRecord>().size() == 1,
             "Action handles non-contiguous collection IDs");
-    const auto copied = action.GetEventRecords();
+    const auto copied = action.GetRecords<cupid::EventEnergyRecord>();
     G4Event empty(8);
     action.BeginOfEventAction(&empty);
     action.EndOfEventAction(&empty);
-    Require(action.GetEventRecords().empty() && action.GetIncidentRecords().empty() &&
+    Require(action.GetRecords<cupid::EventEnergyRecord>().empty() && action.GetRecords<cupid::IncidentEnergyRecord>().empty() &&
             !action.GetTrackAncestry().Contains(1), "next event clears ancestry and records");
     Require(copied[0].eventId == 7 && copied[0].edep == 2., "record values survive independent copying");
     // The default EventAction enables both recorders and requires ancestry.
@@ -188,7 +188,7 @@ int main() {
     defaultAction.BeginOfEventAction(&event);
     defaultAction.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
     defaultAction.EndOfEventAction(&event);
-    Require(defaultAction.GetEventRecords().size() == 1 && defaultAction.GetIncidentRecords().size() == 1,
+    Require(defaultAction.GetRecords<cupid::EventEnergyRecord>().size() == 1 && defaultAction.GetRecords<cupid::IncidentEnergyRecord>().size() == 1,
             "default invokes both recorders");
     for (const bool eventEnabled : {false, true}) {
       for (const bool incidentEnabled : {false, true}) {
@@ -200,20 +200,20 @@ int main() {
         selected.BeginOfEventAction(&event);
         if (incidentEnabled) selected.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
         selected.EndOfEventAction(&event);
-        Require(selected.GetEventRecords().size() == (eventEnabled ? 1u : 0u), "independent event selection");
-        Require(selected.GetIncidentRecords().size() == (incidentEnabled ? 1u : 0u), "independent incident selection");
-        if (eventEnabled) Require(selected.GetEventRecords()[0].edep == 2., "selected event energy");
-        if (incidentEnabled) Require(selected.GetIncidentRecords()[0].edep == 2., "selected incident energy");
+        Require(selected.GetRecords<cupid::EventEnergyRecord>().size() == (eventEnabled ? 1u : 0u), "independent event selection");
+        Require(selected.GetRecords<cupid::IncidentEnergyRecord>().size() == (incidentEnabled ? 1u : 0u), "independent incident selection");
+        if (eventEnabled) Require(selected.GetRecords<cupid::EventEnergyRecord>()[0].edep == 2., "selected event energy");
+        if (incidentEnabled) Require(selected.GetRecords<cupid::IncidentEnergyRecord>()[0].edep == 2., "selected incident energy");
         selected.BeginOfEventAction(&empty);
         selected.EndOfEventAction(&empty);
-        Require(selected.GetEventRecords().empty() && selected.GetIncidentRecords().empty(),
+        Require(selected.GetRecords<cupid::EventEnergyRecord>().empty() && selected.GetRecords<cupid::IncidentEnergyRecord>().empty(),
                 "selection does not retain previous event results");
       }
     }
     action.BeginOfEventAction(&event);
     event.SetEventAborted();
     action.EndOfEventAction(&event);
-    Require(action.GetEventRecords().empty() && action.GetIncidentRecords().empty(), "aborted event excluded");
+    Require(action.GetRecords<cupid::EventEnergyRecord>().empty() && action.GetRecords<cupid::IncidentEnergyRecord>().empty(), "aborted event excluded");
     std::cout << "All energy record checks passed.\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

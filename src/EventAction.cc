@@ -13,7 +13,6 @@
 #include "G4ios.hh"
 
 #include <stdexcept>
-#include <variant>
 
 namespace cupid {
 
@@ -54,8 +53,7 @@ void EventAction::EndOfEventAction(const G4Event* event) {
     auto& output = fRunAction->GetOutput();
     const auto runId = fRunAction->GetRunId();
     for (const auto& batch : fRecords.GetBatches()) {
-      // The visitor passes the original vector by const reference to its Write overload.
-      std::visit([&](const auto& records) { output.Write(runId, records); }, batch);
+      output.Write(runId, batch.View());
     }
   }
 }

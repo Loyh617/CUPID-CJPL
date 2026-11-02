@@ -1,3 +1,5 @@
+#include "record/IncidentEnergyRecorder.hh"
+#include "record/EventEnergyRecorder.hh"
 #include "DetectorHit.hh"
 #include "output/OutputManager.hh"
 #include "record/RecordManager.hh"
@@ -113,12 +115,12 @@ int main(int argc, char** argv) {
       const auto fileName = (directory / ("selection" + std::to_string(index) + output.GetFileExtension())).string();
       output.SetDetectorNames({"LMO0", "LMO1", "LD0"});
       for (const auto& batch : records.GetBatches())
-        std::visit([&](const auto& rows) { output.Book(rows); }, batch);
+        output.Book(batch.View().Schema());
       output.OpenFile(fileName);
       Require(output.IsOpen(), "manager did not open output");
       Reject([&] { output.InspectFile(fileName); }, "inspection with open writer accepted");
       for (const auto& batch : records.GetBatches())
-        std::visit([&](const auto& rows) { output.Write(3, rows); }, batch);
+        output.Write(3, batch.View());
       output.CloseFile();
       Require(!output.IsOpen(), "manager did not close output");
       Require(!std::filesystem::exists(fileName), "Unexpected default file.");
@@ -128,7 +130,7 @@ int main(int argc, char** argv) {
         paths.push_back(path);
         const bool incident = path.find("_IncidentEnergy.root") != std::string::npos;
         const auto summary = output.InspectFile(path);
-        Require(summary.eventRows == (incident ? 0 : 2) && summary.incidentRows == (incident ? 2 : 0), "Managed summary mismatch.");
+        Require(summary.Count("EventEnergy") == (incident ? 0 : 2) && summary.Count("IncidentEnergy") == (incident ? 2 : 0), "Managed summary mismatch.");
         TFile file(path.c_str(), "READ");
         Require(!file.IsZombie(), "Invalid managed ROOT file.");
         for (const auto* name : {"LMO0", "LMO1", "LD0"}) CheckTree(file, name, incident);
@@ -137,7 +139,7 @@ int main(int argc, char** argv) {
       G4HCofThisEvent noCollections(0);
       records.Build(8, noCollections, emptyAncestry);
       for (const auto& batch : records.GetBatches())
-        std::visit([](const auto& rows) { Require(rows.empty(), "previous event data retained"); }, batch);
+        Require(batch.View().Size() == 0, "previous event data retained");
       Require(records.GetBatches().size() == selections[index].size(), "clear lost selected result types");
     }
 

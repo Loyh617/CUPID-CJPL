@@ -19,6 +19,7 @@ class G4GenericAnalysisManager;
 namespace cupid {
 class RootOutput final : public VOutput {
  public:
+  // Inspect layout and count rows; recorder-specific physics checks belong in analysis/tests.
   static OutputSummary InspectFile(const std::string& fileName);
   RootOutput();
   ~RootOutput() override;
@@ -28,31 +29,29 @@ class RootOutput final : public VOutput {
   RootOutput& operator=(RootOutput&&) = delete;
 
   std::string GetFileExtension() const override { return ".root"; }
-  void Book(const std::vector<EventEnergyRecord>&) override;
-  void Book(const std::vector<IncidentEnergyRecord>&) override;
+  using VOutput::Book;
+  using VOutput::Write;
+  void Book(const RecordSchema& schema) override;
   void SetDetectorNames(const std::vector<G4String>& names) override;
   std::vector<std::string> GetFileNames(const std::string& baseName) const override;
   void OpenFile(const std::string& fileName) override;
   bool IsOpen() const override { return fOpen; }
-  void Write(G4int runId, const std::vector<EventEnergyRecord>& records) override;
-  void Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) override;
-  void WriteEventRecords(G4int runId, const std::vector<EventEnergyRecord>& records);
-  void WriteIncidentRecords(G4int runId, const std::vector<IncidentEnergyRecord>& records);
+  void Write(G4int runId, const RecordBatchView& records) override;
   void CloseFile() override;
   OutputSummary Inspect(const std::string& fileName) const override;
 
  private:
-  G4int BookNtuple(const G4String& detectorName, bool incident);
+  struct Dataset {
+    RecordSchema schema;
+    std::map<G4String, G4int> ntuples;
+  };
+  G4int BookNtuple(const G4String& detectorName, const RecordSchema& schema);
   void BookSchemas();
   void RequireWritable(bool selected) const;
-  void Fill(G4int ntupleId, bool incident, G4int runId, G4int eventId,
-            G4double edep, G4int trackId = 0, G4int pdg = 0);
+  void Fill(G4int ntupleId, G4int runId, const RecordBatchView& records, std::size_t row);
   G4GenericAnalysisManager* fAnalysis = nullptr;  // Owned by Geant4.
   std::vector<G4String> fDetectorNames;
-  std::map<G4String, G4int> fEventNtuples;
-  std::map<G4String, G4int> fIncidentNtuples;
-  bool fEvents = false;
-  bool fIncidents = false;
+  std::map<G4String, Dataset> fDatasets;
   bool fDetectorsSet = false;
   bool fSchemasBooked = false;
   bool fBackendOpen = false;
