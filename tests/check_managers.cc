@@ -22,7 +22,6 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace {
@@ -106,21 +105,21 @@ int main(int argc, char** argv) {
       Require(records.RequiresTrackAncestry() == incidents, "wrong ancestry requirement");
       const cupid::TrackAncestry emptyAncestry;
       records.Build(7, collections, incidents ? ancestry : emptyAncestry);
-      Require(records.GetRecords<cupid::EventEnergyRecord>().size() == (events ? 2u : 0u), "event selection failed");
-      Require(records.GetRecords<cupid::IncidentEnergyRecord>().size() == (incidents ? 2u : 0u), "incident selection failed");
+      Require(records.GetEventRecords().size() == (events ? 2u : 0u), "event selection failed");
+      Require(records.GetIncidentRecords().size() == (incidents ? 2u : 0u), "incident selection failed");
 
       cupid::OutputManager output("RootOutput");
       Require(output.GetName() == "RootOutput" && output.GetFileExtension() == ".root", "wrong output backend");
       Reject([&] { output.Write(3, std::vector<cupid::EventEnergyRecord>{}); }, "write before open accepted");
       const auto fileName = (directory / ("selection" + std::to_string(index) + output.GetFileExtension())).string();
       output.SetDetectorNames({"LMO0", "LMO1", "LD0"});
-      for (const auto& batch : records.GetBatches())
-        output.Book(batch.View().Schema());
+      if (events) output.BookEventEnergy();
+      if (incidents) output.BookIncidentEnergy();
       output.OpenFile(fileName);
       Require(output.IsOpen(), "manager did not open output");
       Reject([&] { output.InspectFile(fileName); }, "inspection with open writer accepted");
-      for (const auto& batch : records.GetBatches())
-        output.Write(3, batch.View());
+      if (events) output.Write(3, records.GetEventRecords());
+      if (incidents) output.Write(3, records.GetIncidentRecords());
       output.CloseFile();
       Require(!output.IsOpen(), "manager did not close output");
       Require(!std::filesystem::exists(fileName), "Unexpected default file.");
@@ -138,9 +137,9 @@ int main(int argc, char** argv) {
 
       G4HCofThisEvent noCollections(0);
       records.Build(8, noCollections, emptyAncestry);
-      for (const auto& batch : records.GetBatches())
-        Require(batch.View().Size() == 0, "previous event data retained");
-      Require(records.GetBatches().size() == selections[index].size(), "clear lost selected result types");
+      Require(records.GetEventRecords().empty() && records.GetIncidentRecords().empty(),
+              "previous event data retained");
+      Require(records.GetNames() == selections[index], "clear changed recorder selection");
     }
 
     G4HCofThisEvent duplicateCollections(3);

@@ -1,60 +1,26 @@
 /// \file src/record/RecordManager.cc
-/// \brief Bind recorder names to typed builders and aggregate event collections.
+/// \brief Run selected recorders and collect their typed event results.
 ///
-/// Register each recorder's batch factory, ancestry requirement and Build()
-/// adapter here. Selection is validated once; Build() invokes only selected
-/// adapters, preserving detector-name uniqueness across all hit collections.
+/// Validate recorder names once, then call each selected recorder explicitly.
+/// Build() checks detector-name uniqueness across all collections before adding
+/// records; Clear() removes the preceding event results.
 
 #include "record/RecordManager.hh"
-#include "record/EventEnergyRecorder.hh"
-#include "record/IncidentEnergyRecorder.hh"
 
 #include "G4HCofThisEvent.hh"
 
 #include <algorithm>
-#include <map>
 #include <set>
 #include <stdexcept>
-#include <utility>
 
 namespace cupid {
-namespace {
-template<class Record>
-void Append(RecordBatch& batch, const std::vector<Record>& records) {
-  auto& destination = *batch.Get<Record>();
-  destination.insert(destination.end(), records.begin(), records.end());
-}
-}
-
 RecordManager::RecordManager(const std::vector<G4String>& names) {
-  struct Registration {
-    RecordBatch (*create)();
-    bool requiresTrackAncestry;
-    Builder build;
-  };
-  static const std::map<G4String, Registration> registry{
-      {"EventEnergyRecorder", {&RecordBatch::Create<EventEnergyRecord>, false,
-          [](RecordBatch& batch, G4int eventId, const DetectorHitsCollection& hits,
-             const TrackAncestry&) {
-            Append(batch, EventEnergyRecorder{}.Build(eventId, hits));
-          }}},
-      {"IncidentEnergyRecorder", {&RecordBatch::Create<IncidentEnergyRecord>, true,
-          [](RecordBatch& batch, G4int eventId, const DetectorHitsCollection& hits,
-             const TrackAncestry& ancestry) {
-            Append(batch, IncidentEnergyRecorder{}.Build(eventId, hits, ancestry));
-          }}}};
-  std::set<G4String> datasets;
   for (const auto& name : names) {
-    const auto found = registry.find(name);
-    if (found == registry.end()) throw std::invalid_argument("Unknown recorder: " + name);
     if (IsEnabled(name)) throw std::invalid_argument("Duplicate recorder selection: " + name);
+    if (name == "EventEnergyRecorder") fEvents = true;
+    else if (name == "IncidentEnergyRecorder") fIncidents = true;
+    else throw std::invalid_argument("Unknown recorder: " + name);
     fNames.push_back(name);
-    fBuilders.push_back(found->second.build);
-    auto batch = found->second.create();
-    if (!datasets.insert(batch.View().Schema().name).second)
-      throw std::invalid_argument("RecordManager: selected recorders must use distinct dataset names.");
-    fBatches.push_back(std::move(batch));
-    fRequiresTrackAncestry = fRequiresTrackAncestry || found->second.requiresTrackAncestry;
   }
 }
 
@@ -63,7 +29,8 @@ bool RecordManager::IsEnabled(const G4String& name) const {
 }
 
 void RecordManager::Clear() {
-  for (auto& batch : fBatches) batch.Clear();
+  fEventRecords.clear();
+  fIncidentRecords.clear();
 }
 
 void RecordManager::Build(G4int eventId, G4HCofThisEvent& collections,
@@ -81,9 +48,16 @@ void RecordManager::Build(G4int eventId, G4HCofThisEvent& collections,
         throw std::runtime_error("Duplicate detector name across event collections.");
     detectorCollections.push_back(hits);
   }
-  for (std::size_t index = 0; index < fBuilders.size(); ++index)
-    for (const auto* hits : detectorCollections)
-      fBuilders[index](fBatches[index], eventId, *hits, ancestry);
+  for (const auto* hits : detectorCollections) {
+    if (fEvents) {
+      const auto records = EventEnergyRecorder{}.Build(eventId, *hits);
+      fEventRecords.insert(fEventRecords.end(), records.begin(), records.end());
+    }
+    if (fIncidents) {
+      const auto records = IncidentEnergyRecorder{}.Build(eventId, *hits, ancestry);
+      fIncidentRecords.insert(fIncidentRecords.end(), records.begin(), records.end());
+    }
+  }
 }
 
 }  // namespace cupid

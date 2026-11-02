@@ -1,14 +1,14 @@
 /// \file include/record/RecordManager.hh
-/// \brief Select named recorders and retain their typed results for one event.
+/// \brief Select named recorders and own their result vectors for one event.
 ///
-/// EventAction owns this manager and calls Clear() and Build(). GetBatches()
-/// exposes owned typed vectors through generic batch views for Action dispatch.
-/// The manager has no dependency on output modules and performs no file I/O.
+/// EventAction calls Clear() and Build(), then reads GetEventRecords() or
+/// GetIncidentRecords(). Add a new recorder's selection, storage and Build call
+/// explicitly here and in the implementation. The manager performs no file I/O.
 
 #pragma once
 
-#include "DetectorHit.hh"
-#include "record/RecordBatch.hh"
+#include "record/EventEnergyRecorder.hh"
+#include "record/IncidentEnergyRecorder.hh"
 #include "record/TrackAncestry.hh"
 
 #include <vector>
@@ -16,34 +16,23 @@
 class G4HCofThisEvent;
 
 namespace cupid {
-
 class RecordManager final {
  public:
   explicit RecordManager(const std::vector<G4String>& names);
   bool IsEnabled(const G4String& name) const;
   bool Empty() const { return fNames.empty(); }
-  bool RequiresTrackAncestry() const { return fRequiresTrackAncestry; }
+  bool RequiresTrackAncestry() const { return fIncidents; }
   const std::vector<G4String>& GetNames() const { return fNames; }
   void Clear();
-  void Build(G4int eventId, G4HCofThisEvent& collections,
-             const TrackAncestry& ancestry);
-  const std::vector<RecordBatch>& GetBatches() const { return fBatches; }
-
-  template<class Record>
-  const std::vector<Record>& GetRecords() const {
-    for (const auto& batch : fBatches)
-      if (const auto* rows = batch.Get<Record>()) return *rows;
-    static const std::vector<Record> empty;
-    return empty;
-  }
+  void Build(G4int eventId, G4HCofThisEvent& collections, const TrackAncestry& ancestry);
+  const std::vector<EventEnergyRecord>& GetEventRecords() const { return fEventRecords; }
+  const std::vector<IncidentEnergyRecord>& GetIncidentRecords() const { return fIncidentRecords; }
 
  private:
-  using Builder = void (*)(RecordBatch&, G4int, const DetectorHitsCollection&,
-                           const TrackAncestry&);
   std::vector<G4String> fNames;
-  std::vector<Builder> fBuilders;
-  std::vector<RecordBatch> fBatches;
-  bool fRequiresTrackAncestry = false;
+  bool fEvents = false;
+  bool fIncidents = false;
+  std::vector<EventEnergyRecord> fEventRecords;
+  std::vector<IncidentEnergyRecord> fIncidentRecords;
 };
-
 }  // namespace cupid

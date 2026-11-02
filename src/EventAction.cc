@@ -52,9 +52,11 @@ void EventAction::EndOfEventAction(const G4Event* event) {
   if (fRunAction) {
     auto& output = fRunAction->GetOutput();
     const auto runId = fRunAction->GetRunId();
-    for (const auto& batch : fRecords.GetBatches()) {
-      output.Write(runId, batch.View());
-    }
+    // Write only selected recorders; the vector type chooses the output overload.
+    if (fRecords.IsEnabled("EventEnergyRecorder"))
+      output.Write(runId, fRecords.GetEventRecords());
+    if (fRecords.IsEnabled("IncidentEnergyRecorder"))
+      output.Write(runId, fRecords.GetIncidentRecords());
   }
 }
 

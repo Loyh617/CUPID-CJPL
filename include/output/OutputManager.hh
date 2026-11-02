@@ -2,7 +2,7 @@
 /// \brief Select one named output backend and forward typed record batches.
 ///
 /// RunAction constructs one manager per thread, currently selecting RootOutput.
-/// EventAction calls Write() with non-owning batch views. Selection is fixed
+/// EventAction calls Write() with original recorder vectors. Selection is fixed
 /// for the manager lifetime; Geant4 manages native merging between thread-local adapters.
 
 #pragma once
@@ -20,16 +20,14 @@ class OutputManager final {
   explicit OutputManager(const std::string& name);
   const std::string& GetName() const { return fName; }
   std::string GetFileExtension() const;
-  void Book(const RecordSchema& schema);
-  template<class Record> void Book(const std::vector<Record>&) { Book(RecordTraits<Record>::Get().schema); }
+  void BookEventEnergy();
+  void BookIncidentEnergy();
   void SetDetectorNames(const std::vector<G4String>& names);
   std::vector<std::string> GetFileNames(const std::string& baseName) const;
   void OpenFile(const std::string& fileName);
   bool IsOpen() const;
-  void Write(G4int runId, const RecordBatchView& records);
-  template<class Record> void Write(G4int runId, const std::vector<Record>& records) {
-    Write(runId, RecordBatchView(records));
-  }
+  void Write(G4int runId, const std::vector<EventEnergyRecord>& records);
+  void Write(G4int runId, const std::vector<IncidentEnergyRecord>& records);
   void CloseFile();
   OutputSummary InspectFile(const std::string& fileName) const;
 

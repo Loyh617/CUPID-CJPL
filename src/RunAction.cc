@@ -25,8 +25,8 @@ RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String
     : fOutput(outputName), fOutputDirectory(outputDirectory), fRecorderNames(recorders),
       fDetectorNames(std::move(detectorNames)) {
   const RecordManager selection(recorders);
-  for (const auto& batch : selection.GetBatches())
-    fOutput.Book(batch.View().Schema());
+  if (selection.IsEnabled("EventEnergyRecorder")) fOutput.BookEventEnergy();
+  if (selection.IsEnabled("IncidentEnergyRecorder")) fOutput.BookIncidentEnergy();
 }
 
 void RunAction::BeginOfRunAction(const G4Run* run) {
@@ -61,7 +61,8 @@ void RunAction::EndOfRunAction(const G4Run* run) {
   // Geant4 has completed worker run-end callbacks before this master callback.
   OutputSummary summary;
   const RecordManager selection(fRecorderNames);
-  for (const auto& batch : selection.GetBatches()) summary.rows[batch.View().Schema().name] = 0;
+  if (selection.IsEnabled("EventEnergyRecorder")) summary.rows["EventEnergy"] = 0;
+  if (selection.IsEnabled("IncidentEnergyRecorder")) summary.rows["IncidentEnergy"] = 0;
   std::string files;
   for (const auto& fileName : fFileNames) {
     if (!std::filesystem::exists(fileName)) continue;

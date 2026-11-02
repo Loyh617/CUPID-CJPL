@@ -27,8 +27,11 @@ class EventAction final : public G4UserEventAction {
   void BeginOfEventAction(const G4Event*) override;
   void EndOfEventAction(const G4Event*) override;
   TrackAncestry& GetTrackAncestry() { return fTrackAncestry; }
-  template<class Record> const std::vector<Record>& GetRecords() const {
-    return fRecords.GetRecords<Record>();
+  const std::vector<EventEnergyRecord>& GetEventRecords() const {
+    return fRecords.GetEventRecords();
+  }
+  const std::vector<IncidentEnergyRecord>& GetIncidentRecords() const {
+    return fRecords.GetIncidentRecords();
   }
 
  private:

@@ -9,14 +9,10 @@
 #pragma once
 
 #include "DetectorHit.hh"
-#include "record/RecordSchema.hh"
 #include "record/TrackAncestry.hh"
 
-#include "G4SystemOfUnits.hh"
 #include "globals.hh"
 
-#include <cmath>
-#include <stdexcept>
 #include <vector>
 
 namespace cupid {
@@ -28,23 +24,6 @@ struct IncidentEnergyRecord {
   G4int pdg;  // Geant4 PDG encoding of this detector-local incident root.
   G4double edep;
   G4String detectorName;
-};
-
-template<> struct RecordTraits<IncidentEnergyRecord> {
-  static const RecordDescription<IncidentEnergyRecord>& Get() {
-    using R = IncidentEnergyRecord;
-    static const auto description = Describe<R>(
-        "IncidentEnergy", DetectorKey(&R::detectorName),
-        Column("EventID", &R::eventId),
-        Column("TrackID", &R::trackId),
-        Column("PDG", &R::pdg),
-        Column("Edep", &R::edep, keV, "keV"))
-        .WithValidation([](const R& record) {
-          if (record.eventId < 0 || !std::isfinite(record.edep) || record.edep < 0. || record.trackId <= 0)
-            throw std::invalid_argument("IncidentEnergyRecord: invalid record.");
-        });
-    return description;
-  }
 };
 
 class IncidentEnergyRecorder {

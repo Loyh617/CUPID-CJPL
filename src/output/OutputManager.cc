@@ -2,7 +2,7 @@
 /// \brief Create the selected output backend and forward its lifecycle and data.
 ///
 /// Register backend factories here. Name lookup happens once at construction;
-/// Write() forwards a schema-described batch view without knowing its record type.
+/// Write() dispatches by the vector's C++ type, not a recorder-name comparison.
 
 #include "output/OutputManager.hh"
 #include "output/RootOutput.hh"
@@ -23,14 +23,18 @@ OutputManager::OutputManager(const std::string& name) : fName(name) {
 }
 
 std::string OutputManager::GetFileExtension() const { return fOutput->GetFileExtension(); }
-void OutputManager::Book(const RecordSchema& schema) { fOutput->Book(schema); }
+void OutputManager::BookEventEnergy() { fOutput->BookEventEnergy(); }
+void OutputManager::BookIncidentEnergy() { fOutput->BookIncidentEnergy(); }
 void OutputManager::SetDetectorNames(const std::vector<G4String>& names) { fOutput->SetDetectorNames(names); }
 std::vector<std::string> OutputManager::GetFileNames(const std::string& baseName) const {
   return fOutput->GetFileNames(baseName);
 }
 void OutputManager::OpenFile(const std::string& fileName) { fOutput->OpenFile(fileName); }
 bool OutputManager::IsOpen() const { return fOutput->IsOpen(); }
-void OutputManager::Write(G4int runId, const RecordBatchView& records) {
+void OutputManager::Write(G4int runId, const std::vector<EventEnergyRecord>& records) {
+  fOutput->Write(runId, records);
+}
+void OutputManager::Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) {
   fOutput->Write(runId, records);
 }
 void OutputManager::CloseFile() { fOutput->CloseFile(); }
