@@ -1,27 +1,22 @@
 /// \file include/generator/toolkit/sampler/PointSampler.hh
-/// \brief Declaration: Return a fixed source position expressed in World coordinates.
+/// \brief Return a user-specified fixed position without geometry constraints.
 ///
-/// Construct with a point and an initialized GeometryManager, then call
-/// Sample() from a concrete generator. The point must be strictly inside
-/// World; recreate the sampler after geometry reconstruction.
+/// Construct with finite coordinates in Geant4 length units, then call Sample()
+/// from a concrete generator. For primary vertices, supply World coordinates.
+/// No initialized geometry is required; geometry rebuilds do not affect the point.
 
 #pragma once
 
 #include "G4ThreeVector.hh"
 
-#include <cstddef>
-
 namespace cupid {
-class GeometryManager;
-// A fixed world-coordinate position, validated against the initialized World.
 class PointSampler {
  public:
-  PointSampler(const G4ThreeVector& point, const GeometryManager& geometry);
-  G4ThreeVector Sample();
+  explicit PointSampler(const G4ThreeVector& point);
+  // Return the configured position unchanged, without consuming random numbers.
+  G4ThreeVector Sample() const;
 
  private:
-  const GeometryManager& fGeometry;
-  std::size_t fGeometryGeneration;
   G4ThreeVector fPoint;
 };
 }

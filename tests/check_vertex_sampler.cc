@@ -31,6 +31,10 @@ template<class F> void Reject(F operation, const char* message) {
 }
 int main() {
   try {
+    // Point sampling is available before any geometry has been constructed.
+    const cupid::PointSampler standalonePoint({-123*mm, 456*mm, 789*mm});
+    Require(standalonePoint.Sample() == G4ThreeVector(-123*mm, 456*mm, 789*mm),
+            "Point sampling depends on initialized geometry");
     G4Random::setTheSeed(123456);
     auto* material = G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic");
     auto* worldLV = new G4LogicalVolume(new G4Box("WorldSolid", 500*mm, 500*mm, 500*mm), material, "WorldLV");
@@ -97,20 +101,24 @@ int main() {
     G4Random::setTheSeed(7654321);
     const auto expectedRandom = G4UniformRand();
     G4Random::setTheSeed(7654321);
-    cupid::PointSampler pointSampler(fixedPoint, geometry);
+    const cupid::PointSampler pointSampler(fixedPoint);
     for (int i = 0; i < 100; ++i)
       Require(pointSampler.Sample() == fixedPoint, "Point source changed");
     Require(G4UniformRand() == expectedRandom, "Point sampling consumed random numbers");
-    for (const auto& point : {G4ThreeVector{500*mm, 0, 0}, G4ThreeVector{501*mm, 0, 0},
-                              G4ThreeVector{std::numeric_limits<double>::infinity(), 0, 0},
+    // Geometry boundaries and volume membership do not constrain fixed points.
+    for (const auto& point : {G4ThreeVector{500*mm, 0, 0}, G4ThreeVector{501*mm, 0, 0}}) {
+      const cupid::PointSampler arbitraryPoint(point);
+      Require(arbitraryPoint.Sample() == point, "Boundary or outside-World point changed");
+    }
+    for (const auto& point : {G4ThreeVector{std::numeric_limits<double>::infinity(), 0, 0},
                               G4ThreeVector{0, std::numeric_limits<double>::quiet_NaN(), 0}})
-      Reject([&] { cupid::PointSampler invalid(point, geometry); }, "Invalid fixed point accepted");
+      Reject([&] { cupid::PointSampler invalid(point); }, "Non-finite fixed point accepted");
 
-    // A rebuild clears the registry and invalidates existing samplers.
+    // A rebuild invalidates volume samplers but does not affect fixed points.
     G4GeometryManager::GetInstance()->OpenGeometry();
     geometry.BeginSourceVolumes(world);
     Reject([&] { sampler.Sample(); }, "Stale volume sampler accepted");
-    Reject([&] { pointSampler.Sample(); }, "Stale point sampler accepted");
+    Require(pointSampler.Sample() == fixedPoint, "Geometry rebuild affected fixed point");
     Reject([&] { geometry.RegisterSourceVolume(target, holder); }, "Unregistered parent accepted");
     geometry.FinishSourceVolumes();
     Reject([&] { geometry.FindSourceVolume("Target"); }, "Registry retained old entries");
