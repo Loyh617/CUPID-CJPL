@@ -32,6 +32,9 @@ struct VesselSection {
   std::vector<Point> contour;
 };
 const std::vector<VesselSection>& Sections() {
+  // Geometry input: {name, material, World originY in mm, ordered (radius,z) contour}.
+  // The contour is revolved about local Z, then rotated into the World Y axis.
+  // Edit engineering profiles here and rerun overlap checks after rebuilding.
   static const std::vector<VesselSection> sections{
     {"InnerUpper", "G4_Cu", 6.,
       {{264.5,0.},{270.,0.},{270.,12.},{265.,12.},{265.,248.},{270.,248.},{270.,260.},{264.5,260.}}},
@@ -79,6 +82,7 @@ void Cryostat::Build(G4VPhysicalVolume* parent, const Materials& materials,
                    G4double y, G4double alpha) {
     auto* logical = new G4LogicalVolume(solid, materials.Get(material), name+".Logical");
     const bool copper = G4String(material) == "G4_Cu";
+    // Color, transparency and tessellation affect visualization only.
     G4VisAttributes attributes(copper ? G4Colour(0.75,0.45,0.2,alpha)
                                     : G4Colour(0.7,0.8,0.9,alpha));
     attributes.SetForceSolid(true);
@@ -93,6 +97,7 @@ void Cryostat::Build(G4VPhysicalVolume* parent, const Materials& materials,
     G4VSolid* solid = new G4Tubs(name+".Disk", 0., plate.radius,
                                 plate.thickness/2., 0., 360.*deg);
     if (plate.serviceHoles) {
+      // Service-port radius is 8.5 mm; the extra cutter length avoids coincident faces.
       auto* hole = new G4Tubs(name+".Bore", 0., 8.5*mm, plate.thickness/2.+mm, 0., 360.*deg);
       // World X,Z locations converted to local X,Y by the placement rotation.
       const std::array<Point,3> holes{{{27.5,-15.8771},{-27.5,-15.8771},{0.,31.7543}}};

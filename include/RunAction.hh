@@ -13,7 +13,11 @@
 #include "globals.hh"
 
 #include <functional>
+#include <memory>
+#include <set>
 #include <vector>
+
+class G4GenericMessenger;
 
 namespace cupid {
 class RunAction final : public G4UserRunAction {
@@ -21,6 +25,8 @@ class RunAction final : public G4UserRunAction {
   using DetectorNames = std::function<std::vector<G4String>()>;
   RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
             const G4String& outputName = "RootOutput", DetectorNames detectorNames = {});
+  ~RunAction() override;
+  // Use /cupid/output/fileName after /run/initialize and before /run/beamOn.
   void BeginOfRunAction(const G4Run*) override;
   void EndOfRunAction(const G4Run*) override;
   OutputManager& GetOutput() { return fOutput; }
@@ -28,6 +34,14 @@ class RunAction final : public G4UserRunAction {
   const std::vector<G4String>& GetRecorderNames() const { return fRecorderNames; }
 
  private:
+  G4String ResolveFileName();
+  // Only the master/serial action owns the UI command and chooses the run name.
+  // "auto" generates local date/time; an explicit prefix persists until changed.
+  G4String fFileName = "auto";
+  G4String fRunFileName;
+  // Reserve names even when Geant4 removes all empty recorder files. Master only.
+  std::set<G4String> fUsedFileNames;
+  std::unique_ptr<G4GenericMessenger> fMessenger;
   OutputManager fOutput;
   const G4String fOutputDirectory;
   const std::vector<G4String> fRecorderNames;

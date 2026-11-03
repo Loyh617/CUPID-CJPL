@@ -31,6 +31,7 @@ class ActionInitialization final : public G4VUserActionInitialization {
   const GeometryManager& fGeometry;
   const G4String fOutputDirectory;
   // Set on the master in PreInit; read-only while events are processed.
+  // Override with /cupid/generator/select and verbose before /run/initialize.
   G4String fGeneratorSelection = "gun";
   G4int fGeneratorVerbosity = 0;
   std::unique_ptr<GeneratorMessenger> fGeneratorMessenger;

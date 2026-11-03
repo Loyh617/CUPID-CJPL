@@ -54,6 +54,8 @@ std::vector<IncidentEnergyRecord> IncidentEnergyRecorder::Build(
       for (const auto id : path) roots[id] = root;
       totals[root] += edep;
     }
+    // Apply the positive-energy policy after summing descendants. Zero-deposit
+    // visits must remain available during ancestry reconstruction above.
     for (const auto& [trackId, edep] : totals) {
       if (edep > 0.)
         records.push_back({eventId, trackId, ancestry.Get(trackId).pdg, edep, name});

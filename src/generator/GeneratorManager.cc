@@ -23,6 +23,9 @@
 namespace cupid {
 GeneratorManager::GeneratorManager(const G4String& selection, const G4int& verbosity)
     : fSelection(selection), fVerbosity(verbosity), fGun(std::make_unique<G4ParticleGun>(1)) {
+  // Default source: one 1 MeV gamma per event. Override after /run/initialize
+  // using /gun/number, particle, energy, position and direction in the run macro.
+  // Position is in World coordinates; direction is the particle momentum direction.
   fGun->SetParticleDefinition(G4Gamma::GammaDefinition());
   fGun->SetParticleEnergy(1.*MeV);
   fGun->SetParticlePosition({0., -350.*mm, -100.*mm});

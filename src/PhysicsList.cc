@@ -86,6 +86,8 @@ PhysicsList::PhysicsList(G4int verbosity)
 
   // Provisional production range cuts; validate convergence for each study.
   // These are neither tracking cuts nor maximum step lengths.
+  // These are source-level defaults: changing them requires rebuilding and updating
+  // the documented physics configuration and convergence checks. Length units are explicit.
   SetDefaultCutValue(0.1 * mm);
   SetCutValue(0.0 * mm, "proton");
 }

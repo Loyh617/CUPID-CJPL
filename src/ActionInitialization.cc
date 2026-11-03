@@ -24,6 +24,7 @@ ActionInitialization::~ActionInitialization() = default;
 RunAction* ActionInitialization::CreateRunAction() const {
   // Resolve the complete scoring catalog after geometry construction, including
   // on the MT master whose RunAction is created before geometry initialization.
+  // Choose the output backend here. Recorder selection belongs to EventAction::DefaultRecorders().
   return new RunAction(fOutputDirectory, EventAction::DefaultRecorders(), "RootOutput", [this] {
     std::vector<G4String> names;
     for (const auto* logical : fGeometry.GetLMOLogicalVolumes()) names.push_back(logical->GetName());

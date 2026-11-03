@@ -1,14 +1,19 @@
 /control/verbose 1
 /run/verbose 1
+# Set seeds for this study; keep the macro and software environment for reproduction.
 /random/setSeeds 12345 67890
 /cupid/geometry/enable LMOArray
 /cupid/geometry/lmoCount 2
 /run/initialize
+# Optional persistent ROOT prefix; omit for local date/time, or set auto to restore it.
+# /cupid/output/fileName calibration
 /cupid/geometry/check 10000
+# Source settings below apply to subsequent events; positions use World coordinates.
 /gun/particle gamma
 /gun/energy 1 MeV
 # Aim at the left crystal, avoiding the gap between the two crystals.
 /gun/position -25 -350 -100 mm
 /gun/direction 0 0 1
+# Number of simulated events in this run (not the number of saved energy rows).
 /run/beamOn 1000
 

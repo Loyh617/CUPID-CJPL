@@ -87,6 +87,7 @@ void RootOutput::SetDetectorNames(const std::vector<G4String>& names) {
   fDetectorsSet = true;
 }
 
+// Column IDs below must match the corresponding Fill* function and readback tests.
 G4int RootOutput::BookEventNtuple(const G4String& detectorName) {
   const auto id = fAnalysis->CreateNtuple(detectorName, "EventEnergy; Edep in keV; CUPID schema 4");
   Require(id >= 0, "create event ntuple");
@@ -186,6 +187,8 @@ void RootOutput::FillIncidentEnergy(G4int id, G4int runId, const IncidentEnergyR
   Require(fAnalysis->AddNtupleRow(id), "append incident row");
 }
 
+// Validate the whole input vector before appending rows; an I/O failure is still
+// not transactional. Energies remain in internal units until Fill* converts to keV.
 void RootOutput::Write(G4int runId, const std::vector<EventEnergyRecord>& records) {
   RequireWritable(fEvents);
   if (runId < 0) throw std::invalid_argument("RootOutput: negative RunID.");

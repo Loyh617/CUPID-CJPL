@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(CupidCJPL VERSION 0.1.0 LANGUAGES CXX)
 
+# Set OFF for headless batch work; ON requires the installed Geant4 UI/visualization libraries.
 option(CUPID_WITH_VIS "Build the interactive UI and visualization" ON)
 if(CUPID_WITH_VIS)
   find_package(Geant4 11.4.1 EXACT REQUIRED multithreaded ui_all vis_all)

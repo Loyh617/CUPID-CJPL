@@ -36,11 +36,13 @@ void LMOSensitiveDetector::Initialize(G4HCofThisEvent* collections) {
   fHits = new DetectorHitsCollection(SensitiveDetectorName, collectionName[0]);
   if (fCollectionId < 0) fCollectionId = GetCollectionID(0);
   collections->AddHitsCollection(fCollectionId, fHits);
-  // Include unhit detectors so event records can explicitly contain zero deposits.
+  // Keep stable per-detector hit slots, including unhit detectors. Recorders decide
+  // which aggregates to output; current energy recorders omit zero totals.
   for (const auto& name : fDetectorNames) fHits->insert(new DetectorHit(name));
 }
 
 G4bool LMOSensitiveDetector::ProcessHits(G4Step* step, G4TouchableHistory*) {
+  // Attribute this step to its pre-step volume, including a step ending at a boundary.
   const auto lmoId = step->GetPreStepPoint()->GetTouchableHandle()->GetCopyNumber();
   if (lmoId < 0 || static_cast<std::size_t>(lmoId) >= fHits->entries())
     throw std::runtime_error("LMO copy number is outside the configured detector list.");

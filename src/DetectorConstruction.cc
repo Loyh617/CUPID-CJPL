@@ -29,6 +29,8 @@ G4VPhysicalVolume* DetectorConstruction::Construct() {
   materials.Build();
   const auto half = fGeometry->Parameters().worldHalfLength;
   auto* solid = new G4Box("World.Solid", half, half, half);
+  // World material is configured here; size is GeometryParameters::worldHalfLength.
+  // Hiding the World volume does not set the viewer background color.
   auto* logical = new G4LogicalVolume(solid, materials.Get("G4_Galactic"), "World.Logical");
   logical->SetVisAttributes(G4VisAttributes::GetInvisible());
   auto* world = new G4PVPlacement(nullptr, {}, logical, "World", nullptr, false, 0);

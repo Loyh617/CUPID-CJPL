@@ -26,6 +26,7 @@ void InnerShielding::Build(G4VPhysicalVolume* parent, const Materials& materials
     const G4String name = G4String("InnerShielding.") + part.name;
     auto* solid = new G4Tubs(name+".Solid", part.innerRadius, p.shieldOuterRadius,
                             part.height/2., 0., 360.*deg);
+    // Shield material is selected here; dimensions come from GeometryParameters.
     auto* logical = new G4LogicalVolume(solid, materials.Get("G4_Cu"), name+".Logical");
     logical->SetVisAttributes(G4VisAttributes(G4Colour(0.85, 0.5, 0.2, 0.35)));
     auto* physical = new G4PVPlacement(G4Transform3D(rotation, {0., part.centerY, 0.}), logical,

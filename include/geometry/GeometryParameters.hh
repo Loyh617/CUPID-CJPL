@@ -15,10 +15,13 @@ namespace cupid {
 // Coordinates are right-handed; the cryostat axis is +Y.
 // The environment is deliberately vacuum, not a model of the laboratory.
 struct GeometryParameters {
-  G4double worldHalfLength = 2.0 * m;
-  G4int lmoCount = 1;
-  G4double lmoSide = 45.0 * mm;
-  G4double lmoGap = 5.0 * mm;
+  // Source defaults below require recompilation. /cupid/geometry/lmoCount can
+  // override the count before initialization; dimensions have no macro override.
+  G4double worldHalfLength = 2.0 * m;  // Half side of the vacuum world cube.
+  G4int lmoCount = 1;  // Supported: 1 or 2; enabling LMOArray is a separate setting.
+  G4double lmoSide = 45.0 * mm;  // Full crystal side length.
+  G4double lmoGap = 5.0 * mm;  // Surface-to-surface gap along the array X axis.
+  // Array center in World coordinates; the cryostat axis is Y.
   G4ThreeVector lmoCenter{0., -350.0 * mm, 0.};
 
   struct Plate {
@@ -30,6 +33,8 @@ struct GeometryParameters {
     G4bool serviceHoles;
   };
   // MXC is a flat plate in v0.1: bosses, recesses and posts are omitted.
+  // Entries: name, exact material name, radius, bottom Y, full thickness, service holes.
+  // Plate top Y = bottomY + thickness; all lengths use explicit Geant4 units.
   const std::array<Plate, 6> plates{{
       {"MXC", "G4_Cu", 250.*mm, 0.*mm, 8.*mm, false},
       {"HEX", "G4_Cu", 255.*mm, 170.*mm, 6.*mm, true},
@@ -45,6 +50,8 @@ struct GeometryParameters {
     G4double height;
     G4double centerY;
   };
+  // All shielding sections share this outer radius; each entry has its own bore,
+  // full axial height and World Y center. Inner radius zero means a solid disk.
   G4double shieldOuterRadius = 160.*mm;
   const std::array<ShieldPart, 3> innerShield{{
       {"Upper", 15.*mm, 20.*mm, -310.*mm},

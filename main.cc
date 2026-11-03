@@ -4,20 +4,23 @@
 /// Run cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR].
 /// main() creates RunLog, the run manager, DetectorConstruction, PhysicsList
 /// and ActionInitialization, then executes the macro or interactive session.
-/// Actions produce runN_<Recorder>.root files; run.log captures job-level output.
+/// Actions produce run<datetime>_<Recorder>.root files by default; run.log captures job-level output.
 
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
 #include "output/RunLog.hh"
-// 2026-10-18: retired the transport-only baseline for explicit physics modules.
-// Restore the old include and initialization together only to reproduce that baseline.
-// #include "FTFP_BERT.hh"
 #include "PhysicsList.hh"
+
 #include "G4RunManager.hh"
 #include "G4RunManagerFactory.hh"
 #include "G4UImanager.hh"
 #include "G4Version.hh"
 #include "G4ios.hh"
+#if CUPID_WITH_VIS
+#include "G4UIExecutive.hh"
+#include "G4VisExecutive.hh"
+#endif
+
 #include "RVersion.h"
 
 #include <chrono>
@@ -28,16 +31,12 @@
 #include <stdexcept>
 #include <string>
 
-#if CUPID_WITH_VIS
-#include "G4UIExecutive.hh"
-#include "G4VisExecutive.hh"
-#endif
 
 namespace {
 struct Options {
   std::string macro;
   std::string outputDirectory;
-  int threads = 2;
+  int threads = 2;  // Default worker count; override with --threads N or select --serial.
   bool serial = false;
   bool visualization = false;
   bool help = false;
@@ -80,8 +79,9 @@ int main(int argc, char** argv) {
       std::cout << "Usage: cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR]\n"
                    "Default: 2 worker threads; no macro starts interactive visualization.\n"
                    "--vis also enables visualization commands in a batch macro.\n"
-                   "--output selects a directory for merged runN_<Recorder>.root files and run.log.\n"
-                   "Default output: a new output/job_<timestamp> directory.\n";
+                   "--output selects a directory for run<datetime>_<Recorder>.root files and run.log.\n"
+                   "Default output: a new output/job_<timestamp> directory.\n"
+                   "After /run/initialize, /cupid/output/fileName PREFIX sets the ROOT filename prefix.\n";
       return 0;
     }
     const bool interactive = options.macro.empty();
@@ -118,12 +118,7 @@ int main(int argc, char** argv) {
     if (!options.serial) runManager->SetNumberOfThreads(options.threads);
     auto* detector = new cupid::DetectorConstruction;
     runManager->SetUserInitialization(detector);
-    // 2026-10-18: retain the old baseline as comments per repository policy.
-    // Restore only when deliberately reproducing the previous physics setup.
-    // Transport baseline only: not a validated radioactive calibration physics model.
-    // auto* physics = new FTFP_BERT;
-    // physics->SetVerboseLevel(0);
-    // runManager->SetUserInitialization(physics);
+    // Constructor argument controls physics verbosity; model choices and cuts are in PhysicsList.cc.
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
     auto* actions = new cupid::ActionInitialization(outputDirectory.string(), detector->GetGeometryManager());
     runManager->SetUserInitialization(actions);
@@ -140,8 +135,6 @@ int main(int argc, char** argv) {
     auto* ui = G4UImanager::GetUIpointer();
     ui->SetMacroSearchPath(".:" + macro.parent_path().string() + ":" + CUPID_MACRO_DIR);
     ui->ParseMacroSearchPath();
-    // 2026-10-18: retired the old physics label; restore only with the old list.
-    // G4cout << "CUPID_ENV " << G4Version << " physics=FTFP_BERT mode="
     G4cout << "CUPID_ENV " << G4Version << " physics=CUPIDPhysicsList-v1 mode="
            << (options.serial ? "serial" : "MT") << " threads="
            << (options.serial ? 1 : options.threads) << G4endl;

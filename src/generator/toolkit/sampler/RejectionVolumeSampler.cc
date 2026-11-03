@@ -44,10 +44,13 @@ RejectionVolumeSampler::~RejectionVolumeSampler() = default;
 G4ThreeVector RejectionVolumeSampler::Sample() {
   if (fGeometry.GetGeometryGeneration() != fGeometryGeneration)
     throw std::runtime_error("Source sampler is stale after geometry reconstruction; recreate the generator.");
+  // Safety limit per sampled point, not a physical cut. Very small acceptance
+  // calls for a better proposal region; do not silently return a biased fallback.
   for (int attempt = 0; attempt < 100000; ++attempt) {
     G4ThreeVector local;
     for (int axis = 0; axis < 3; ++axis)
       local[axis] = fMinimum[axis] + G4UniformRand() * (fMaximum[axis] - fMinimum[axis]);
+    // The local bounding box is only a proposal; accept the actual solid interior.
     if (fSolid->Inside(local) != kInside) continue;
     const auto global = fTranslation + fRotation * local;
     // A private navigator excludes daughters without changing tracking state.

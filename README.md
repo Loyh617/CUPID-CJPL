@@ -31,7 +31,7 @@ cmake --build build -j4
 echo "Exit status: $?"
 ```
 
-This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/run.log`, and `run0_EventEnergy.root` / `run0_IncidentEnergy.root` files. Use a new output directory when repeating the run; existing logs are not overwritten.
+This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/run.log`, and `run<datetime>_EventEnergy.root` / `run<datetime>_IncidentEnergy.root` files. Use a new output directory when repeating the run; existing logs are not overwritten.
 
 Compilation, execution, and ROOT readback have been checked in the existing development environment. **Independent installation and execution by another member in a clean environment remain pending.** Dependency requirements and installation guidance follow below.
 
@@ -135,15 +135,28 @@ Set event counts with `/run/beamOn`, seeds with `/random/setSeeds` (`12345 67890
 
 Command-line options set the initial mode, thread count, and output. Macros then execute in order and may update Geant4 parameters where the application state allows; check the actual run log. The main macro is resolved relative to the current directory first, then under `build/macros/`. Submacros are searched in the current directory, main macro directory, and `build/macros/`, in that order. Relative output paths also use the current directory. Prefer explicit `macros/xxx.mac` paths; if using build-directory copies, rerun CMake configuration after editing example macros. See [Geant4 macro execution](https://geant4.web.cern.ch/documentation/dev/bfad_html/ForApplicationDevelopers/GettingStarted/executeProgram.html).
 
-## 7. Output Format and Minimal Analysis
-
-The output directory contains one `run.log` and separate files for each enabled recorder and run. Without `--output`, the application creates `output/job_*`. The current format is **schema 4**:
+ROOT filename prefixes are set in `RunAction` through the native Geant4 messenger. Use this command **after `/run/initialize` and before `/run/beamOn`**, also between runs:
 
 ```text
-run0_EventEnergy.root
+/cupid/output/fileName th232_calibration
+/run/beamOn 100000
+/cupid/output/fileName co56_calibration.root
+/run/beamOn 100000
+/cupid/output/fileName auto
+/run/beamOn 1000
+```
+
+These commands change output names only; configure the source separately. The first pair is `th232_calibration_EventEnergy.root` and `th232_calibration_IncidentEnergy.root`. An optional `.root` suffix is removed before adding the recorder suffix. `auto` is the default and generates `runYYYYMMDD_HHMMSS_<Recorder>.root`, using the WSL process's local time, to the second. The master determines one name shared by all workers. Custom prefixes must start with an ASCII letter/digit, use only letters/digits/underscore/hyphen/dot, and not end in a dot; paths and spaces are rejected. `--output` still controls the directory. `CUPID_OUTPUT_NAME` in `run.log` records the resolved base name even for empty runs.
+
+## 7. Output Format and Minimal Analysis
+
+The output directory contains one `run.log` and separate files for each enabled recorder and run. Without `--output`, the application creates `output/job_*`. The current format is **schema 4** (illustrative automatic timestamp):
+
+```text
+run20261102_153000_EventEnergy.root
   LMO0    (TTree)
   LMO1    (TTree)
-run0_IncidentEnergy.root
+run20261102_153000_IncidentEnergy.root
   LMO0    (TTree)
   LMO1    (TTree)
 run.log
@@ -151,8 +164,8 @@ run.log
 
 | File | Meaning of one row in a detector tree | Columns, in order |
 | --- | --- | --- |
-| `runN_EventEnergy.root` | Total energy deposited in that detector within one event | `RunID, EventID, Edep` |
-| `runN_IncidentEnergy.root` | Total deposited energy attributed to one incident root and its associated descendants in that detector/event | `RunID, EventID, TrackID, PDG, Edep` |
+| `<prefix>_EventEnergy.root` | Total energy deposited in that detector within one event | `RunID, EventID, Edep` |
+| `<prefix>_IncidentEnergy.root` | Total deposited energy attributed to one incident root and its associated descendants in that detector/event | `RunID, EventID, TrackID, PDG, Edep` |
 
 The **tree name identifies the detector**; there is no `DetectorName` branch. Internal recorder data retain `detectorName` for routing. Detector names come from the constructed scoring geometry, must be unique identifiers (`[A-Za-z_][A-Za-z0-9_]*`), and are booked consistently on master and workers before a run. The current geometry registers LMOs; future detector components must also supply their scoring names. A detector without deposits has an empty tree in a retained recorder file. A recorder file with no rows in any detector is removed; a wholly empty run leaves only the log. Unknown detector names in records are errors, not silently created trees.
 
@@ -160,11 +173,11 @@ The **tree name identifies the detector**; there is no `DetectorName` branch. In
 
 Table selections and detector catalogs must match on all threads, including workers without events. Each input vector is checked before any of its rows are appended. Run summaries use `rows_EventEnergy` and `rows_IncidentEnergy`. Adding a new record type intentionally requires a corresponding output adapter and Action calls; update the column order, field mappings and readback tests together.
 
-Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. Each subsequent run gets its own file pair (`run1_*`, etc.); existing results are not overwritten.
+Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. A custom prefix remains active until changed. For automatic and custom names, a collision adds `_1`, `_2`, etc. before the recorder suffix (for example, `run20261102_153000_1_EventEnergy.root`). The master checks all enabled recorder files together, so every file from one run shares the same suffix. Names already used in this process remain reserved even for empty runs; existing files are preserved. Separate application processes must use separate job directories; suffix selection is not a cross-process file lock. The RunID branch continues to identify the Geant4 run independently of its filename.
 
 `Edep` is unweighted deposited energy in keV, not incident energy. TrackID and PDG identify the detector-local incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. Row counts are not simulated event counts: use `processed_events` from the log as the normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
 
-From the repository root, run `root -l results/quickstart/run0_EventEnergy.root`, then enter at the ROOT prompt:
+From the repository root, run `root -l results/quickstart/run*_EventEnergy.root` (the quick start produces one matching file), then enter at the ROOT prompt:
 
 ```cpp
 auto* events = _file0->Get<TTree>("LMO0");
@@ -177,8 +190,8 @@ This plots the event-level LMO0 spectrum: keV on the horizontal axis and records
 
 ```bash
 python3 tests/check_root_records.py \
-  results/quickstart/run0_EventEnergy.root \
-  results/quickstart/run0_IncidentEnergy.root --events 1000 --run 0
+  results/quickstart/run*_EventEnergy.root \
+  results/quickstart/run*_IncidentEnergy.root --events 1000 --run 0
 ```
 
 The checker also supports historical combined schema 1/2/3 files; their original tree names and `DetectorName` branches remain unchanged. Existing data are not converted automatically.
@@ -225,7 +238,7 @@ ctest --test-dir build --output-on-failure
 
 Compilation and minimal runs check usability. Geometry checks sample for overlaps. CTest covers sampling, materials, ancestry attribution, positive-deposit filtering, ROOT fields, and serial/multithreaded output. Passing sampled overlap checks does not prove every geometric detail is correct.
 
-There are currently 21 configured CTest cases covering the supported framework behavior. The two tests specific to the removed generic serialization layer are no longer configured. All 21 tests passed on 2026-11-02 after simplifying the typed interfaces (93.14 seconds), including recorder selection, invalid-record rejection, ROOT column/value readback, serial/four-worker merging, empty/repeated runs and energy agreement. Historical validation details are retained in `history.log`. No acceptance benchmarks have yet been established for experimental spectra, efficiencies, or absolute background rates. New physics validation must document reference sources, event counts, statistical and systematic uncertainties, and acceptance tolerances agreed in advance. Software regression is not a substitute for physics validation.
+There are currently 21 configured CTest cases covering the supported framework behavior. The two tests specific to the removed generic serialization layer are no longer configured. All 21 tests passed on 2026-11-02 after simplifying the typed interfaces (93.14 seconds), including recorder selection, invalid-record rejection, ROOT column/value readback, serial/four-worker merging, empty/repeated runs and energy agreement. Historical validation details are retained in `history.log`. All 21 tests also passed after the output-naming/comment update (104.94 seconds). Output naming checks cover automatic/custom names, restoring automatic mode, repeated runs, shared worker names, invalid prefixes and collision protection. No acceptance benchmarks have yet been established for experimental spectra, efficiencies, or absolute background rates. New physics validation must document reference sources, event counts, statistical and systematic uncertainties, and acceptance tolerances agreed in advance. Software regression is not a substitute for physics validation.
 
 ## 10. Team Collaboration
 
@@ -234,7 +247,7 @@ Create a feature branch from the latest `main`, such as `feature/source-th232`, 
 - Before implementing a feature, inspect applicable `G4*` interfaces in the current Geant4 `source/` tree and prefer suitable existing functionality. Examples do not replace source inspection.
 - Put headers in `include/` and implementations in matching `src/` directories. Use `fName` for members and lowercase-initial names for locals and parameters; keep interface and macro names stable.
 - Group includes in this order: project headers, Geant4, other dependencies/standard library, with blank lines between groups.
-- Use English comments for current purpose, usage, and algorithms. Append change history to `history.log`. Replace obsolete code directly rather than retaining commented-out implementations by default.
+- Use English comments for current purpose, usage, and algorithms. Explain configurable parameters at their setting points, including units, valid ranges and macro/CLI overrides; briefly explain key algorithms, ownership and thread ordering. Append change history to `history.log`. Replace obsolete code directly rather than retaining commented-out implementations by default.
 - Make units, coordinates, thread ownership, and lifetimes explicit; avoid mutable state shared across events or threads without isolation.
 - A new member should independently run the quick start in a clean environment and record installation steps, commands, timing, and results. This validation is still pending.
 

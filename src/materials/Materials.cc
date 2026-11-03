@@ -31,6 +31,9 @@ void Materials::Build() {
   auto* Fe = nist->FindOrBuildElement("Fe");
 
   // 2. Project materials, one recipe per block.
+  // Edit densities, temperatures and composition here, then rebuild. Geometry
+  // uses exact material names. Atom counts and mass fractions are different inputs;
+  // mass fractions must sum to one. Enrichment requires explicit isotope abundances.
   // Recipe reference: Loyh617/SimulationTool, MaterialLibrary.cc
   // blob 6312b7f245280b2972246dedc498c2ddbb6dbfe1.
   // Guards allow repeated Build() calls without duplicate material entries.

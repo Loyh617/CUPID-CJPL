@@ -15,6 +15,7 @@
 #include "G4RunManager.hh"
 #include "G4RunManagerFactory.hh"
 #include "G4SystemOfUnits.hh"
+#include "G4UImanager.hh"
 #include "G4UserEventAction.hh"
 #include "G4VModularPhysicsList.hh"
 #include "G4VUserActionInitialization.hh"
@@ -28,6 +29,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <set>
@@ -132,6 +134,13 @@ int main(int argc, char** argv) {
     const auto directory = std::filesystem::path(argv[1]) /
         (mode + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     Require(std::filesystem::create_directories(directory), "Test directory already exists");
+    const auto occupiedBase = directory / "run0.root";
+    const auto occupiedRecorder = directory / (incidents ? "run0_1_IncidentEnergy.root"
+        : events ? "run0_1_EventEnergy.root" : "run0_1.root");
+    for (const auto& path : {occupiedBase, occupiedRecorder}) {
+      std::ofstream file(path);
+      file << "preserve existing file";
+    }
     {
       std::unique_ptr<G4RunManager> run(G4RunManagerFactory::CreateRunManager(G4RunManagerType::MTOnly));
       run->SetNumberOfThreads(4);
@@ -141,16 +150,26 @@ int main(int argc, char** argv) {
       run->SetUserInitialization(physics);
       run->SetUserInitialization(new Actions(directory.string(), events, incidents));
       run->Initialize();
-      run->BeamOn(29);
-      run->BeamOn(1);
-      run->BeamOn(7);
-      run->BeamOn(5);
-      run->BeamOn(5);
+      const int counts[] = {29, 1, 7, 5, 5};
+      for (int id = 0; id < 5; ++id) {
+        Require(G4UImanager::GetUIpointer()->ApplyCommand(
+            "/cupid/output/fileName run" + std::to_string(id)) == 0, "Cannot set output prefix");
+        run->BeamOn(counts[id]);
+      }
+    }
+    for (const auto& path : {occupiedBase, occupiedRecorder}) {
+      std::ifstream file(path);
+      std::string content;
+      std::getline(file, content);
+      Require(content == "preserve existing file", "Collision overwrote an existing file");
+      file.close();
+      std::filesystem::remove(path);
     }
     for (int run = 0; run < 5; ++run) {
-      Require(!std::filesystem::exists(directory / ("run" + std::to_string(run) + ".root")), "Unexpected default file");
+      const auto prefix = run == 0 ? std::string("run0_2") : "run" + std::to_string(run);
+      Require(!std::filesystem::exists(directory / (prefix + ".root")), "Unexpected default file");
       for (bool incident : {false, true}) {
-        const auto path = directory / ("run" + std::to_string(run) + (incident ? "_IncidentEnergy.root" : "_EventEnergy.root"));
+        const auto path = directory / (prefix + (incident ? "_IncidentEnergy.root" : "_EventEnergy.root"));
         const bool hasFile = run != 2 && (incident ? incidents && run != 3 : events && run != 4);
         Require(std::filesystem::exists(path) == hasFile, "Empty/selected file policy mismatch");
         if (!hasFile) continue;

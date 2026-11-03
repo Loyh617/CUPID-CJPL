@@ -77,6 +77,8 @@ G4ThreeVector DirectVolumeSampler::SampleCylinder(G4double radius, G4double half
 
 G4ThreeVector DirectVolumeSampler::SampleSphere(G4double radius) const {
   RequirePositiveLength(radius);
+  // Uniform volume needs r^3/R^3 uniform; the random direction locates the point,
+  // and does not set the emitted particle momentum.
   const auto r = radius * std::cbrt(G4UniformRand());
   return ToWorld(r * G4RandomDirection());
 }

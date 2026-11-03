@@ -66,11 +66,13 @@ G4ThreeVector DirectSurfaceSampler::SampleRectangle(G4double halfX, G4double hal
 
 G4ThreeVector DirectSurfaceSampler::SampleSphere(G4double radius) const {
   RequirePositiveLength(radius);
+  // This vector sets a position on the sphere, not a particle emission direction.
   return ToWorld(radius * G4RandomDirection());
 }
 
 G4ThreeVector DirectSurfaceSampler::SampleHemisphere(G4double radius) const {
   RequirePositiveLength(radius);
+  // Native cosine limit 0 restricts positions to local z >= 0; no base disk is sampled.
   return ToWorld(radius * G4RandomDirection(0.));
 }
 }

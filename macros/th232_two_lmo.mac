@@ -3,13 +3,17 @@
 # Direction specifies the placement axis, not a collimation of decay products.
 /control/verbose 1
 /run/verbose 1
+# Set seeds for this study; keep the macro and software environment for reproduction.
 /random/setSeeds 2322026 100000
 /cupid/geometry/enable Cryostat
 /cupid/geometry/enable InnerShielding
 /cupid/geometry/enable LMOArray
 /cupid/geometry/lmoCount 2
 /run/initialize
+# Optional persistent ROOT prefix; omit for local date/time, or set auto to restore it.
+# /cupid/output/fileName calibration
 /cupid/geometry/check 10000
+# Source settings below apply to subsequent events; positions use World coordinates.
 /gun/particle ion
 /gun/ion 90 232 0 0
 /gun/energy 0 eV
@@ -17,4 +21,5 @@
 /gun/direction 1 0 0
 /tracking/verbose 0
 /run/printProgress 10000
+# Number of simulated events in this run (not the number of saved energy rows).
 /run/beamOn 100000

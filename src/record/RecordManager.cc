@@ -48,6 +48,8 @@ void RecordManager::Build(G4int eventId, G4HCofThisEvent& collections,
         throw std::runtime_error("Duplicate detector name across event collections.");
     detectorCollections.push_back(hits);
   }
+  // Aggregate all scoring collections before EventAction writes the result vectors.
+  // Add a new recorder explicitly to selection, storage and this dispatch block.
   for (const auto* hits : detectorCollections) {
     if (fEvents) {
       const auto records = EventEnergyRecorder{}.Build(eventId, *hits);

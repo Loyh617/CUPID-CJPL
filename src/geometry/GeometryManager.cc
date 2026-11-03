@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 namespace cupid {
+// Components start disabled. Select them with /cupid/geometry/enable before initialization.
 GeometryManager::GeometryManager()
     : fComponents{{
           {"Cryostat", false, [](auto* m, const auto& a, const auto& p, auto& g) { Cryostat{}.Build(m,a,p,g); }},
@@ -39,6 +40,7 @@ void GeometryManager::SetEnabled(const G4String& name, G4bool enabled) {
       "'. Available: Cryostat InnerShielding LMOArray");
 }
 void GeometryManager::SetLMOCount(G4int count) {
+  // This bound reflects the checked prototype layout; increasing it requires geometry validation.
   if (count < 1 || count > 2) throw std::invalid_argument("lmoCount must be 1 or 2 in v0.1");
   fParameters.lmoCount = count;
 }

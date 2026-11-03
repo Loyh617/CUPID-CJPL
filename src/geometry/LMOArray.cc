@@ -29,7 +29,9 @@ void LMOArray::Build(G4VPhysicalVolume* parent, const Materials& materials,
     // Match both volume names to the zero-based crystal copy number.
     const G4String lmoName = "LMO" + std::to_string(id);
     auto* logical = new G4LogicalVolume(solid, materials.Get("Li2MoO4"), lmoName);
+    // RGB color is display-only; it does not define optical material properties.
     logical->SetVisAttributes(G4VisAttributes(G4Colour(0.1, 0.8, 0.95)));
+    // Symmetric X placement keeps the array center fixed when the count changes.
     const auto offset = (id - (p.lmoCount-1)/2.) * (p.lmoSide+p.lmoGap);
     const auto position = p.lmoCenter + G4ThreeVector(offset, 0., 0.);
     // Copy numbers are crystal IDs within this single array in v0.1.

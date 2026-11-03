@@ -38,6 +38,8 @@ GeometryMessenger::GeometryMessenger(GeometryManager& manager) : fManager(manage
   fCount->SetToBeBroadcasted(false);
   fCheck = std::make_unique<G4UIcmdWithAnInteger>("/cupid/geometry/check", this);
   fCheck->SetParameterName("samples", true);
+  // Random surface probes per placed volume; increase via /cupid/geometry/check N.
+  // A sampled PASS is not a mathematical proof that every overlap is absent.
   fCheck->SetDefaultValue(10000);
   fCheck->SetRange("samples>=100");
   fCheck->SetGuidance("Check each placed volume; fail the macro if overlaps are found.");
