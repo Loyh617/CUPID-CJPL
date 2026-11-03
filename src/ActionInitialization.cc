@@ -18,8 +18,8 @@
 #include "G4LogicalVolume.hh"
 
 namespace cupid {
-ActionInitialization::ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry)
-    : fGeometry(geometry), fOutputDirectory(outputDirectory), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
+ActionInitialization::ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry, RunLog* log)
+    : fGeometry(geometry), fOutputDirectory(outputDirectory), fLog(log), fGeneratorMessenger(std::make_unique<GeneratorMessenger>(fGeneratorSelection, fGeneratorVerbosity)) {}
 ActionInitialization::~ActionInitialization() = default;
 RunAction* ActionInitialization::CreateRunAction() const {
   // Resolve the complete scoring catalog after geometry construction, including
@@ -29,7 +29,7 @@ RunAction* ActionInitialization::CreateRunAction() const {
     std::vector<G4String> names;
     for (const auto* logical : fGeometry.GetLMOLogicalVolumes()) names.push_back(logical->GetName());
     return names;
-  });
+  }, fLog);
 }
 void ActionInitialization::BuildForMaster() const {
   SetUserAction(CreateRunAction());

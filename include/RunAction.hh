@@ -14,19 +14,20 @@
 
 #include <functional>
 #include <memory>
-#include <set>
 #include <vector>
 
 class G4GenericMessenger;
 
 namespace cupid {
+class RunLog;
 class RunAction final : public G4UserRunAction {
  public:
   using DetectorNames = std::function<std::vector<G4String>()>;
   RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
-            const G4String& outputName = "RootOutput", DetectorNames detectorNames = {});
+            const G4String& outputName = "RootOutput", DetectorNames detectorNames = {},
+            RunLog* log = nullptr);
   ~RunAction() override;
-  // Use /cupid/output/fileName after /run/initialize and before /run/beamOn.
+  // Set /cupid/output/directory and fileName in Idle, before the next /run/beamOn.
   void BeginOfRunAction(const G4Run*) override;
   void EndOfRunAction(const G4Run*) override;
   OutputManager& GetOutput() { return fOutput; }
@@ -34,16 +35,17 @@ class RunAction final : public G4UserRunAction {
   const std::vector<G4String>& GetRecorderNames() const { return fRecorderNames; }
 
  private:
-  G4String ResolveFileName();
+  void PrepareRunDirectory();
   // Only the master/serial action owns the UI command and chooses the run name.
   // "auto" generates local date/time; an explicit prefix persists until changed.
   G4String fFileName = "auto";
   G4String fRunFileName;
-  // Reserve names even when Geant4 removes all empty recorder files. Master only.
-  std::set<G4String> fUsedFileNames;
+  G4String fRunDirectory;  // Absolute, finalized by the master before workers start.
+  RunLog* fLog;  // Non-owning; main keeps the shared console capture alive through shutdown.
   std::unique_ptr<G4GenericMessenger> fMessenger;
   OutputManager fOutput;
-  const G4String fOutputDirectory;
+  // Parent directory, relative to the process working directory; editable between runs.
+  G4String fOutputDirectory;
   const std::vector<G4String> fRecorderNames;
   DetectorNames fDetectorNames;
   std::vector<std::string> fFileNames;

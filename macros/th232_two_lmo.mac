@@ -10,6 +10,8 @@
 /cupid/geometry/enable LMOArray
 /cupid/geometry/lmoCount 2
 /run/initialize
+# Optional parent directory for subsequent runs (relative to the working directory).
+# /cupid/output/directory ./results/runs
 # Optional persistent ROOT prefix; omit for local date/time, or set auto to restore it.
 # /cupid/output/fileName calibration
 /cupid/geometry/check 10000

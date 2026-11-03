@@ -134,9 +134,11 @@ int main(int argc, char** argv) {
     const auto directory = std::filesystem::path(argv[1]) /
         (mode + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     Require(std::filesystem::create_directories(directory), "Test directory already exists");
-    const auto occupiedBase = directory / "run0.root";
-    const auto occupiedRecorder = directory / (incidents ? "run0_1_IncidentEnergy.root"
-        : events ? "run0_1_EventEnergy.root" : "run0_1.root");
+    // Existing files and directories both reserve a run prefix.
+    const auto occupiedBase = directory / "run0";
+    const auto occupiedDirectory = directory / "run0_1";
+    std::filesystem::create_directory(occupiedDirectory);
+    const auto occupiedRecorder = occupiedDirectory / "run0_1_EventEnergy.root";
     for (const auto& path : {occupiedBase, occupiedRecorder}) {
       std::ofstream file(path);
       file << "preserve existing file";
@@ -165,11 +167,14 @@ int main(int argc, char** argv) {
       file.close();
       std::filesystem::remove(path);
     }
+    std::filesystem::remove(occupiedDirectory);
     for (int run = 0; run < 5; ++run) {
       const auto prefix = run == 0 ? std::string("run0_2") : "run" + std::to_string(run);
-      Require(!std::filesystem::exists(directory / (prefix + ".root")), "Unexpected default file");
+      const auto runDirectory = directory / prefix;
+      Require(std::filesystem::is_directory(runDirectory), "Missing run directory");
+      Require(!std::filesystem::exists(runDirectory / (prefix + ".root")), "Unexpected default file");
       for (bool incident : {false, true}) {
-        const auto path = directory / (prefix + (incident ? "_IncidentEnergy.root" : "_EventEnergy.root"));
+        const auto path = runDirectory / (prefix + (incident ? "_IncidentEnergy.root" : "_EventEnergy.root"));
         const bool hasFile = run != 2 && (incident ? incidents && run != 3 : events && run != 4);
         Require(std::filesystem::exists(path) == hasFile, "Empty/selected file policy mismatch");
         if (!hasFile) continue;
@@ -179,6 +184,8 @@ int main(int argc, char** argv) {
         file.Close();
         std::filesystem::remove(path);
       }
+      Require(std::filesystem::is_empty(runDirectory), "Unexpected per-run files");
+      std::filesystem::remove(runDirectory);
     }
     Require(std::filesystem::is_empty(directory), "Unexpected worker/extra files");
     std::filesystem::remove(directory);

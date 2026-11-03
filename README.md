@@ -31,7 +31,7 @@ cmake --build build -j4
 echo "Exit status: $?"
 ```
 
-This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/run.log`, and `run<datetime>_EventEnergy.root` / `run<datetime>_IncidentEnergy.root` files. Use a new output directory when repeating the run; existing logs are not overwritten.
+This example builds only two LMO crystals and emits **1,000 gamma rays at 1 MeV**. It took approximately **5.3 seconds** on the development machine on 2026-10-30, excluding compilation; hardware and initialization affect runtime. Expect exit status 0, `result=PASS` for the geometry check and `CUPID_RUN_RESULT ... processed_events=1000` in `results/quickstart/<run-prefix>/run.log`, and `run<datetime>_EventEnergy.root` / `run<datetime>_IncidentEnergy.root` files. Each run has its own subdirectory; repeating the command preserves existing runs and selects a free name.
 
 Compilation, execution, and ROOT readback have been checked in the existing development environment. **Independent installation and execution by another member in a clean environment remain pending.** Dependency requirements and installation guidance follow below.
 
@@ -135,9 +135,10 @@ Set event counts with `/run/beamOn`, seeds with `/random/setSeeds` (`12345 67890
 
 Command-line options set the initial mode, thread count, and output. Macros then execute in order and may update Geant4 parameters where the application state allows; check the actual run log. The main macro is resolved relative to the current directory first, then under `build/macros/`. Submacros are searched in the current directory, main macro directory, and `build/macros/`, in that order. Relative output paths also use the current directory. Prefer explicit `macros/xxx.mac` paths; if using build-directory copies, rerun CMake configuration after editing example macros. See [Geant4 macro execution](https://geant4.web.cern.ch/documentation/dev/bfad_html/ForApplicationDevelopers/GettingStarted/executeProgram.html).
 
-ROOT filename prefixes are set in `RunAction` through the native Geant4 messenger. Use this command **after `/run/initialize` and before `/run/beamOn`**, also between runs:
+Output directories and ROOT filename prefixes are set in `RunAction` through the native Geant4 messenger. Use these commands **after `/run/initialize` and before `/run/beamOn`**, also between runs:
 
 ```text
+/cupid/output/directory ./results/runs
 /cupid/output/fileName th232_calibration
 /run/beamOn 100000
 /cupid/output/fileName co56_calibration.root
@@ -146,20 +147,22 @@ ROOT filename prefixes are set in `RunAction` through the native Geant4 messenge
 /run/beamOn 1000
 ```
 
-These commands change output names only; configure the source separately. The first pair is `th232_calibration_EventEnergy.root` and `th232_calibration_IncidentEnergy.root`. An optional `.root` suffix is removed before adding the recorder suffix. `auto` is the default and generates `runYYYYMMDD_HHMMSS_<Recorder>.root`, using the WSL process's local time, to the second. The master determines one name shared by all workers. Custom prefixes must start with an ASCII letter/digit, use only letters/digits/underscore/hyphen/dot, and not end in a dot; paths and spaces are rejected. `--output` still controls the directory. `CUPID_OUTPUT_NAME` in `run.log` records the resolved base name even for empty runs.
+These commands configure output only; configure the source separately. The default parent is `./results/runs`. `--output DIR` sets the initial parent; `/cupid/output/directory DIR` overrides it for subsequent runs and persists until changed. Relative paths use the process working directory, not the macro directory. Missing parents are created at run start; quote directory paths containing spaces. The first pair is `th232_calibration_EventEnergy.root` and `th232_calibration_IncidentEnergy.root`. An optional `.root` suffix is removed before adding the recorder suffix. `auto` is the default and generates `runYYYYMMDD_HHMMSS_<Recorder>.root`, using the WSL process's local time, to the second. The master determines one name shared by all workers. Custom prefixes must start with an ASCII letter/digit, use only letters/digits/underscore/hyphen/dot, and not end in a dot; paths and spaces are rejected. `CUPID_RUN_DIRECTORY` and `CUPID_OUTPUT_NAME` in `run.log` record the resolved directory and base name even for empty runs.
 
 ## 7. Output Format and Minimal Analysis
 
-The output directory contains one `run.log` and separate files for each enabled recorder and run. Without `--output`, the application creates `output/job_*`. The current format is **schema 4** (illustrative automatic timestamp):
+Each run creates a subdirectory named after its shared ROOT prefix (without `.root` or the recorder suffix). All recorder files and that run's `run.log` are placed inside it; no loose ROOT/log files are written to the parent. The current format remains **schema 4**:
 
 ```text
-run20261102_153000_EventEnergy.root
-  LMO0    (TTree)
-  LMO1    (TTree)
-run20261102_153000_IncidentEnergy.root
-  LMO0    (TTree)
-  LMO1    (TTree)
-run.log
+results/runs/
+  run20261103_153000/
+    run20261103_153000_EventEnergy.root       # LMO0, LMO1 TTrees
+    run20261103_153000_IncidentEnergy.root    # LMO0, LMO1 TTrees
+    run.log
+  run20261103_153000_1/
+    run20261103_153000_1_EventEnergy.root
+    run20261103_153000_1_IncidentEnergy.root
+    run.log
 ```
 
 | File | Meaning of one row in a detector tree | Columns, in order |
@@ -173,11 +176,11 @@ The **tree name identifies the detector**; there is no `DetectorName` branch. In
 
 Table selections and detector catalogs must match on all threads, including workers without events. Each input vector is checked before any of its rows are appended. Run summaries use `rows_EventEnergy` and `rows_IncidentEnergy`. Adding a new record type intentionally requires a corresponding output adapter and Action calls; update the column order, field mappings and readback tests together.
 
-Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. A custom prefix remains active until changed. For automatic and custom names, a collision adds `_1`, `_2`, etc. before the recorder suffix (for example, `run20261102_153000_1_EventEnergy.root`). The master checks all enabled recorder files together, so every file from one run shares the same suffix. Names already used in this process remain reserved even for empty runs; existing files are preserved. Separate application processes must use separate job directories; suffix selection is not a cross-process file lock. The RunID branch continues to identify the Geant4 run independently of its filename.
+Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. A custom prefix remains active until changed. For automatic and custom names, a collision adds `_1`, `_2`, etc. before the recorder suffix (for example, `run20261102_153000_1_EventEnergy.root`). The master reserves the run subdirectory with one filesystem directory-creation operation, so every file from one run shares the same suffix. Existing directories (including empty ones) and same-name files are skipped. Empty runs retain their directory and log. Changing the parent allows the same prefix in a different location. The RunID branch continues to identify the Geant4 run independently of its filename.
 
 `Edep` is unweighted deposited energy in keV, not incident energy. TrackID and PDG identify the detector-local incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. Row counts are not simulated event counts: use `processed_events` from the log as the normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
 
-From the repository root, run `root -l results/quickstart/run*_EventEnergy.root` (the quick start produces one matching file), then enter at the ROOT prompt:
+From the repository root, run `root -l results/quickstart/run*/run*_EventEnergy.root` (after one quick-start run; if several exist, use the explicit path printed as `CUPID_RUN_DIRECTORY`), then enter at the ROOT prompt:
 
 ```cpp
 auto* events = _file0->Get<TTree>("LMO0");
@@ -190,8 +193,8 @@ This plots the event-level LMO0 spectrum: keV on the horizontal axis and records
 
 ```bash
 python3 tests/check_root_records.py \
-  results/quickstart/run*_EventEnergy.root \
-  results/quickstart/run*_IncidentEnergy.root --events 1000 --run 0
+  results/quickstart/run*/run*_EventEnergy.root \
+  results/quickstart/run*/run*_IncidentEnergy.root --events 1000 --run 0
 ```
 
 The checker also supports historical combined schema 1/2/3 files; their original tree names and `DetectorName` branches remain unchanged. Existing data are not converted automatically.
@@ -205,9 +208,11 @@ For production simulations, preserve the ROOT files and logs, and retain enough 
 - The actual macros and submacros, geometry, materials, and physics parameters.
 - The random engine, seeds/state, event and thread counts, run mode, command, and output identifier.
 
+Each run log contains shared initialization/macro context followed by only that run's transport output and result summary. Empty runs retain a log even when no ROOT file is saved. Errors before the first run starts are reported on the console; no run directory exists yet.
+
 **Recorded automatically:** Geant4/ROOT versions, command and working directory, resolvable static macro contents, gun parameters, random state at run start, requested/processed event counts, mode/threads, and output summaries. The current environment uses MixMaxRng.
 
-**Still recorded manually:** commit/dirty status, complete build and dataset information, dynamic macros, interactive input, and external files. Prefer a clean commit and static macros, and do not modify source or inputs during a run. After completion, append the following information to the existing job log from the repository root, adjusting the output path:
+**Still recorded manually:** commit/dirty status, complete build and dataset information, dynamic macros, interactive input, and external files. Prefer a clean commit and static macros, and do not modify source or inputs during a run. After completion, append the following information to the corresponding run log from the repository root, adjusting the output path:
 
 ```bash
 {
@@ -222,7 +227,7 @@ For production simulations, preserve the ROOT files and logs, and retain enough 
   env | sort | grep -E '^G4[A-Z0-9_]*DATA='
   grep -E 'CMAKE_BUILD_TYPE:|CMAKE_CXX_COMPILER:|CUPID_WITH_VIS:|Geant4_DIR:|ROOT_DIR:|CMAKE_PREFIX_PATH:' build/CMakeCache.txt
   printf 'CUPID_MANUAL_PROVENANCE_END\n'
-} >> results/quickstart/run.log
+} >> "results/quickstart/REPLACE_WITH_RUN_PREFIX/run.log"
 ```
 
 Paths alone do not establish dataset versions: verify the versions and save SHA-256 checksums for external inputs. A dirty flag cannot reconstruct code; preserve diffs and untracked inputs for uncommitted versions. Also record dynamic macros, interactive input, and final parameters not fixed in the source.
@@ -274,6 +279,6 @@ No Git LFS or centralized data repository policy is established yet. Before addi
 | Visualization fails | Check WSLg/X11, Geant4 graphics support, and `CUPID_WITH_VIS`; visualization can be disabled for batch runs |
 | Macro not found or edits ineffective | Run `macros/xxx.mac` from the root; check submacro paths and build-directory copies |
 | No ROOT file | Check exit status and `run.log`; `file=none(empty)` indicates no saved records |
-| Output already exists | Choose a new directory rather than overwriting `run.log` |
+| Output location or permissions | Set `--output DIR` or `/cupid/output/directory DIR`; existing run names receive numeric suffixes |
 
 Maintenance and feedback: [repository Issues](https://github.com/Loyh617/CUPID-CJPL/issues), owned by Loyh617; team responsibilities remain to be documented. No LICENSE file is provided yet, and no open-source license grant is declared. For now, cite the repository URL and commit used; the maintainer has yet to establish the formal license and citation format.

@@ -1,10 +1,10 @@
 /// \file src/output/RunLog.cc
-/// \brief Implementation: Capture console output and run provenance in one job-level text log.
+/// \brief Capture console output in the active run's log while retaining terminal output.
 ///
-/// main() constructs RunLog before workers start and keeps it alive until
-/// they finish. RecordMacro() saves macro text and resolvable static includes;
-/// Check() reports write failures. RunAction summaries use the captured
-/// console streams; this class does not write ROOT event data.
+/// main() owns the capture before workers start and until after shutdown.
+/// Master RunAction calls BeginRun/EndRun to select each run.log. Initialization
+/// and between-run context is retained in memory and copied into later logs;
+/// event output is written only to its own run. RecordMacro preserves input text.
 
 #include "output/RunLog.hh"
 
@@ -28,7 +28,8 @@ class RunLog::State {
     std::streamsize xsputn(const char* data, std::streamsize size) override {
       std::lock_guard<std::mutex> lock(fState.fMutex);
       const auto written = fTerminal->sputn(data, size);
-      fState.fFile.write(data, size);
+      if (fState.fFile.is_open()) fState.fFile.write(data, size);
+      else fState.fContext.append(data, static_cast<std::size_t>(size));
       return written;
     }
     int_type overflow(int_type value) override {
@@ -38,19 +39,16 @@ class RunLog::State {
     }
     int sync() override {
       std::lock_guard<std::mutex> lock(fState.fMutex);
-      fState.fFile.flush();
+      if (fState.fFile.is_open()) fState.fFile.flush();
       return fTerminal->pubsync();
     }
    private:
     State& fState;
     std::streambuf* fTerminal;
   };
-  explicit State(const std::string& name)
+  State()
       : fCout(std::cout.rdbuf()), fCerr(std::cerr.rdbuf()), fClog(std::clog.rdbuf()),
         fOutBuffer(*this, fCout), fErrBuffer(*this, fCerr) {
-    if (std::filesystem::exists(name)) throw std::runtime_error("Run log already exists: " + name);
-    fFile.open(name);
-    if (!fFile) throw std::runtime_error("Cannot create run log: " + name);
     std::cout.rdbuf(&fOutBuffer);
     std::cerr.rdbuf(&fErrBuffer);
     std::clog.rdbuf(&fErrBuffer);
@@ -65,6 +63,7 @@ class RunLog::State {
   }
   mutable std::mutex fMutex;
   std::ofstream fFile;
+  std::string fContext;  // Setup context only; never buffer transport output for later runs.
   std::streambuf* fCout;
   std::streambuf* fCerr;
   std::streambuf* fClog;
@@ -72,13 +71,31 @@ class RunLog::State {
   Buffer fErrBuffer;
 };
 
-RunLog::RunLog(const std::string& fileName) : fState(std::make_unique<State>(fileName)) {}
+RunLog::RunLog() : fState(std::make_unique<State>()) {}
 RunLog::~RunLog() = default;
+
+void RunLog::BeginRun(const std::string& fileName) {
+  std::lock_guard<std::mutex> lock(fState->fMutex);
+  if (fState->fFile.is_open()) throw std::logic_error("Previous run log is still open.");
+  if (std::filesystem::exists(fileName)) throw std::runtime_error("Run log already exists: " + fileName);
+  fState->fFile.open(fileName);
+  if (!fState->fFile) throw std::runtime_error("Cannot create run log: " + fileName);
+  fState->fFile << "CUPID_SETUP_CONTEXT_BEGIN\n" << fState->fContext << "\nCUPID_SETUP_CONTEXT_END\n";
+  if (!fState->fFile) throw std::runtime_error("Cannot write run setup context.");
+}
+
+void RunLog::EndRun() {
+  std::lock_guard<std::mutex> lock(fState->fMutex);
+  if (!fState->fFile.is_open()) throw std::logic_error("No active run log.");
+  fState->fFile.flush();
+  fState->fFile.close();
+  if (fState->fFile.fail()) throw std::runtime_error("Run log write failed.");
+}
 
 void RunLog::Check() const {
   std::lock_guard<std::mutex> lock(fState->fMutex);
-  fState->fFile.flush();
-  if (!fState->fFile) throw std::runtime_error("Run log write failed.");
+  if (fState->fFile.is_open()) fState->fFile.flush();
+  if (fState->fFile.fail()) throw std::runtime_error("Run log write failed.");
 }
 
 void RunLog::RecordMacro(const std::string& fileName, const std::vector<std::string>& searchPaths) {

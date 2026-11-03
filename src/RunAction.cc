@@ -6,6 +6,7 @@
 /// Each recorder has a separate file; empty files are removed and reported in run.log.
 
 #include "RunAction.hh"
+#include "output/RunLog.hh"
 #include "record/RecordManager.hh"
 
 #include "G4GenericMessenger.hh"
@@ -28,8 +29,9 @@
 
 namespace cupid {
 RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String>& recorders,
-                     const G4String& outputName, DetectorNames detectorNames)
-    : fOutput(outputName), fOutputDirectory(outputDirectory), fRecorderNames(recorders),
+                     const G4String& outputName, DetectorNames detectorNames, RunLog* log)
+    : fLog(log), fOutput(outputName),
+      fOutputDirectory(outputDirectory.empty() ? "./results/runs" : outputDirectory), fRecorderNames(recorders),
       fDetectorNames(std::move(detectorNames)) {
   const RecordManager selection(recorders);
   if (selection.IsEnabled("EventEnergyRecorder")) fOutput.BookEventEnergy();
@@ -41,12 +43,16 @@ RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String
         "Set a filename prefix (optional .root) or auto for local date/time. Persists until changed.")
         .SetStates(G4State_Idle).SetToBeBroadcasted(false)
         .SetParameterName("prefix", false);
+    fMessenger->DeclareProperty("directory", fOutputDirectory,
+        "Set the parent output directory for subsequent runs; relative paths use the process working directory.")
+        .SetStates(G4State_Idle).SetToBeBroadcasted(false)
+        .SetParameterName("path", false);
   }
 }
 
 RunAction::~RunAction() = default;
 
-G4String RunAction::ResolveFileName() {
+void RunAction::PrepareRunDirectory() {
   std::string prefix = fFileName;
   if (fFileName == "auto") {
     // Sample local time once on the master; all workers use the resolved name.
@@ -57,47 +63,41 @@ G4String RunAction::ResolveFileName() {
     name << "run" << std::put_time(local, "%Y%m%d_%H%M%S");
     prefix = name.str();
   } else {
-    // --output controls the directory. Restrict this setting to a portable basename.
+    // The parent directory is configured separately. Keep a portable basename.
     if (prefix.size() >= 5 && prefix.compare(prefix.size() - 5, 5, ".root") == 0)
       prefix.resize(prefix.size() - 5);
     static const std::regex valid("[A-Za-z0-9][A-Za-z0-9_.-]*");
     if (!std::regex_match(prefix, valid) || prefix.back() == '.')
       throw std::invalid_argument("Output prefix must start with a letter/digit and contain only letters, digits, _, - or .; no paths or spaces.");
   }
-  // Check the whole enabled recorder group before choosing a shared suffix.
-  // Names used by empty runs remain reserved for this RunAction's lifetime.
-  const auto directory = std::filesystem::path(std::string(fOutputDirectory));
+  if (fOutputDirectory.empty()) throw std::invalid_argument("Output directory must not be empty.");
+  const auto parent = std::filesystem::absolute(std::filesystem::path(std::string(fOutputDirectory))).lexically_normal();
+  std::filesystem::create_directories(parent);
+  // Reserve the whole run with one directory creation. Never reuse existing folders,
+  // including empty runs; all recorder files and the log share this suffix.
   for (std::size_t suffix = 0; ; ++suffix) {
-    const G4String name = prefix + (suffix == 0 ? "" : "_" + std::to_string(suffix))
-                         + fOutput.GetFileExtension();
-    if (fUsedFileNames.count(name)) continue;
-    const auto baseName = (directory / std::string(name)).string();
-    auto files = fOutput.GetFileNames(baseName);
-    files.push_back(baseName);
-    bool occupied = false;
-    for (const auto& file : files) {
-      if (std::filesystem::exists(file)) {
-        occupied = true;
-        break;
-      }
+    const auto name = prefix + (suffix == 0 ? "" : "_" + std::to_string(suffix));
+    const auto directory = parent / name;
+    if (std::filesystem::exists(directory)) continue;
+    std::error_code error;
+    if (std::filesystem::create_directory(directory, error)) {
+      fRunDirectory = directory.string();
+      fRunFileName = name + fOutput.GetFileExtension();
+      return;
     }
-    if (!occupied) {
-      fUsedFileNames.insert(name);
-      return name;
-    }
+    if (error && error != std::errc::file_exists)
+      throw std::filesystem::filesystem_error("Cannot create run directory", directory, error);
   }
 }
 
 void RunAction::BeginOfRunAction(const G4Run* run) {
   fRunId = run->GetRunID();
   const auto threadId = G4Threading::G4GetThreadId();
-  const auto directory = std::filesystem::path(std::string(fOutputDirectory));
   fOutput.SetDetectorNames(fDetectorNames ? fDetectorNames() : std::vector<G4String>{});
   if (IsMaster()) {
-    fRunFileName = ResolveFileName();
-    const auto finalName = directory / std::string(fRunFileName);
-    if (std::filesystem::exists(finalName))
-      throw std::runtime_error("Run output already exists: " + finalName.string());
+    PrepareRunDirectory();
+    if (fLog) fLog->BeginRun((std::filesystem::path(std::string(fRunDirectory)) / "run.log").string());
+    G4cout << "CUPID_RUN_DIRECTORY " << fRunDirectory << G4endl;
     G4cout << "CUPID_OUTPUT_NAME run=" << fRunId << " requested=" << fFileName
            << " base=" << fRunFileName << " clock=local" << G4endl;
     G4cout << "CUPID_OUTPUT_MODULE name=" << fOutput.GetName()
@@ -114,13 +114,14 @@ void RunAction::BeginOfRunAction(const G4Run* run) {
     if (!master || master->fRunId != fRunId || master->fRunFileName.empty())
       throw std::runtime_error("Worker output name is unavailable from the master RunAction.");
     fRunFileName = master->fRunFileName;
+    fRunDirectory = master->fRunDirectory;
   }
   if (threadId <= 0) {
     auto* ui = G4UImanager::GetUIpointer();
     for (const char* command : {"/gun/particle", "/gun/ion", "/gun/energy", "/gun/position", "/gun/direction", "/gun/number"})
       G4cout << "CUPID_SOURCE " << command << " " << ui->GetCurrentValues(command) << G4endl;
   }
-  const auto baseName = (directory / std::string(fRunFileName)).string();
+  const auto baseName = (std::filesystem::path(std::string(fRunDirectory)) / std::string(fRunFileName)).string();
   fFileNames = fOutput.GetFileNames(baseName);
   fOutput.OpenFile(baseName);
 }
@@ -150,5 +151,6 @@ void RunAction::EndOfRunAction(const G4Run* run) {
          << " processed_events=" << run->GetNumberOfEvent();
   for (const auto& [name, count] : summary.rows) G4cout << " rows_" << name << "=" << count;
   G4cout << " file=" << (files.empty() ? "none(empty)" : files) << G4endl;
+  if (fLog) fLog->EndRun();
 }
 }  // namespace cupid

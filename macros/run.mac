@@ -4,6 +4,8 @@
 /random/setSeeds 12345 67890
 /control/execute geometry.mac
 /run/initialize
+# Optional parent directory for subsequent runs (relative to the working directory).
+# /cupid/output/directory ./results/runs
 # Optional persistent ROOT prefix; omit for local date/time, or set auto to restore it.
 # /cupid/output/fileName calibration
 # Source settings below apply to subsequent events; positions use World coordinates.

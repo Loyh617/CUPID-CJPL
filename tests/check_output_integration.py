@@ -1,4 +1,4 @@
-"""Check production Action merging, zero rows, idle workers, empty files, repeated runs and consolidated logs."""
+"""Check per-run directories/logs, native merging, path overrides and preserved results."""
 import hashlib
 import pathlib
 import re
@@ -10,12 +10,52 @@ executable = pathlib.Path(sys.argv[1]).resolve()
 checker = pathlib.Path(sys.argv[2]).resolve()
 base = pathlib.Path(sys.argv[3]).resolve()
 base.mkdir(parents=True, exist_ok=True)
+reader = pathlib.Path(__file__).with_name('check_root_records.py')
+
+
+def execute(macro, cwd, options, output=None):
+    command = [str(executable), str(macro), *options]
+    if output is not None:
+        command += ['--output', str(output)]
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'Analysis_W' not in result.stdout + result.stderr, result.stdout + result.stderr
+    return result.stdout + result.stderr
+
+
+def check_run(folder, run, events, rows, detectors='LMO0,LMO1'):
+    prefix = folder.name
+    log = (folder / 'run.log').read_text()
+    # No event output or summaries from other runs may leak into this log.
+    names = re.findall(r'CUPID_OUTPUT_NAME run=(\d+) requested=\S+ base=(\S+) clock=local', log)
+    assert names == [(str(run), prefix + '.root')], names
+    summaries = re.findall(r'CUPID_RUN_RESULT run=(\d+) ', log)
+    assert summaries == [str(run)], summaries
+    assert f'processed_events={events} rows_EventEnergy={rows} rows_IncidentEnergy={rows}' in log
+    for token in ('CUPID_VERSIONS', 'ROOT=6.36.10', 'CUPID_COMMAND', 'CUPID_MACRO_BEGIN',
+                  'CUPID_RANDOM_STATE_BEGIN', 'CUPID_SOURCE /gun/position'):
+        assert token in log, (folder, token)
+    expected = {'run.log'}
+    if rows:
+        expected.update(prefix + suffix for suffix in ('_EventEnergy.root', '_IncidentEnergy.root'))
+        if detectors == 'LMO0,LMO1':
+            subprocess.run([str(checker), '--inspect', str(folder / (prefix + '.root')), str(rows), str(rows)], check=True)
+        result = subprocess.run([sys.executable, str(reader),
+            str(folder / (prefix + '_EventEnergy.root')), str(folder / (prefix + '_IncidentEnergy.root')),
+            '--events', str(events), '--run', str(run), '--detectors', *detectors.split(',')],
+            capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
+    assert {p.name for p in folder.iterdir()} == expected
+
+
 with tempfile.TemporaryDirectory(dir=base) as temporary:
     directory = pathlib.Path(temporary)
-    geometry = directory / 'geometry.mac'
-    geometry.write_text('/cupid/geometry/enable LMOArray\n/cupid/geometry/lmoCount 2\n')
-    macro = directory / 'test.mac'
-    macro.write_text("""/control/verbose 0
+    (directory / 'geometry.mac').write_text('/cupid/geometry/enable LMOArray\n/cupid/geometry/lmoCount 2\n')
+    for mode, options in [('serial', ['--serial']), ('mt', ['--threads', '4'])]:
+        output = directory / (mode + '-cli')
+        alternate = directory / (mode + '-macro')
+        macro = directory / (mode + '.mac')
+        macro.write_text(f"""/control/verbose 0
 /random/setSeeds 12567 76521
 /control/execute geometry.mac
 /run/initialize
@@ -27,99 +67,83 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
 /gun/particle geantino
 /gun/energy 1 MeV
 /run/beamOn 32
+/cupid/output/directory {alternate.name}
+/cupid/output/fileName calibration.root
 /gun/particle e-
 /gun/energy 100 keV
 /gun/position 25 -350 0 mm
-/cupid/output/fileName calibration.root
 /run/beamOn 1
+/cupid/output/fileName auto
 /gun/particle geantino
 /gun/position 0 1000 0 mm
-/cupid/output/fileName auto
 /run/beamOn 3
 """)
-    for mode, options in [('serial', ['--serial']), ('mt', ['--threads', '4'])]:
-        output = directory / mode
-        command = [str(executable), str(macro), *options, '--output', str(output)]
-        result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=90)
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert 'Analysis_W' not in result.stdout + result.stderr, result.stdout + result.stderr
-        log = (output / 'run.log').read_text()
-        names = {int(run): name for run, name in re.findall(r'CUPID_OUTPUT_NAME run=(\d+) requested=\S+ base=(\S+) clock=local', log)}
-        assert set(names) == {0, 1, 2, 3}, names
+        stdout = execute(macro, directory, options, output)
+        folders = [pathlib.Path(p.strip()) for p in re.findall(r'CUPID_RUN_DIRECTORY (.+)', stdout)]
+        assert len(folders) == len(set(folders)) == 4, folders
+        assert [p.parent for p in folders] == [output, output, alternate, alternate]
         for run in (0, 1, 3):
-            assert re.fullmatch(r'run\d{8}_\d{6}(?:_[1-9]\d*)?\.root', names[run]), names
-        assert len(set(names.values())) == 4, 'Repeated runs reused a resolved filename'
-        assert names[2] == 'calibration.root', names
-        expected_files = {'run.log'}
-        for run in (0, 2):
-            expected_files.update(names[run][:-5] + suffix for suffix in ('_EventEnergy.root', '_IncidentEnergy.root'))
-        assert {p.name for p in output.iterdir()} == expected_files
+            assert re.fullmatch(r'run\d{8}_\d{6}(?:_[1-9]\d*)?', folders[run].name)
+        assert folders[2].name == 'calibration'
+        for run, events, rows in ((0, 32, 32), (1, 32, 0), (2, 1, 1), (3, 3, 0)):
+            check_run(folders[run], run, events, rows)
+            log = (folders[run] / 'run.log').read_text()
+            assert '/random/setSeeds 12567 76521' in log and '/cupid/geometry/lmoCount 2' in log
+        for parent in (output, alternate):
+            assert len(list(parent.iterdir())) == 2
+            assert all(p.is_dir() for p in parent.iterdir()), 'Loose output in parent directory'
+        before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+                  for parent in (output, alternate) for p in parent.rglob('*') if p.is_file()}
+        # A later process may reuse the parent, but must leave every old run untouched.
+        execute(macro, directory, options, output)
+        assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p, digest in before.items())
+        assert (alternate / 'calibration_1' / 'run.log').is_file()
+        print('PASS', mode, 'per-run logs, directory overrides, ROOT readback and repeated jobs', flush=True)
 
-        for expected in ['CUPID_OUTPUT_MODULE name=RootOutput',
-                         'CUPID_RECORDERS selected=EventEnergyRecorder IncidentEnergyRecorder',
-                         'backend=G4AnalysisManager schema=4',
-                         'processed_events=3 rows_EventEnergy=0 rows_IncidentEnergy=0 file=none(empty)',
-                         'CUPID_VERSIONS', 'ROOT=6.36.10', '/random/setSeeds 12567 76521',
-                         '/cupid/geometry/lmoCount 2', 'CUPID_SOURCE /gun/position',
-                         'CUPID_RUN_RESULT run=0 requested_events=32 processed_events=32 rows_EventEnergy=32 rows_IncidentEnergy=32',
-                         'CUPID_RUN_RESULT run=1 requested_events=32 processed_events=32 rows_EventEnergy=0 rows_IncidentEnergy=0 file=none(empty)']:
-            assert expected in log, f'{mode}: missing log content {expected}'
-        for run, rows, incidents in [(0, 32, 32), (2, 1, 1)]:
-            subprocess.run([str(checker), '--inspect', str(output / names[run]), str(rows), str(incidents)], check=True)
-            validation = subprocess.run(
-                [sys.executable, str(pathlib.Path(__file__).with_name('check_root_records.py')),
-                 str(output / (names[run][:-5] + '_EventEnergy.root')), str(output / (names[run][:-5] + '_IncidentEnergy.root')), '--events', str(1 if run == 2 else 32), '--run', str(run)],
-                capture_output=True, text=True, timeout=30)
-            assert validation.returncode == 0, validation.stdout + validation.stderr
-        before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in output.iterdir()}
-        again = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=30)
-        assert again.returncode != 0, 'Existing job output was overwritten'
-        assert before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in output.iterdir()}
-        print('PASS', mode, 'merge, sparse rows, repeated runs, logs and overwrite protection', flush=True)
-    # Repeated custom prefixes share one increasing suffix across both recorders.
-    for mode, options in [('serial', ['--serial']), ('mt', ['--threads', '4'])]:
-        duplicate = directory / f'duplicate-{mode}.mac'
-        duplicate.write_text('/cupid/geometry/enable LMOArray\n/run/initialize\n'
-                             '/gun/position 0 -350 0 mm\n/gun/particle e-\n/gun/energy 100 keV\n'
-                             '/cupid/output/fileName repeated\n/run/beamOn 1\n/run/beamOn 1\n'
-                             '/gun/particle geantino\n/run/beamOn 1\n/run/beamOn 1\n'
-                             '/gun/particle e-\n/run/beamOn 1\n')
-        output = directory / f'duplicate-{mode}'
-        result = subprocess.run([str(executable), str(duplicate), *options, '--output', str(output)],
-                                cwd=directory, capture_output=True, text=True, timeout=40)
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert 'Analysis_W' not in result.stdout + result.stderr
-        expected_files = {'run.log'}
-        # Empty runs 2 and 3 reserve their names even though their files are removed.
-        log = (output / 'run.log').read_text()
-        names = re.findall(r'CUPID_OUTPUT_NAME run=\d+ requested=repeated base=(\S+) clock=local', log)
-        assert names == ['repeated.root'] + [f'repeated_{i}.root' for i in range(1, 5)], names
-        for run, prefix in ((0, 'repeated'), (1, 'repeated_1'), (4, 'repeated_4')):
-            expected_files.update(prefix + suffix for suffix in ('_EventEnergy.root', '_IncidentEnergy.root'))
-            validation = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name('check_root_records.py')),
-                str(output / (prefix + '_EventEnergy.root')), str(output / (prefix + '_IncidentEnergy.root')),
-                '--events', '1', '--detectors', 'LMO0', '--run', str(run)], capture_output=True, text=True, timeout=30)
-            assert validation.returncode == 0, validation.stdout + validation.stderr
-        assert {p.name for p in output.iterdir()} == expected_files
-    invalid_name = directory / 'invalid-name.mac'
-    invalid_name.write_text('/run/initialize\n/cupid/output/fileName ../escape\n/run/beamOn 1\n')
-    result = subprocess.run([str(executable), str(invalid_name), '--serial', '--output', str(directory / 'invalid-name')],
-                            cwd=directory, capture_output=True, text=True, timeout=30)
-    assert result.returncode != 0 and 'Output prefix must' in result.stdout + result.stderr
-    # With no scoring volumes, both selected recorders must still finish cleanly.
-    world_macro = directory / 'world.mac'
-    world_macro.write_text('/run/initialize\n/gun/particle geantino\n/gun/energy 1 MeV\n/run/beamOn 1\n')
-    world_output = directory / 'world'
-    result = subprocess.run([str(executable), str(world_macro), '--threads', '4', '--output', str(world_output)],
-                            cwd=directory, capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert {p.name for p in world_output.iterdir()} == {'run.log'}
-    assert 'processed_events=1 rows_EventEnergy=0 rows_IncidentEnergy=0 file=none(empty)' in (world_output / 'run.log').read_text()
-    bad_macro = directory / 'invalid.mac'
-    bad_macro.write_text('/cupid/invalidCommand\n')
-    failed_output = directory / 'failed'
-    result = subprocess.run([str(executable), str(bad_macro), '--serial', '--output', str(failed_output)],
+        repeated = directory / f'repeated-{mode}.mac'
+        repeated.write_text('/cupid/geometry/enable LMOArray\n/run/initialize\n'
+                            '/gun/position 0 -350 0 mm\n/gun/particle e-\n/gun/energy 100 keV\n'
+                            '/cupid/output/fileName repeated\n/run/beamOn 1\n/run/beamOn 1\n'
+                            '/gun/particle geantino\n/run/beamOn 1\n/run/beamOn 1\n'
+                            '/gun/particle e-\n/run/beamOn 1\n')
+        output = directory / f'repeated-{mode}'
+        execute(repeated, directory, options, output)
+        assert {p.name for p in output.iterdir()} == {'repeated', *(f'repeated_{i}' for i in range(1, 5))}
+        for run in range(5):
+            folder = output / ('repeated' if run == 0 else f'repeated_{run}')
+            check_run(folder, run, 1, 0 if run in (2, 3) else 1, 'LMO0')
+
+    world = directory / 'world.mac'
+    world.write_text('/run/initialize\n/cupid/output/fileName world\n/gun/particle geantino\n/gun/energy 1 MeV\n/run/beamOn 1\n')
+    # The actual CLI default, without --output, is relative to the working directory.
+    execute(world, directory, ['--threads', '4'])
+    default = directory / 'results' / 'runs'
+    assert {p.name for p in default.iterdir()} == {'world'}
+    check_run(default / 'world', 0, 1, 0)
+
+    # Directory settings also support absolute paths; invalid parents fail cleanly.
+    absolute = directory / 'absolute.mac'
+    absolute.write_text(world.read_text().replace('/cupid/output/fileName world',
+        f'/cupid/output/directory "{directory / "absolute output"}"\n/cupid/output/fileName world'))
+    execute(absolute, directory, ['--serial'], directory / 'unused-cli')
+    assert not (directory / 'unused-cli').exists()
+    check_run(directory / 'absolute output' / 'world', 0, 1, 0)
+    invalid_parent = directory / 'not-a-directory'
+    invalid_parent.write_text('preserve this file')
+    result = subprocess.run([str(executable), str(world), '--serial', '--output', str(invalid_parent)],
                             cwd=directory, capture_output=True, text=True, timeout=30)
     assert result.returncode != 0
-    assert 'CUPID_ERROR: macro failed' in (failed_output / 'run.log').read_text()
-print('All output integration checks passed.', flush=True)
+    assert invalid_parent.read_text() == 'preserve this file'
+
+    # Without a begun run there is no run folder yet; errors remain visible on console.
+    for name, commands in [('invalid-name', '/run/initialize\n/cupid/output/fileName ../escape\n/run/beamOn 1\n'),
+                           ('invalid-macro', '/cupid/invalidCommand\n')]:
+        macro = directory / (name + '.mac')
+        macro.write_text(commands)
+        output = directory / name
+        result = subprocess.run([str(executable), str(macro), '--serial', '--output', str(output)],
+                                cwd=directory, capture_output=True, text=True, timeout=30)
+        assert result.returncode != 0
+        assert not output.exists(), 'Failed pre-run setup created output artifacts'
+        assert 'CUPID_ERROR' in result.stdout + result.stderr
+print('All per-run output integration checks passed.', flush=True)

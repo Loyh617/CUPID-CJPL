@@ -1,10 +1,10 @@
 /// \file main.cc
-/// \brief Start the simulation, configure user initialization and manage the job log.
+/// \brief Start the simulation, configure user initialization and capture per-run logs.
 ///
 /// Run cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR].
 /// main() creates RunLog, the run manager, DetectorConstruction, PhysicsList
 /// and ActionInitialization, then executes the macro or interactive session.
-/// Actions produce run<datetime>_<Recorder>.root files by default; run.log captures job-level output.
+/// RunAction creates one directory per run for its ROOT files and run.log.
 
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
@@ -23,7 +23,6 @@
 
 #include "RVersion.h"
 
-#include <chrono>
 #include <iomanip>
 #include <filesystem>
 #include <iostream>
@@ -79,8 +78,9 @@ int main(int argc, char** argv) {
       std::cout << "Usage: cupid-sim [file.mac] [--threads N | --serial] [--vis] [--output DIR]\n"
                    "Default: 2 worker threads; no macro starts interactive visualization.\n"
                    "--vis also enables visualization commands in a batch macro.\n"
-                   "--output selects a directory for run<datetime>_<Recorder>.root files and run.log.\n"
-                   "Default output: a new output/job_<timestamp> directory.\n"
+                   "--output selects the parent directory; each run creates its own subdirectory.\n"
+                   "Default parent output directory: ./results/runs\n"
+                   "After initialization, /cupid/output/directory DIR overrides the parent for subsequent runs.\n"
                    "After /run/initialize, /cupid/output/fileName PREFIX sets the ROOT filename prefix.\n";
       return 0;
     }
@@ -95,15 +95,11 @@ int main(int argc, char** argv) {
     if (!std::filesystem::is_regular_file(macro)) throw std::runtime_error("Macro file not found: "+requested);
     macro = std::filesystem::absolute(macro);
 
-    const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-    const auto outputDirectory = std::filesystem::absolute(options.outputDirectory.empty()
-        ? std::filesystem::path("output") / ("job_" + std::to_string(timestamp))
-        : std::filesystem::path(options.outputDirectory));
-    const bool created = std::filesystem::create_directories(outputDirectory);
-    if (options.outputDirectory.empty() && !created)
-      throw std::runtime_error("Automatic output directory already exists.");
-    log = std::make_unique<cupid::RunLog>((outputDirectory / "run.log").string());
-    std::cout << "CUPID_OUTPUT_DIRECTORY " << outputDirectory.string() << '\n'
+    // RunAction creates directories lazily at run start; the macro can override this parent.
+    const auto outputDirectory = options.outputDirectory.empty()
+        ? std::string("./results/runs") : options.outputDirectory;
+    log = std::make_unique<cupid::RunLog>();
+    std::cout << "CUPID_OUTPUT_DIRECTORY " << outputDirectory << '\n'
               << "CUPID_VERSIONS " << G4Version << " ROOT=" << ROOT_RELEASE << '\n'
               << "CUPID_COMMAND";
     for (int i = 0; i < argc; ++i) std::cout << " " << std::quoted(argv[i]);
@@ -120,7 +116,7 @@ int main(int argc, char** argv) {
     runManager->SetUserInitialization(detector);
     // Constructor argument controls physics verbosity; model choices and cuts are in PhysicsList.cc.
     runManager->SetUserInitialization(new cupid::PhysicsList(0));
-    auto* actions = new cupid::ActionInitialization(outputDirectory.string(), detector->GetGeometryManager());
+    auto* actions = new cupid::ActionInitialization(outputDirectory, detector->GetGeometryManager(), log.get());
     runManager->SetUserInitialization(actions);
 
 #if CUPID_WITH_VIS

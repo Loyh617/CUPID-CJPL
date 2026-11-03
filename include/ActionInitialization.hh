@@ -18,9 +18,10 @@ namespace cupid {
 class GeneratorMessenger;
 class GeometryManager;
 class RunAction;
+class RunLog;
 class ActionInitialization final : public G4VUserActionInitialization {
  public:
-  ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry);
+  ActionInitialization(const G4String& outputDirectory, const GeometryManager& geometry, RunLog* log = nullptr);
   ~ActionInitialization() override;
   void BuildForMaster() const override;
   void Build() const override;
@@ -30,6 +31,7 @@ class ActionInitialization final : public G4VUserActionInitialization {
   RunAction* CreateRunAction() const;
   const GeometryManager& fGeometry;
   const G4String fOutputDirectory;
+  RunLog* fLog;  // Shared non-owning capture; only the master changes its active file.
   // Set on the master in PreInit; read-only while events are processed.
   // Override with /cupid/generator/select and verbose before /run/initialize.
   G4String fGeneratorSelection = "gun";

@@ -1,10 +1,10 @@
 /// \file include/output/RunLog.hh
-/// \brief Declaration: Capture console output and run provenance in one job-level text log.
+/// \brief Capture console output in the active run's log while retaining terminal output.
 ///
-/// main() constructs RunLog before workers start and keeps it alive until
-/// they finish. RecordMacro() saves macro text and resolvable static includes;
-/// Check() reports write failures. RunAction summaries use the captured
-/// console streams; this class does not write ROOT event data.
+/// main() owns the capture before workers start and until after shutdown.
+/// Master RunAction calls BeginRun/EndRun to select each run.log. Initialization
+/// and between-run context is retained in memory and copied into later logs;
+/// event output is written only to its own run. RecordMacro preserves input text.
 
 #pragma once
 
@@ -17,7 +17,10 @@ namespace cupid {
 // Construct before worker threads and destroy after they have joined.
 class RunLog final {
  public:
-  explicit RunLog(const std::string& fileName);
+  RunLog();
+  // Called by the master outside event processing; streams stay installed once.
+  void BeginRun(const std::string& fileName);
+  void EndRun();
   ~RunLog();
   RunLog(const RunLog&) = delete;
   RunLog& operator=(const RunLog&) = delete;
