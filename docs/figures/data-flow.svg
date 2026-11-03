@@ -1,135 +1,106 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
-<title>CUPID-CJPL Simulation Framework — Data Flow</title>
-<desc>Geometry and primary generation feed Geant4 transport. Sensitive-detector hits and track ancestry feed event and incident-energy recorders. Typed records are written through native Geant4 ROOT analysis. Run actions control output, and a consolidated log preserves configuration and results.</desc>
-<rect width="1920" height="1080" fill="white"/>
-<text x="60" y="62" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" text-anchor="start" fill="#203047">CUPID-CJPL Simulation Framework</text>
-<text x="60" y="99" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" text-anchor="start" fill="#607087">Data flow  |  From configurable geometry and sources to detector-level energy records</text>
-<rect x="60" y="126" width="1800" height="65" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
-<text x="960.0" y="154.0" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">Simulation Configuration</text>
-<text x="960.0" y="182.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Macro files  ·  Command-line options  ·  Random seeds</text>
-<rect x="60" y="235" width="430" height="245" rx="12" fill="#eff6ff" stroke="#bed4ec" stroke-width="1.5"/>
-<text x="85" y="269" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start" fill="#245a90">GEOMETRY</text>
-<rect x="85" y="289" width="380" height="72" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="275.0" y="320.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">Materials &amp; Components</text>
-<text x="275.0" y="348.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Cryostat · Inner Shielding · LMO Array</text>
-<rect x="85" y="393" width="380" height="65" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="275.0" y="421.0" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">GeometryManager</text>
-<text x="275.0" y="449.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">DetectorConstruction</text>
-<polyline points="275,361 275,393" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="275,393 279.0,383.0 271.0,383.0" fill="#607087"/>
-<rect x="60" y="520" width="430" height="220" rx="12" fill="#f6f1fd" stroke="#d9c9ee" stroke-width="1.5"/>
-<text x="85" y="554" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start" fill="#72509e">GENERATOR</text>
-<rect x="85" y="575" width="380" height="64" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="275.0" y="602.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">Reusable Toolkit</text>
-<text x="275.0" y="630.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Position Samplers · NuclideEmitter</text>
-<rect x="85" y="675" width="380" height="45" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="275.0" y="706.0" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">PrimaryGeneratorAction</text>
-<polyline points="275,639 275,675" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="275,675 279.0,665.0 271.0,665.0" fill="#607087"/>
-<text x="386" y="659" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="middle" fill="#72509e">available utilities</text>
-<rect x="570" y="235" width="440" height="505" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
-<text x="595" y="269" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start" fill="#40536f">GEANT4 TRANSPORT &amp; ACTIONS</text>
-<rect x="595" y="289" width="390" height="72" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="790.0" y="320.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">PhysicsList</text>
-<text x="790.0" y="348.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">EM · Decay · Hadronic Processes</text>
-<rect x="595" y="396" width="390" height="88" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="790.0" y="435.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">Event Simulation</text>
-<text x="790.0" y="463.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Primary and Secondary Particle Transport</text>
-<rect x="590" y="536" width="200" height="90" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="690.0" y="574.0" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#203047">LMOSensitiveDetector</text>
-<text x="690.0" y="602.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Detector / Track Hits</text>
-<rect x="805" y="536" width="190" height="90" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="900.0" y="575.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="middle" fill="#203047">TrackingAction</text>
-<text x="900.0" y="603.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Track Ancestry</text>
-<rect x="640" y="675" width="300" height="45" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="790.0" y="706.5" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">EventAction</text>
-<polyline points="790,361 790,396" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="790,396 794.0,386.0 786.0,386.0" fill="#607087"/>
-<polyline points="700,484 700,536" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="700,536 704.0,526.0 696.0,526.0" fill="#607087"/>
-<polyline points="900,484 900,536" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="900,536 904.0,526.0 896.0,526.0" fill="#607087"/>
-<polyline points="690,626 690,650 740,650 740,675" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="740,675 744.0,665.0 736.0,665.0" fill="#607087"/>
-<polyline points="900,626 900,650 840,650 840,675" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="840,675 844.0,665.0 836.0,665.0" fill="#607087"/>
-<rect x="1090" y="235" width="350" height="505" rx="12" fill="#eef8f4" stroke="#b9dbcc" stroke-width="1.5"/>
-<text x="1115" y="269" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start" fill="#286a51">RECORD</text>
-<rect x="1115" y="289" width="300" height="72" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1265.0" y="320.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">RecordManager</text>
-<text x="1265.0" y="348.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Named Recorder Selection</text>
-<rect x="1115" y="408" width="300" height="104" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1265.0" y="442.0" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" text-anchor="middle" fill="#203047">EventEnergyRecorder</text>
-<text x="1265.0" y="470.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Total Energy per Event</text>
-<text x="1265.0" y="496.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">and Detector</text>
-<rect x="1115" y="575" width="300" height="126" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1265.0" y="606.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="middle" fill="#203047">IncidentEnergyRecorder</text>
-<text x="1265.0" y="634.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Energy per Incident Root</text>
-<text x="1265.0" y="660.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">and Detector</text>
-<text x="1265.0" y="686.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Including Assigned Descendants</text>
-<polyline points="1225,361 1225,408" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1225,408 1229.0,398.0 1221.0,398.0" fill="#607087"/>
-<polyline points="1115,325 1102,325 1102,638 1115,638" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1115,638 1105.0,634.0 1105.0,642.0" fill="#607087"/>
-<rect x="1520" y="235" width="340" height="505" rx="12" fill="#fff6ec" stroke="#eacdac" stroke-width="1.5"/>
-<text x="1545" y="269" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start" fill="#97612b">OUTPUT</text>
-<rect x="1545" y="289" width="290" height="72" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1690.0" y="320.5" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" fill="#203047">OutputManager</text>
-<text x="1690.0" y="348.5" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Typed Record Dispatch</text>
-<rect x="1545" y="408" width="290" height="104" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1690.0" y="443.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">RootOutput</text>
-<text x="1690.0" y="471.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">G4AnalysisManager</text>
-<text x="1690.0" y="497.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Native Multithreaded Merging</text>
-<rect x="1545" y="575" width="290" height="126" rx="12" fill="#fff0dc" stroke="#d6b38c" stroke-width="1.5"/>
-<text x="1690.0" y="608.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">ROOT Data File</text>
-<text x="1690.0" y="636.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">EventEnergy</text>
-<text x="1690.0" y="662.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">IncidentEnergy</text>
-<text x="1690.0" y="688.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Energy Unit: keV</text>
-<polyline points="1690,361 1690,408" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1690,408 1694.0,398.0 1686.0,398.0" fill="#607087"/>
-<polyline points="1690,512 1690,575" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1690,575 1694.0,565.0 1686.0,565.0" fill="#607087"/>
-<polyline points="465,425 595,425" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="595,425 585.0,421.0 585.0,429.0" fill="#607087"/>
-<polyline points="465,698 535,698 535,458 595,458" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="595,458 585.0,454.0 585.0,462.0" fill="#607087"/>
-<polyline points="940,698 1045,698 1045,325 1115,325" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1115,325 1105.0,321.0 1105.0,329.0" fill="#607087"/>
-<text x="1048" y="768" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle" fill="#607087">Event Finalization</text>
-<polyline points="1415,460 1465,460 1465,315 1545,315" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1545,315 1535.0,311.0 1535.0,319.0" fill="#607087"/>
-<polyline points="1415,638 1485,638 1485,340 1545,340" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1545,340 1535.0,336.0 1535.0,344.0" fill="#607087"/>
-<text x="1270" y="787" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle" fill="#607087">Typed batches forwarded by EventAction</text>
-<polyline points="275,191 275,235" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="275,235 279.0,225.0 271.0,225.0" fill="#607087"/>
-<polyline points="75,191 35,191 35,698 85,698" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="85,698 75.0,694.0 75.0,702.0" fill="#607087"/>
-<polyline points="790,191 790,235" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="790,235 794.0,225.0 786.0,225.0" fill="#607087"/>
-<rect x="60" y="835" width="430" height="100" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
-<text x="275.0" y="868.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">RunAction</text>
-<text x="275.0" y="896.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Book Tables · Open Files</text>
-<text x="275.0" y="922.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Write &amp; Close on All Threads</text>
-<polyline points="490,858 1500,858 1500,350 1545,350" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="1545,350 1535.0,346.0 1535.0,354.0" fill="#607087"/>
-<text x="800" y="844" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle" fill="#607087">Output lifecycle</text>
-<rect x="1090" y="885" width="350" height="84" rx="12" fill="#ffffff" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1265.0" y="923.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">RunLog</text>
-<text x="1265.0" y="951.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">Configuration · Seeds · Run Summary</text>
-<rect x="1520" y="885" width="340" height="84" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5"/>
-<text x="1690.0" y="923.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#203047">run.log</text>
-<text x="1690.0" y="951.0" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle" fill="#203047">One Consolidated Job Log</text>
-<polyline points="490,910 1090,927" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1090,927 1080.1172993437724,922.7183849146148 1079.8907236038456,930.7151757355676" fill="#607087"/>
-<polyline points="1440,927 1520,927" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="1520,927 1510.0,923.0 1510.0,931.0" fill="#607087"/>
-<polyline points="60,1000 110,1000" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round"/>
-<polygon points="110,1000 100.0,996.0 100.0,1004.0" fill="#607087"/>
-<text x="122" y="1002" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="start" fill="#203047">Data flow</text>
-<polyline points="260,1000 310,1000" fill="none" stroke="#607087" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6"/>
-<polygon points="310,1000 300.0,996.0 300.0,1004.0" fill="#607087"/>
-<text x="322" y="1002" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="start" fill="#203047">Configuration / control / available utility</text>
-<text x="60" y="1041" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#607087">Current scope: energy deposition in LMO; detector response, electronics and waveforms are excluded.</text>
-<text x="60" y="1067" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#607087">The particle gun is operational. Dedicated background, calibration and LMO signal generators are under development.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">CUPID-CJPL Simulation Framework — Data Flow</title>
+  <desc id="desc">Current implemented data flow: geometry and the particle gun feed Geant4 transport. Detector hits and track ancestry are processed by EventAction and selected recorders. Typed vectors pass through OutputManager and RootOutput to native Geant4 ROOT analysis. Each run has a dedicated directory with separate recorder files, detector TTrees and its own log.</desc>
+  <rect width="1920" height="1080" fill="white" />
+  <text x="50" y="64" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#203047">CUPID-CJPL Simulation Framework</text>
+  <text x="50" y="101" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#52657b">Data flow | Geometry, sources, detector records and per-run results</text>
+  <text x="1450" y="101" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#52657b">Solid: data    Dashed: control</text>
+  <rect x="50" y="126" width="1820" height="67" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="75" y="155" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#203047">CONFIGURATION</text>
+  <text x="295" y="169" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#203047">Macro files · CLI options · Random seeds · Recorder selection in EventAction</text>
+  <rect x="50" y="235" width="405" height="195" rx="12" fill="#eff6ff" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="72" y="270" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#245a90">GEOMETRY</text>
+  <text x="72" y="307" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#203047">Materials + GeometryManager</text>
+  <text x="72" y="343" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">Cryostat · InnerShielding · LMOArray</text>
+  <text x="72" y="378" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">DetectorConstruction</text>
+  <text x="72" y="410" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Stable names: LMO0, LMO1</text>
+  <rect x="50" y="470" width="405" height="260" rx="12" fill="#f6f1fd" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="72" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#72509e">GENERATOR</text>
+  <text x="72" y="545" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">PrimaryGeneratorAction</text>
+  <text x="72" y="578" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">GeneratorManager → G4ParticleGun</text>
+  <text x="72" y="611" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">Operational source: /gun/ commands</text>
+  <text x="72" y="657" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#52657b">Reusable tools for future source models</text>
+  <text x="72" y="688" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Position samplers · NuclideEmitter</text>
+  <text x="72" y="714" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#52657b">Dedicated generators: placeholders</text>
+  <rect x="490" y="235" width="435" height="80" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="512" y="270" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">PhysicsList</text>
+  <text x="512" y="299" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">EM · Decay · Hadronic constructors</text>
+  <rect x="490" y="350" width="435" height="85" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="512" y="386" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">Geant4 event transport</text>
+  <text x="512" y="416" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Primary and secondary particles</text>
+  <rect x="490" y="490" width="230" height="95" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="503" y="526" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#203047">LMOSensitiveDetector</text>
+  <text x="503" y="561" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">DetectorHit collections</text>
+  <rect x="737" y="490" width="188" height="95" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="749" y="526" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#203047">TrackingAction</text>
+  <text x="749" y="561" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">TrackAncestry</text>
+  <rect x="490" y="630" width="435" height="100" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="512" y="667" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">EventAction</text>
+  <text x="512" y="700" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Build selected records at event end</text>
+  <rect x="960" y="235" width="410" height="195" rx="12" fill="#eef8f4" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="982" y="269" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#286a51">SAVED FIELDS</text>
+  <text x="982" y="303" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Event: RunID, EventID, Edep</text>
+  <text x="982" y="334" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Incident: RunID, EventID,</text>
+  <text x="982" y="362" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">TrackID, PDG, Edep</text>
+  <text x="982" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Detector name routes records to TTrees</text>
+  <text x="982" y="417" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Saved totals &gt; 0; Edep in keV</text>
+  <rect x="960" y="470" width="410" height="260" rx="12" fill="#eef8f4" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="982" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#286a51">RECORD</text>
+  <text x="982" y="544" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">RecordManager</text>
+  <text x="982" y="582" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">EventEnergyRecorder</text>
+  <text x="982" y="610" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Total deposited energy per detector</text>
+  <text x="982" y="650" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">IncidentEnergyRecorder</text>
+  <text x="982" y="678" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#203047">Detector-local incident root + descendants</text>
+  <text x="982" y="712" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">EventAction dispatches typed vectors</text>
+  <rect x="1410" y="235" width="460" height="195" rx="12" fill="#fff6ec" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="1432" y="269" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#97612b">ROOT LAYOUT · SCHEMA 4</text>
+  <text x="1432" y="307" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">One ROOT file per recorder</text>
+  <text x="1432" y="343" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">One TTree per detector: LMO0, LMO1</text>
+  <text x="1432" y="378" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Numeric branches; no DetectorName branch</text>
+  <text x="1432" y="410" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Rows need not be in EventID order</text>
+  <rect x="1410" y="470" width="460" height="260" rx="12" fill="#fff6ec" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="1432" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#97612b">OUTPUT</text>
+  <text x="1432" y="545" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">OutputManager → RootOutput</text>
+  <text x="1432" y="582" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Explicit booking / filling for each record type</text>
+  <text x="1432" y="624" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">G4AnalysisManager</text>
+  <text x="1432" y="661" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Native ntuples · per-ntuple file routing</text>
+  <text x="1432" y="697" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#203047">Native thread merging</text>
+  <polyline points="455,332 475,332 475,390 490,390" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="490,390 480.0,386.0 480.0,394.0" fill="#52657b" />
+  <polyline points="455,580 475,580 475,417 490,417" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="490,417 480.0,413.0 480.0,421.0" fill="#52657b" />
+  <polyline points="707,315 707,350" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="707,350 711.0,340.0 703.0,340.0" fill="#52657b" />
+  <polyline points="605,435 605,490" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="605,490 609.0,480.0 601.0,480.0" fill="#52657b" />
+  <polyline points="831,435 831,490" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="831,490 835.0,480.0 827.0,480.0" fill="#52657b" />
+  <polyline points="605,585 605,630" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="605,630 609.0,620.0 601.0,620.0" fill="#52657b" />
+  <polyline points="831,585 831,630" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="831,630 835.0,620.0 827.0,620.0" fill="#52657b" />
+  <polyline points="925,682 960,682" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="960,682 950.0,678.0 950.0,686.0" fill="#52657b" />
+  <polyline points="1370,682 1410,682" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="1410,682 1400.0,678.0 1400.0,686.0" fill="#52657b" />
+  <rect x="50" y="800" width="875" height="160" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="75" y="837" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#203047">RunAction + RunLog</text>
+  <text x="75" y="873" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#203047">Master selects directory / prefix; every thread opens and closes output.</text>
+  <text x="75" y="906" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Each log contains setup context, this run’s transport and result summary.</text>
+  <text x="75" y="938" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#203047">Names shared across workers; collisions receive _1, _2, …</text>
+  <rect x="960" y="800" width="910" height="160" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
+  <text x="983" y="835" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#203047">PER-RUN DIRECTORY</text>
+  <text x="983" y="866" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">./results/runs/&lt;prefix&gt;/</text>
+  <text x="1010" y="897" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">&lt;prefix&gt;_EventEnergy.root    &lt;prefix&gt;_IncidentEnergy.root</text>
+  <text x="1010" y="928" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">run.log    •    Empty runs retain the log; empty ROOT files are removed.</text>
+  <polyline points="1640,730 1640,800" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="1640,800 1644.0,790.0 1636.0,790.0" fill="#52657b" />
+  <polyline points="925,880 960,880" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" />
+  <polygon points="960,880 950.0,876.0 950.0,884.0" fill="#52657b" />
+  <polyline points="460,800 460,765 1390,765 1390,545 1410,545" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" />
+  <polygon points="1410,545 1400.0,541.0 1400.0,549.0" fill="#52657b" />
+  <text x="50" y="1007" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#52657b">Scope: deposited energy in LMO; detector response, electronics and waveforms are outside the current implementation.</text>
+  <text x="50" y="1040" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#52657b">Dedicated environmental, copper-frame, cosmic, calibration and double-beta source models remain extension work.</text>
+  <text x="50" y="1070" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#52657b">Snapshot: 03 Nov 2026  |  Assistant test artifacts: ./results/tests/  |  Output parent is configurable via CLI or macro.</text>
+  <text x="50" y="218" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#52657b">main + ActionInitialization connect the geometry, physics and per-thread user actions.</text>
 </svg>
