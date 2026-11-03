@@ -52,10 +52,9 @@
   <text x="452" y="735" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryManager</text>
   <text x="452" y="761" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryMessenger</text>
   <text x="452" y="787" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">GeometryParameters [H]</text>
-  <text x="452" y="813" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">SourceVolumeInfo [H]</text>
-  <text x="452" y="839" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">Cryostat</text>
-  <text x="452" y="865" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">InnerShielding</text>
-  <text x="452" y="891" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">LMOArray</text>
+  <text x="452" y="813" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">Cryostat</text>
+  <text x="452" y="839" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">InnerShielding</text>
+  <text x="452" y="865" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#23344b">LMOArray</text>
   <polyline points="420,244 420,950" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round" />
   <polyline points="420,285 430,285" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round" />
   <polyline points="420,685 430,685" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round" />

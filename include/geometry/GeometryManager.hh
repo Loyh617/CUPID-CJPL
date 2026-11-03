@@ -9,8 +9,9 @@
 
 #pragma once
 #include "geometry/GeometryParameters.hh"
-#include "geometry/SourceVolumeInfo.hh"
 
+#include "G4RotationMatrix.hh"
+#include "G4ThreeVector.hh"
 #include "globals.hh"
 
 #include <array>
@@ -20,9 +21,18 @@
 #include <vector>
 
 class G4LogicalVolume;
+class G4VPhysicalVolume;
 namespace cupid {
 class GeometryMessenger;
 class Materials;
+
+// Non-owning placement information populated by GeometryManager during construction.
+// The placement and local-to-World transform are valid for the current geometry generation.
+struct SourceVolumeInfo {
+  G4VPhysicalVolume* physicalVolume = nullptr;
+  G4RotationMatrix localToWorldRotation;
+  G4ThreeVector localToWorldTranslation;
+};
 
 class GeometryManager {
  public:
