@@ -12,7 +12,9 @@ include(${Geant4_USE_FILE})
 
 find_package(ROOT 6.36.10 EXACT REQUIRED COMPONENTS Core RIO Tree)
 find_package(Threads REQUIRED)
-add_library(cupid-output STATIC src/output/RootOutput.cc src/output/RunLog.cc src/output/OutputManager.cc)
+add_library(cupid-output STATIC
+  src/output/RootOutput.cc src/output/RunLog.cc
+  src/output/OutputManager.cc src/output/OutputMessenger.cc)
 target_compile_features(cupid-output PUBLIC cxx_std_17)
 set_target_properties(cupid-output PROPERTIES CXX_EXTENSIONS OFF)
 target_include_directories(cupid-output PUBLIC include)
@@ -68,7 +70,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/macros")
-foreach(name geometry run lmo_only check_geometry vis draw render th232_two_lmo)
+foreach(name run lmo_only check_geometry vis render th232_two_lmo)
   configure_file(macros/${name}.mac macros/${name}.mac COPYONLY)
 endforeach()
 

@@ -6,10 +6,10 @@
 /// Each recorder has a separate file; empty files are removed and reported in run.log.
 
 #include "RunAction.hh"
+#include "output/OutputMessenger.hh"
 #include "output/RunLog.hh"
 #include "record/RecordManager.hh"
 
-#include "G4GenericMessenger.hh"
 #include "G4MTRunManager.hh"
 #include "G4Run.hh"
 #include "G4RunManager.hh"
@@ -38,15 +38,7 @@ RunAction::RunAction(const G4String& outputDirectory, const std::vector<G4String
   if (selection.IsEnabled("IncidentEnergyRecorder")) fOutput.BookIncidentEnergy();
   if (!G4Threading::IsWorkerThread()) {
     // A master-only command avoids worker-local timestamps or competing UI commands.
-    fMessenger = std::make_unique<G4GenericMessenger>(this, "/cupid/output/", "Run output naming.");
-    fMessenger->DeclareProperty("fileName", fFileName,
-        "Set a filename prefix (optional .root) or auto for local date/time. Persists until changed.")
-        .SetStates(G4State_Idle).SetToBeBroadcasted(false)
-        .SetParameterName("prefix", false);
-    fMessenger->DeclareProperty("directory", fOutputDirectory,
-        "Set the parent output directory for subsequent runs; relative paths use the process working directory.")
-        .SetStates(G4State_Idle).SetToBeBroadcasted(false)
-        .SetParameterName("path", false);
+    fMessenger = std::make_unique<OutputMessenger>(fFileName, fOutputDirectory);
   }
 }
 

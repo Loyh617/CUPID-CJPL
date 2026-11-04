@@ -50,14 +50,14 @@ def check_run(folder, run, events, rows, detectors='LMO0,LMO1'):
 
 with tempfile.TemporaryDirectory(dir=base) as temporary:
     directory = pathlib.Path(temporary)
-    (directory / 'geometry.mac').write_text('/cupid/geometry/enable LMOArray\n/cupid/geometry/lmoCount 2\n')
     for mode, options in [('serial', ['--serial']), ('mt', ['--threads', '4'])]:
         output = directory / (mode + '-cli')
         alternate = directory / (mode + '-macro')
         macro = directory / (mode + '.mac')
         macro.write_text(f"""/control/verbose 0
 /random/setSeeds 12567 76521
-/control/execute geometry.mac
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 2
 /run/initialize
 /gun/position -25 -350 0 mm
 /gun/direction 0 0 1

@@ -1,0 +1,171 @@
+# CUPID-CJPL custom macro command reference
+#
+# Reference only: every example is commented out. Executing this file performs
+# no actions. Copy the commands you need into a separate run macro.
+# This reference stays in the source macros/ directory; it is not a run preset.
+#
+# Scope: application-defined /cupid/ commands only. Geant4-native /run/, /gun/,
+# /random/, /control/, /tracking/ and /vis/ commands are not project commands.
+# Names and candidate values are case sensitive. Angle brackets indicate a
+# required argument; square brackets indicate an optional argument. Do not
+# copy those brackets into an actual command.
+#
+# States:
+#   PreInit: before /run/initialize.
+#   Idle: after /run/initialize, before /run/beamOn, or between completed runs.
+# No command below is available while events are being processed.
+# Initial settings below apply before any user macro overrides them; a required
+# argument cannot be omitted just because an initial setting is documented.
+# All custom commands execute on the master/serial UI, without worker broadcast.
+#
+# Maintenance: update this file whenever a custom command is added, renamed,
+# removed, or changes parameters, units, defaults, allowed states or behavior.
+# Keep the reference consistent with the command registration and its handler.
+
+# ============================================================================
+# Geometry -- src/geometry/GeometryMessenger.cc
+# ============================================================================
+
+# Command: /cupid/geometry/enable <component>
+# Purpose: include a component in the next initial geometry construction.
+# Argument: Cryostat, InnerShielding or LMOArray (required).
+# State: PreInit.
+# Initial setting: all three components are disabled; World is built separately.
+# This selects an existing component; it does not create a new component type.
+# Example:
+# /cupid/geometry/enable LMOArray
+
+# Command: /cupid/geometry/disable <component>
+# Purpose: exclude a component from the initial geometry construction.
+# Argument: Cryostat, InnerShielding or LMOArray (required).
+# State: PreInit.
+# Does not remove geometry after initialization. Restart with a different macro
+# to change component selection once geometry has been initialized.
+# Example:
+# /cupid/geometry/disable InnerShielding
+
+# Command: /cupid/geometry/list
+# Purpose: print component enable/disable settings and the configured LMO count.
+# Arguments: none.
+# States: PreInit, Idle.
+# Reports configuration, not a full list of physical volumes or an overlap check.
+# Example:
+# /cupid/geometry/list
+
+# Command: /cupid/geometry/lmoCount <count>
+# Purpose: configure the number of LMO crystals in LMOArray.
+# Argument: integer 1 or 2 (required, dimensionless).
+# State: PreInit. Initial setting: 1.
+# One crystal is centered; two are arranged along X. This command does not
+# enable LMOArray. Use /cupid/geometry/enable LMOArray separately.
+# Example:
+# /cupid/geometry/lmoCount 2
+
+# Command: /cupid/geometry/check [samples]
+# Purpose: check placed non-World volumes for overlaps using Geant4 checks.
+# Argument: integer >= 100, optional; default when omitted: 10000.
+# State: Idle.
+# samples is the number of random surface probes per placed volume, not the
+# number of simulated events. An overlap causes command failure. A sampled
+# PASS is not a mathematical proof that every overlap is absent.
+# Examples (equivalent sample counts):
+# /cupid/geometry/check
+# /cupid/geometry/check 10000
+
+# ============================================================================
+# Generator -- src/generator/GeneratorMessenger.cc
+# ============================================================================
+
+# Command: /cupid/generator/select <source>
+# Purpose: select an implemented primary-generation path.
+# Argument: gun (the only supported value; required).
+# State: PreInit. Initial setting: gun.
+# Configure the native particle gun with /gun/ commands after initialization.
+# Dedicated calibration/background/double-beta generators are not selectable
+# yet. This command does not select a position sampler.
+# Example:
+# /cupid/generator/select gun
+
+# Command: /cupid/generator/verbose <level>
+# Purpose: enable or suppress the project primary-particle diagnostic line.
+# Argument: integer 0 or 1 (required, dimensionless).
+# State: PreInit. Initial setting: 0.
+# 0: suppress this diagnostic. 1: print one line per generated event, describing
+# its first primary particle. Use 1 for small debugging runs only. This does
+# not change Geant4 tracking/run verbosity or the physical source distribution.
+# Example:
+# /cupid/generator/verbose 1
+
+# Command: /cupid/generator/list
+# Purpose: print the selected generator and its configuration entry point.
+# Arguments: none.
+# States: PreInit, Idle.
+# Currently reports the gun selection and /gun/ configuration prefix.
+# Example:
+# /cupid/generator/list
+
+# Command: /cupid/generator/check
+# Purpose: verify that the selected generator name is supported.
+# Arguments: none.
+# State: Idle.
+# A PASS validates selection only, not gun position, nuclide data, transport,
+# decay physics or the suitability of a source model for an experiment.
+# Example:
+# /cupid/generator/check
+
+# ============================================================================
+# Output -- src/output/OutputMessenger.cc (native G4GenericMessenger properties)
+# RunAction owns the settings and applies them when each run starts.
+# ============================================================================
+
+# Command: /cupid/output/fileName <prefix>
+# Purpose: set the shared filename prefix for subsequent runs.
+# Argument: auto, or a custom prefix with an optional trailing .root (required).
+# State: Idle. Initial setting: auto. Persists until changed.
+# auto uses process-local time: runYYYYMMDD_HHMMSS (seconds, no microseconds).
+# A custom prefix starts with an ASCII letter/digit and contains only ASCII
+# letters/digits, _, - or .; it cannot end in a dot or contain spaces/paths.
+# The optional .root suffix is stripped before applying recorder suffixes.
+# Names are validated and the run directory is reserved when the run starts.
+# Existing names are skipped with _1, _2, ...; existing data are not overwritten.
+# Output layout for prefix calibration with both recorders selected:
+#   <parent>/calibration/calibration_EventEnergy.root
+#   <parent>/calibration/calibration_IncidentEnergy.root
+#   <parent>/calibration/run.log
+# Empty recorder files may be removed; the run directory/log are retained.
+# This command does not change the generator, recorders or output backend.
+# Examples:
+# /cupid/output/fileName calibration
+# /cupid/output/fileName calibration.root
+# /cupid/output/fileName auto
+
+# Command: /cupid/output/directory <path>
+# Purpose: set the parent output directory for subsequent runs.
+# Argument: nonempty directory path (required); quote paths containing spaces.
+# State: Idle. Initial setting: ./results/runs, or the startup --output value.
+# Persists until changed. A macro setting overrides the startup --output value.
+# Relative paths use the process working directory, not the macro directory.
+# Use Linux paths in WSL (for example /home/... or /mnt/c/...). Missing parent
+# directories are created at run start. Each run creates a separate child
+# directory for its ROOT files and run.log; files are not placed loose here.
+# Examples:
+# /cupid/output/directory ./results/runs/calibration
+# /cupid/output/directory ./results/tests/source-check
+# /cupid/output/directory "./results/tests/source check"
+
+# ============================================================================
+# Configuration boundaries
+# ============================================================================
+# Position samplers are chosen inside concrete C++ generators, not by a custom
+# macro command. Recorder selection is in EventAction::DefaultRecorders().
+# Output backend selection is in ActionInitialization::CreateRunAction().
+# Those C++ configuration changes require rebuilding the application.
+#
+# Order in a run macro:
+#   1. Geometry selection/count and generator selection/verbosity (PreInit).
+#   2. Native /run/initialize.
+#   3. Geometry/generator checks, native /gun/ settings, output settings (Idle).
+#   4. Native /run/beamOn N.
+#   5. Optional source/output changes and another /run/beamOn N (Idle).
+# Assistant-run tests must use ./results/tests/<task>/; production runs use
+# ./results/runs/ or an explicitly selected production parent directory.

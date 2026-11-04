@@ -1,7 +1,12 @@
 # Headless geometry image: run with --serial --vis.
 # Writes geometry.png in the current working directory.
 # Based on the installed Geant4 11.4.1 B5 offscreen example.
-/control/execute geometry.mac
+# All geometry commands must precede /run/initialize.
+/cupid/geometry/enable Cryostat
+/cupid/geometry/enable InnerShielding
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 1
+/cupid/geometry/list
 /run/initialize
 /vis/open TSG_OFFSCREEN 800x1000
 /vis/tsg/offscreen/set/format zb_png

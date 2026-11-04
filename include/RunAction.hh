@@ -16,9 +16,8 @@
 #include <memory>
 #include <vector>
 
-class G4GenericMessenger;
-
 namespace cupid {
+class OutputMessenger;
 class RunLog;
 class RunAction final : public G4UserRunAction {
  public:
@@ -42,7 +41,6 @@ class RunAction final : public G4UserRunAction {
   G4String fRunFileName;
   G4String fRunDirectory;  // Absolute, finalized by the master before workers start.
   RunLog* fLog;  // Non-owning; main keeps the shared console capture alive through shutdown.
-  std::unique_ptr<G4GenericMessenger> fMessenger;
   OutputManager fOutput;
   // Parent directory, relative to the process working directory; editable between runs.
   G4String fOutputDirectory;
@@ -50,5 +48,7 @@ class RunAction final : public G4UserRunAction {
   DetectorNames fDetectorNames;
   std::vector<std::string> fFileNames;
   G4int fRunId = -1;
+  // Destroy the command bindings before the strings they reference.
+  std::unique_ptr<OutputMessenger> fMessenger;
 };
 }  // namespace cupid

@@ -65,6 +65,7 @@ run('invalid_component', '/cupid/geometry/enable DoesNotExist', fail=True,
 run('invalid_count', '/cupid/geometry/lmoCount 0', fail=True)
 run('late_change', '/run/initialize\n/cupid/geometry/enable Cryostat', fail=True)
 run('unknown_command', '/cupid/doesNotExist', fail=True)
+# Deliberate nesting tests native command-error propagation, not a run preset.
 run('nested_failure', '/control/execute invalid_component.mac', fail=True)
 # Retired 2026-10-21: actions are placeholders; use native run summaries.
 # Restore only if CUPID_RUN_SUMMARY is reintroduced.
@@ -83,6 +84,7 @@ missing = subprocess.run([str(executable), str(output/'missing.mac')],
 assert missing.returncode != 0 and 'Macro file not found' in missing.stdout
 passed += 1
 if '--with-vis' in sys.argv[3:]:
-    run('offscreen_render', '/control/execute render.mac', arguments=('--serial', '--vis'))
+    render_macro = pathlib.Path(__file__).resolve().parents[1] / 'macros' / 'render.mac'
+    run('offscreen_render', render_macro.read_text(), arguments=('--serial', '--vis'))
     assert (output/'geometry.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
 print(f'All {passed} checks passed.', flush=True)

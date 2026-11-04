@@ -17,7 +17,7 @@
   <text x="73" y="497" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">Expanded together on the right</text>
   <text x="73" y="548" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#607087">SUPPORT &amp; GENERATED FILES</text>
   <text x="73" y="575" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">macros/</text>
-  <text x="73" y="602" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">8 example / visualization macros</text>
+  <text x="73" y="602" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">6 presets + command reference</text>
   <text x="73" y="645" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">tests/</text>
   <text x="73" y="672" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607087">14 C++ / Python validation files</text>
   <text x="73" y="714" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#23344b">docs/</text>
@@ -96,9 +96,10 @@
   <rect x="1470" y="510" width="402" height="210" rx="12" fill="#fff6ec" stroke="#eacdac" stroke-width="1.5" />
   <text x="1492" y="547" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#97612b">output/</text>
   <text x="1492" y="582" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">OutputManager</text>
-  <text x="1492" y="614" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">VOutput [H]</text>
-  <text x="1492" y="646" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RootOutput</text>
-  <text x="1492" y="678" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RunLog</text>
+  <text x="1492" y="610" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">OutputMessenger</text>
+  <text x="1492" y="638" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">VOutput [H]</text>
+  <text x="1492" y="666" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RootOutput</text>
+  <text x="1492" y="694" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#23344b">RunLog</text>
   <polyline points="1453,244 1453,525 1470,525" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round" />
   <polyline points="1453,244 1671,244" fill="none" stroke="#9aaabd" stroke-width="2" stroke-linejoin="round" />
   <rect x="1470" y="760" width="402" height="250" rx="12" fill="#f3f6fa" stroke="#cad4df" stroke-width="1.5" />
@@ -108,7 +109,7 @@
   <text x="1492" y="896" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#23344b">[E]  Reserved directory (.gitkeep only)</text>
   <text x="1492" y="943" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Particle-gun generation is operational.</text>
   <text x="1492" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Dedicated source models are scaffolds.</text>
-  <text x="48" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Source inventory verified on 03 Nov 2026.  Matching .hh / .cc files are grouped; output paths are relative to the working directory.</text>
+  <text x="48" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607087">Source inventory verified on 04 Nov 2026.  Matching .hh / .cc files are grouped; output paths are relative to the working directory.</text>
   <text x="73" y="916" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#203047">results/tests/</text>
   <text x="73" y="943" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#52657b">Assistant test output only</text>
 </svg>

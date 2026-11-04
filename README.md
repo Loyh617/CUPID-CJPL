@@ -126,16 +126,19 @@ The default is 2 worker threads. `--threads` accepts 1–256 and is mutually exc
 | Macro | Purpose |
 | --- | --- |
 | `lmo_only.mac` | Minimal example: two LMO crystals and 1,000 gamma events |
-| `run.mac` / `geometry.mac` | Full-component 1,000-event example / geometry selection |
+| `run.mac` | Self-contained full-component 1,000-event example |
 | `check_geometry.mac` | Geometry overlap checks |
 | `vis.mac` / `render.mac` | Interactive display / offscreen rendering; the latter requires `--vis` |
 | `th232_two_lmo.mac` | Ideal bare Th-232 point source, two LMO crystals, 100,000 events; not a complete calibration-source model |
+| `commands.mac` | Comment-only reference for every custom command; not a run preset |
+
+Each of the six runnable macros contains its own geometry, initialization and relevant source or visualization commands. Keep new run macros self-contained rather than splitting configuration into nested macros. The command reference stays in the source directory; the six runnable macros are copied to `build/macros/` during CMake configuration.
 
 Set event counts with `/run/beamOn`, seeds with `/random/setSeeds` (`12345 67890` in the quick-start example), and particle type, energy, position, and direction with `/gun/*`. Enable geometry and set `/cupid/geometry/lmoCount` before `/run/initialize`.
 
 Command-line options set the initial mode, thread count, and output. Macros then execute in order and may update Geant4 parameters where the application state allows; check the actual run log. The main macro is resolved relative to the current directory first, then under `build/macros/`. Submacros are searched in the current directory, main macro directory, and `build/macros/`, in that order. Relative output paths also use the current directory. Prefer explicit `macros/xxx.mac` paths; if using build-directory copies, rerun CMake configuration after editing example macros. See [Geant4 macro execution](https://geant4.web.cern.ch/documentation/dev/bfad_html/ForApplicationDevelopers/GettingStarted/executeProgram.html).
 
-Output directories and ROOT filename prefixes are set in `RunAction` through the native Geant4 messenger. Use these commands **after `/run/initialize` and before `/run/beamOn`**, also between runs:
+Output directories and ROOT filename prefixes are configured through `output/OutputMessenger`, which uses native `G4GenericMessenger` and is owned by the master/serial `RunAction`. `RunAction` retains the settings and prepares directories/files at run start. Use these commands **after `/run/initialize` and before `/run/beamOn`**, also between runs:
 
 ```text
 /cupid/output/directory ./results/runs

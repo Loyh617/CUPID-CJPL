@@ -20,7 +20,10 @@ namespace cupid {
 // list for the master and workers so that analysis schemas agree before transport.
 // Keep either name, both names, or return {} to disable recording; this is a compile-time setting.
 std::vector<G4String> EventAction::DefaultRecorders() {
-  return {"EventEnergyRecorder", "IncidentEnergyRecorder"};
+  return {
+    "EventEnergyRecorder", 
+    "IncidentEnergyRecorder"
+  };
 }
 
 EventAction::EventAction(RunAction* runAction)

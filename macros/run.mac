@@ -2,7 +2,12 @@
 /run/verbose 1
 # Set seeds for this study; keep the macro and software environment for reproduction.
 /random/setSeeds 12345 67890
-/control/execute geometry.mac
+# All geometry commands must precede /run/initialize.
+/cupid/geometry/enable Cryostat
+/cupid/geometry/enable InnerShielding
+/cupid/geometry/enable LMOArray
+/cupid/geometry/lmoCount 1
+/cupid/geometry/list
 /run/initialize
 # Optional parent directory for subsequent runs (relative to the working directory).
 # /cupid/output/directory ./results/runs
