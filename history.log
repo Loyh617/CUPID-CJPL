@@ -363,3 +363,7 @@
 - RunAction still owns settings, validates names, reserves directories and coordinates worker output. It constructs OutputMessenger only on the master/serial thread and destroys command bindings before the referenced strings. Add the implementation to cupid-output; update commands.mac, README and the file-structure figure. Preserve earlier uncommitted changes and the user's EventAction.cc edit.
 - Validation pending; build and output-integration logs will be stored under results/tests/output-messenger-20261104.
 - Validation: incremental build passed; existing output-integration checks passed in serial and four-worker MT modes, covering per-run logs, directory overrides, quoted paths, automatic/custom names, repeated jobs, collision preservation, empty runs, invalid inputs and ROOT readback. Changed-file whitespace and SVG syntax checks passed. Logs: results/tests/output-messenger-20261104. No Git commit was requested.
+
+2026-11-06 | Add prominent main-branch contribution notice
+- Add an English warning immediately below the README title: do not commit or push development work directly to main; use a dedicated branch and submit a Pull Request for review and required checks before merging.
+- Documentation-only change; preserve existing content and uncommitted diagram changes. Check README placement and git diff --check; no build or simulation test is needed. This notice does not configure GitHub branch protection.

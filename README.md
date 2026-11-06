@@ -1,5 +1,8 @@
 # CUPID-CJPL Simulation Framework
 
+> [!WARNING]
+> **Do not commit or push your development work directly to `main`.** Work on a dedicated branch and submit a Pull Request. Merge into `main` only after code review and the required checks have passed.
+
 ## 1. Overview and Scope
 
 A Geant4 framework for collaborative development of CUPID-CJPL simulations, covering radioactive backgrounds, calibration sources, and signals within LMO crystals. The current simulation endpoint is **energy deposition in LMO**.
