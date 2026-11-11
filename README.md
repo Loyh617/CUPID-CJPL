@@ -7,7 +7,7 @@
 
 A Geant4 framework for collaborative development of CUPID-CJPL simulations, covering radioactive backgrounds, calibration sources, and signals within LMO crystals. The current simulation endpoint is **energy deposition in LMO**.
 
-Implemented features include the cryostat, inner shielding, LMO array, particle gun, position-sampling utilities, event-level and incident-particle energy recording, and multithreaded ROOT output. Dedicated environmental, copper-frame, cosmic-ray, Th-232/Co-56 calibration, and double-beta generators remain to be implemented. The existing Th-232 macro emits a nuclide through the particle gun.
+Implemented features include the cryostat, inner shielding, LMO array, particle gun, local Mo-100 double-beta generators, position-sampling utilities, event-level and incident-particle energy recording, and multithreaded ROOT output. Dedicated environmental, copper-frame, cosmic-ray, and Th-232/Co-56 calibration generators remain to be implemented. The existing Th-232 macro emits a nuclide through the particle gun.
 
 Current checks cover gamma transport, radioactive-decay execution, and software behavior; no general claim of physics accuracy or validated energy range has been established. Laboratory rock, NTD/LD detectors, optical transport, dose scoring, detector response, electronics, and waveforms are not implemented. **A successful run does not establish physics validity.**
 
@@ -136,6 +136,8 @@ The default is 2 worker threads. `--threads` accepts 1–256 and is mutually exc
 | `commands.mac` | Comment-only reference for every custom command; not a run preset |
 
 Each of the six runnable macros contains its own geometry, initialization and relevant source or visualization commands. Keep new run macros self-contained rather than splitting configuration into nested macros. The command reference stays in the source directory; the six runnable macros are copied to `build/macros/` during CMake configuration.
+
+Select `Mo100TwoNu` or `Mo100ZeroNu` with `/cupid/generator/select` before initialization and enable LMOArray. Each event generates two correlated electrons at one uniformly sampled crystal position. The local ground-state models use Q = 3034.40 keV, allowed two-neutrino phase space or the light Majorana mass mechanism, and Geant4 screened Coulomb weights. Crystals have equal Mo-100 inventory. Use the event energy tree for the calorimetric spectrum. These baseline spectra do not include SSD corrections, detector resolution or absolute decay rates.
 
 Set event counts with `/run/beamOn`, seeds with `/random/setSeeds` (`12345 67890` in the quick-start example), and particle type, energy, position, and direction with `/gun/*`. Enable geometry and set `/cupid/geometry/lmoCount` before `/run/initialize`.
 

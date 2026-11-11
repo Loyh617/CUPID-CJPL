@@ -13,6 +13,8 @@
 #include "geometry/InnerShielding.hh"
 #include "geometry/LMOArray.hh"
 
+#include "G4Box.hh"
+#include "G4LogicalVolume.hh"
 #include "G4PhysicalVolumeStore.hh"
 #include "G4VPhysicalVolume.hh"
 #include "G4ios.hh"
@@ -121,6 +123,19 @@ const std::vector<G4LogicalVolume*>& GeometryManager::GetLMOLogicalVolumes() con
   if (!fSourceVolumesReady)
     throw std::runtime_error("LMO lookup requires initialized geometry.");
   return fLMOLogicalVolumes;
+}
+
+std::vector<LMOPlacement> GeometryManager::GetLMOPlacements() const {
+  std::vector<LMOPlacement> placements;
+  for (const auto* logical : GetLMOLogicalVolumes()) {
+    const auto& frame = FindSourceVolume(logical->GetName());
+    const auto* box = dynamic_cast<const G4Box*>(logical->GetSolid());
+    if (!box || logical->GetNoDaughters() != 0)
+      throw std::runtime_error("Direct LMO sampling requires a solid box without daughters.");
+    placements.push_back({frame.localToWorldTranslation, frame.localToWorldRotation,
+                          {box->GetXHalfLength(), box->GetYHalfLength(), box->GetZHalfLength()}});
+  }
+  return placements;
 }
 
 void GeometryManager::FinishSourceVolumes() {

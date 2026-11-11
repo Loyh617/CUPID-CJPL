@@ -367,3 +367,8 @@
 2026-11-06 | Add prominent main-branch contribution notice
 - Add an English warning immediately below the README title: do not commit or push development work directly to main; use a dedicated branch and submit a Pull Request for review and required checks before merging.
 - Documentation-only change; preserve existing content and uncommitted diagram changes. Check README placement and git diff --check; no build or simulation test is needed. This notice does not configure GitHub branch protection.
+
+2026-11-11 — Local Mo-100 ground-state TwoNu and ZeroNu event generation.
+Merged the two placeholders into Mo100DoubleBetaDecayGenerator; GeometryManager supplies actual box sizes and World placements to DirectVolumeSampler. Updated generator/action dispatch, diagnostics, macro reference, CMake, README and generator regression checks. No BxDecay0 dependency. Checked Geant4 11.4.1 G4BetaDecayCorrections::FermiFunction (dimensionless total energy), G4RandomDirection and G4PrimaryVertex ownership. Reference Q: Rahaman et al., Phys. Lett. B 662 (2008) 111; allowed phase space and light-mass angular baseline, screened G4 Coulomb weights. No precision SSD or detector-response model.
+Validated in results/tests/mo100-20261111: two workers, 10000 decays per mode in one 45 mm LMO. ROOT event/incident readback and energy closure passed; generated ZeroNu sum 3034.40 keV; 7782/10000 deposits within 1 keV of Q. Numerical quadrature checks and plots in validation.txt, spectra.pdf/png and kinematics.png. All 14 generator regression scenarios passed.
+Document EventEnergyRecorder as the recommended per-crystal calorimetric recorder in the Mo-100 generator header.

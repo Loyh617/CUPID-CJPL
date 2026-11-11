@@ -14,7 +14,7 @@ def run(name, commands, mt=False, fail=False):
     macro = output / (name + '.mac')
     macro.write_text('/random/setSeeds 12345 67890\n/run/verbose 1\n' + commands + '\n')
     args = ['--threads', '2'] if mt else ['--serial']
-    result = subprocess.run([str(executable), str(macro), *args], cwd=output,
+    result = subprocess.run([str(executable), str(macro), *args, '--output', str(output)], cwd=output,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=90)
     log = result.stdout
     (output / (name + '.log')).write_text(log)
@@ -43,6 +43,22 @@ log = run('gun_repeated_runs', gun + '/run/beamOn 2\n/run/beamOn 3')
 assert log.count('CUPID_PRIMARY') == 5
 assert re.search(r'Number of events processed : 2\b', log)
 assert re.search(r'Number of events processed : 3\b', log)
+
+# The array consists of two 45 mm cubes centered at x = +/-25 mm.
+for mode in ('Mo100TwoNu', 'Mo100ZeroNu'):
+    log = run(mode, geometry + '/cupid/generator/select ' + mode +
+              '\n/cupid/generator/verbose 1\n/run/initialize\n/run/beamOn 64', mt=True)
+    rows = [dict(re.findall(r'(\w+)=([^\s]+)', line))
+            for line in log.splitlines() if 'CUPID_PRIMARY event=' in line]
+    assert sorted(int(row['event']) for row in rows) == list(range(64))
+    x = [float(row['x_mm']) for row in rows]
+    assert min(x) < 0 < max(x) and all(2.5 <= abs(v) <= 47.5 for v in x)
+    sums = [float(row['kinetic_MeV']) + float(row['second_kinetic_MeV']) for row in rows]
+    if mode == 'Mo100ZeroNu':
+        assert all(abs(value - 3.03440) < 1e-8 for value in sums)
+    else:
+        assert all(0 < value < 3.03440 for value in sums) and max(sums) > min(sums)
+run('missing_lmo', '/cupid/generator/select Mo100TwoNu\n/run/initialize\n/run/beamOn 1', fail=True)
 
 for source in ('calibration/th232', 'calibration/co56', 'lmo_signal/2nubb', 'lmo_signal/0nubb'):
     log = run('unimplemented_' + source.replace('/', '_'),

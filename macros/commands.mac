@@ -78,11 +78,11 @@
 
 # Command: /cupid/generator/select <source>
 # Purpose: select an implemented primary-generation path.
-# Argument: gun (the only supported value; required).
+# Argument: gun, Mo100TwoNu, or Mo100ZeroNu (required).
 # State: PreInit. Initial setting: gun.
 # Configure the native particle gun with /gun/ commands after initialization.
-# Dedicated calibration/background/double-beta generators are not selectable
-# yet. This command does not select a position sampler.
+# Both Mo-100 modes uniformly sample the enabled LMO array; Q = 3034.40 keV.
+# TwoNu uses allowed phase space; ZeroNu uses the light Majorana mass model.
 # Example:
 # /cupid/generator/select gun
 
@@ -91,7 +91,7 @@
 # Argument: integer 0 or 1 (required, dimensionless).
 # State: PreInit. Initial setting: 0.
 # 0: suppress this diagnostic. 1: print one line per generated event, describing
-# its first primary particle. Use 1 for small debugging runs only. This does
+# its first primary particle and, for Mo-100, the second energy and opening cosine. Use 1 for small debugging runs only. This does
 # not change Geant4 tracking/run verbosity or the physical source distribution.
 # Example:
 # /cupid/generator/verbose 1
@@ -100,7 +100,7 @@
 # Purpose: print the selected generator and its configuration entry point.
 # Arguments: none.
 # States: PreInit, Idle.
-# Currently reports the gun selection and /gun/ configuration prefix.
+# Reports the gun configuration prefix or Mo-100 model and endpoint.
 # Example:
 # /cupid/generator/list
 

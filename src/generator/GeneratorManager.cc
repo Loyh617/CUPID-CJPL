@@ -1,11 +1,12 @@
 /// \file src/generator/GeneratorManager.cc
-/// \brief Implementation: Provide the currently implemented particle-gun generation path.
+/// \brief Implementation: Dispatch the selected primary generator on this worker.
 ///
 /// PrimaryGeneratorAction owns this manager and calls Generate(event).
-/// Only the gun selection is implemented; configure it using /gun/ commands.
+/// Select the particle gun or an LMO Mo-100 decay in the run macro.
 /// Selection and verbosity references must outlive the manager.
 
 #include "generator/GeneratorManager.hh"
+#include "generator/lmo_signal/double_beta_decay/Mo100DoubleBetaDecayGenerator.hh"
 
 #include "G4Event.hh"
 #include "G4Gamma.hh"
@@ -21,8 +22,8 @@
 #include <stdexcept>
 
 namespace cupid {
-GeneratorManager::GeneratorManager(const G4String& selection, const G4int& verbosity)
-    : fSelection(selection), fVerbosity(verbosity), fGun(std::make_unique<G4ParticleGun>(1)) {
+GeneratorManager::GeneratorManager(const G4String& selection, const G4int& verbosity, const GeometryManager& geometry)
+    : fSelection(selection), fVerbosity(verbosity), fGeometry(geometry), fGun(std::make_unique<G4ParticleGun>(1)) {
   // Default source: one 1 MeV gamma per event. Override after /run/initialize
   // using /gun/number, particle, energy, position and direction in the run macro.
   // Position is in World coordinates; direction is the particle momentum direction.
@@ -34,18 +35,29 @@ GeneratorManager::GeneratorManager(const G4String& selection, const G4int& verbo
 GeneratorManager::~GeneratorManager() = default;
 
 void GeneratorManager::Check(const G4String& selection) {
-  if (selection != "gun")
+  if (selection != "gun" && selection != "Mo100TwoNu" && selection != "Mo100ZeroNu")
     throw std::runtime_error("Unsupported generator: " + selection);
 }
 
 void GeneratorManager::List(const G4String& selection) {
   Check(selection);
-  G4cout << "CUPID_GENERATOR selected=" << selection << " configuration=/gun/" << G4endl;
+  G4cout << "CUPID_GENERATOR selected=" << selection << (selection == "gun" ? " configuration=/gun/" :
+      selection == "Mo100TwoNu" ? " model=allowed-phase-space Q_keV=3034.40" :
+                                  " model=light-Majorana-mass Q_keV=3034.40") << G4endl;
 }
 
 void GeneratorManager::Generate(G4Event* event) {
   Check(fSelection);
-  fGun->GeneratePrimaryVertex(event);
+  if (fSelection == "gun") {
+    fGun->GeneratePrimaryVertex(event);
+  } else {
+    if (!fDoubleBeta) {
+      using Mode = Mo100DoubleBetaDecayGenerator::Mode;
+      fDoubleBeta = std::make_unique<Mo100DoubleBetaDecayGenerator>(
+          fGeometry, fSelection == "Mo100TwoNu" ? Mode::TwoNu : Mode::ZeroNu);
+    }
+    fDoubleBeta->Generate(event);
+  }
   if (fVerbosity > 0) {
     auto* vertex = event->GetPrimaryVertex();
     auto* particle = vertex->GetPrimary();
@@ -54,6 +66,11 @@ void GeneratorManager::Generate(G4Event* event) {
          << " source=" << fSelection << " particle=" << particle->GetG4code()->GetParticleName()
          << " x_mm=" << vertex->GetX0()/mm << " y_mm=" << vertex->GetY0()/mm
          << " z_mm=" << vertex->GetZ0()/mm << " kinetic_MeV=" << particle->GetKineticEnergy()/MeV;
+    if (fDoubleBeta) {
+      const auto* other = particle->GetNext();
+      line << " second_kinetic_MeV=" << other->GetKineticEnergy()/MeV
+           << " cos12=" << particle->GetMomentumDirection().dot(other->GetMomentumDirection());
+    }
     G4cout << line.str() << G4endl;
   }
 }

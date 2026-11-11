@@ -16,8 +16,8 @@
 namespace cupid {
 PrimaryGeneratorAction::PrimaryGeneratorAction(const G4String& selection,
                                                const G4int& verbosity,
-                                               std::atomic_bool& failed)
-    : fGenerator(std::make_unique<GeneratorManager>(selection, verbosity)), fFailed(failed) {}
+                                               std::atomic_bool& failed, const GeometryManager& geometry)
+    : fGenerator(std::make_unique<GeneratorManager>(selection, verbosity, geometry)), fFailed(failed) {}
 PrimaryGeneratorAction::~PrimaryGeneratorAction() = default;
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
   if (fFailed.load()) {

@@ -2,8 +2,7 @@
 /// \brief Declaration: Declare the minimal interface for dedicated primary generators.
 ///
 /// Implement Generate(G4Event*) to add primary vertices to the supplied event.
-/// Concrete generators choose their own sampling tools. Dedicated generators
-/// are currently placeholders and are not dispatched by GeneratorManager.
+/// Concrete generators choose their own sampling tools.
 
 #pragma once
 class G4Event;

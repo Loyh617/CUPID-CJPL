@@ -3,7 +3,7 @@
 ///
 /// ActionInitialization owns this messenger and the referenced settings.
 /// Use /cupid/generator/select and verbose before initialization; list and
-/// check report the supported selection. Only gun is currently selectable.
+/// check report the supported selection. Mo-100 modes require an enabled LMO array.
 
 #include "generator/GeneratorMessenger.hh"
 #include "generator/GeneratorManager.hh"
@@ -24,8 +24,8 @@ GeneratorMessenger::GeneratorMessenger(G4String& selection, G4int& verbosity)
   fDirectory->SetGuidance("Select an implemented generator; sampling belongs to each concrete generator.");
   fSelect = std::make_unique<G4UIcmdWithAString>("/cupid/generator/select", this);
   fSelect->SetParameterName("source", false);
-  fSelect->SetCandidates("gun");
-  fSelect->SetGuidance("Only gun is currently implemented. Configure it with /gun/ commands.");
+  fSelect->SetCandidates("gun Mo100TwoNu Mo100ZeroNu");
+  fSelect->SetGuidance("Use gun for /gun/ commands, or select ground-state Mo100TwoNu or Mo100ZeroNu inside LMO.");
   fVerbose = std::make_unique<G4UIcmdWithAnInteger>("/cupid/generator/verbose", this);
   fVerbose->SetParameterName("level", false);
   fVerbose->SetRange("level>=0 && level<=1");

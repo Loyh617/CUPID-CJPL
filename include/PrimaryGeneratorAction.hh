@@ -15,9 +15,10 @@
 
 namespace cupid {
 class GeneratorManager;
+class GeometryManager;
 class PrimaryGeneratorAction final : public G4VUserPrimaryGeneratorAction {
  public:
-  PrimaryGeneratorAction(const G4String& selection, const G4int& verbosity, std::atomic_bool& failed);
+  PrimaryGeneratorAction(const G4String& selection, const G4int& verbosity, std::atomic_bool& failed, const GeometryManager& geometry);
   ~PrimaryGeneratorAction() override;
   void GeneratePrimaries(G4Event*) override;
 

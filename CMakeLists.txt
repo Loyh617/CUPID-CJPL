@@ -40,8 +40,7 @@ add_executable(cupid-sim
   src/generator/toolkit/NuclideEmitter.cc
   src/generator/calibration/th232/Th232Generator.cc
   src/generator/calibration/co56/Co56Generator.cc
-  src/generator/lmo_signal/double_beta_decay/TwoNuDoubleBetaDecayGenerator.cc
-  src/generator/lmo_signal/double_beta_decay/ZeroNuDoubleBetaDecayGenerator.cc
+  src/generator/lmo_signal/double_beta_decay/Mo100DoubleBetaDecayGenerator.cc
   src/generator/GeneratorManager.cc
   src/generator/GeneratorMessenger.cc
   src/PhysicsList.cc

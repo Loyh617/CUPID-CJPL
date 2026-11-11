@@ -35,7 +35,7 @@ void ActionInitialization::BuildForMaster() const {
   SetUserAction(CreateRunAction());
 }
 void ActionInitialization::Build() const {
-  SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed));
+  SetUserAction(new PrimaryGeneratorAction(fGeneratorSelection, fGeneratorVerbosity, fGeneratorFailed, fGeometry));
   auto* runAction = CreateRunAction();
   SetUserAction(runAction);
   auto* eventAction = new EventAction(runAction);

@@ -34,6 +34,12 @@ struct SourceVolumeInfo {
   G4ThreeVector localToWorldTranslation;
 };
 
+struct LMOPlacement {
+  G4ThreeVector center;  // World position of the crystal center.
+  G4RotationMatrix rotation;  // Local-to-World rotation.
+  G4ThreeVector halfLengths;  // Box half lengths in local coordinates.
+};
+
 class GeometryManager {
  public:
   GeometryManager();
@@ -49,6 +55,7 @@ class GeometryManager {
   // Register crystal placements in contiguous, zero-based copy-number order.
   void RegisterLMOVolume(G4VPhysicalVolume* volume);
   const std::vector<G4LogicalVolume*>& GetLMOLogicalVolumes() const;
+  std::vector<LMOPlacement> GetLMOPlacements() const;
   const SourceVolumeInfo& FindSourceVolume(const G4String& name) const;
   G4VPhysicalVolume* GetWorldVolume() const;
   std::size_t GetGeometryGeneration() const { return fGeometryGeneration; }
