@@ -364,6 +364,11 @@
 - Validation pending; build and output-integration logs will be stored under results/tests/output-messenger-20261104.
 - Validation: incremental build passed; existing output-integration checks passed in serial and four-worker MT modes, covering per-run logs, directory overrides, quoted paths, automatic/custom names, repeated jobs, collision preservation, empty runs, invalid inputs and ROOT readback. Changed-file whitespace and SVG syntax checks passed. Logs: results/tests/output-messenger-20261104. No Git commit was requested.
 
+2026-11-04 | Refresh framework structure and data-flow diagrams
+- Update docs/figures/file-structure.svg and data-flow.svg against source inventory at 4169ab4. Keep diagrams in English with a consistent blue/white palette; distinguish implemented gun generation, placeholder source classes and reserved folders.
+- Show OutputMessenger command ownership, SourceVolumeInfo inside GeometryManager.hh, six self-contained macros plus the command reference, and position-only source samplers. Draw the actual recorder return path to EventAction before typed dispatch through OutputManager/VOutput/RootOutput. Show run-level lifecycle, per-recorder files, detector TTrees, schema-4 fields and native Geant4 thread merging.
+- Validation: both SVGs parse as XML and render successfully; visually inspected both diagrams and corrected an arrow-label collision. Preview PNGs are under results/tests/docs-figures-20261104. Documentation-only update; no simulation behavior or Geant4 API changed, so no build or simulation run was needed.
+
 2026-11-06 | Add prominent main-branch contribution notice
 - Add an English warning immediately below the README title: do not commit or push development work directly to main; use a dedicated branch and submit a Pull Request for review and required checks before merging.
 - Documentation-only change; preserve existing content and uncommitted diagram changes. Check README placement and git diff --check; no build or simulation test is needed. This notice does not configure GitHub branch protection.
@@ -372,3 +377,7 @@
 Merged the two placeholders into Mo100DoubleBetaDecayGenerator; GeometryManager supplies actual box sizes and World placements to DirectVolumeSampler. Updated generator/action dispatch, diagnostics, macro reference, CMake, README and generator regression checks. No BxDecay0 dependency. Checked Geant4 11.4.1 G4BetaDecayCorrections::FermiFunction (dimensionless total energy), G4RandomDirection and G4PrimaryVertex ownership. Reference Q: Rahaman et al., Phys. Lett. B 662 (2008) 111; allowed phase space and light-mass angular baseline, screened G4 Coulomb weights. No precision SSD or detector-response model.
 Validated in results/tests/mo100-20261111: two workers, 10000 decays per mode in one 45 mm LMO. ROOT event/incident readback and energy closure passed; generated ZeroNu sum 3034.40 keV; 7782/10000 deposits within 1 keV of Q. Numerical quadrature checks and plots in validation.txt, spectra.pdf/png and kinematics.png. All 14 generator regression scenarios passed.
 Document EventEnergyRecorder as the recommended per-crystal calorimetric recorder in the Mo-100 generator header.
+
+2026-11-12 | Update the framework diagrams for Mo-100 generation
+- Show the unified Mo100DoubleBetaDecayGenerator, selectable modes, LMO placement parameters passed to DirectVolumeSampler, and the correlated electron pair at a common vertex. Preserve the gun, tracking, recorder and ROOT output paths.
+- Checked the source layout, parsed both SVGs, checked label widths and rendered both diagrams at their native sizes in results/tests/docs-figures-20261112.

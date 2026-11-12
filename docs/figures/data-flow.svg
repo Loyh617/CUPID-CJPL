@@ -1,106 +1,94 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
-  <title id="title">CUPID-CJPL Simulation Framework — Data Flow</title>
-  <desc id="desc">Current implemented data flow: geometry and the particle gun feed Geant4 transport. Detector hits and track ancestry are processed by EventAction and selected recorders. Typed vectors pass through OutputManager and RootOutput to native Geant4 ROOT analysis. Each run has a dedicated directory with separate recorder files, detector TTrees and its own log.</desc>
-  <rect width="1920" height="1080" fill="white" />
-  <text x="50" y="64" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#203047">CUPID-CJPL Simulation Framework</text>
-  <text x="50" y="101" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#52657b">Data flow | Geometry, sources, detector records and per-run results</text>
-  <text x="1450" y="101" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#52657b">Solid: data    Dashed: control</text>
-  <rect x="50" y="126" width="1820" height="67" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="75" y="155" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#203047">CONFIGURATION</text>
-  <text x="295" y="169" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#203047">Macro files · CLI options · Random seeds · Recorder selection in EventAction</text>
-  <rect x="50" y="235" width="405" height="195" rx="12" fill="#eff6ff" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="72" y="270" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#245a90">GEOMETRY</text>
-  <text x="72" y="307" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#203047">Materials + GeometryManager</text>
-  <text x="72" y="343" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">Cryostat · InnerShielding · LMOArray</text>
-  <text x="72" y="378" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">DetectorConstruction</text>
-  <text x="72" y="410" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Stable names: LMO0, LMO1</text>
-  <rect x="50" y="470" width="405" height="260" rx="12" fill="#f6f1fd" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="72" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#72509e">GENERATOR</text>
-  <text x="72" y="545" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">PrimaryGeneratorAction</text>
-  <text x="72" y="578" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">GeneratorManager → G4ParticleGun</text>
-  <text x="72" y="611" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">Operational source: /gun/ commands</text>
-  <text x="72" y="657" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#52657b">Reusable tools for future source models</text>
-  <text x="72" y="688" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Position samplers · NuclideEmitter</text>
-  <text x="72" y="714" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#52657b">Dedicated generators: placeholders</text>
-  <rect x="490" y="235" width="435" height="80" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="512" y="270" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">PhysicsList</text>
-  <text x="512" y="299" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">EM · Decay · Hadronic constructors</text>
-  <rect x="490" y="350" width="435" height="85" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="512" y="386" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">Geant4 event transport</text>
-  <text x="512" y="416" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Primary and secondary particles</text>
-  <rect x="490" y="490" width="230" height="95" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="503" y="526" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#203047">LMOSensitiveDetector</text>
-  <text x="503" y="561" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">DetectorHit collections</text>
-  <rect x="737" y="490" width="188" height="95" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="749" y="526" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#203047">TrackingAction</text>
-  <text x="749" y="561" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">TrackAncestry</text>
-  <rect x="490" y="630" width="435" height="100" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="512" y="667" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">EventAction</text>
-  <text x="512" y="700" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Build selected records at event end</text>
-  <rect x="960" y="235" width="410" height="195" rx="12" fill="#eef8f4" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="982" y="269" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#286a51">SAVED FIELDS</text>
-  <text x="982" y="303" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Event: RunID, EventID, Edep</text>
-  <text x="982" y="334" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Incident: RunID, EventID,</text>
-  <text x="982" y="362" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">TrackID, PDG, Edep</text>
-  <text x="982" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Detector name routes records to TTrees</text>
-  <text x="982" y="417" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Saved totals &gt; 0; Edep in keV</text>
-  <rect x="960" y="470" width="410" height="260" rx="12" fill="#eef8f4" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="982" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#286a51">RECORD</text>
-  <text x="982" y="544" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">RecordManager</text>
-  <text x="982" y="582" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">EventEnergyRecorder</text>
-  <text x="982" y="610" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Total deposited energy per detector</text>
-  <text x="982" y="650" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#203047">IncidentEnergyRecorder</text>
-  <text x="982" y="678" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#203047">Detector-local incident root + descendants</text>
-  <text x="982" y="712" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">EventAction dispatches typed vectors</text>
-  <rect x="1410" y="235" width="460" height="195" rx="12" fill="#fff6ec" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="1432" y="269" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#97612b">ROOT LAYOUT · SCHEMA 4</text>
-  <text x="1432" y="307" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">One ROOT file per recorder</text>
-  <text x="1432" y="343" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">One TTree per detector: LMO0, LMO1</text>
-  <text x="1432" y="378" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Numeric branches; no DetectorName branch</text>
-  <text x="1432" y="410" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Rows need not be in EventID order</text>
-  <rect x="1410" y="470" width="460" height="260" rx="12" fill="#fff6ec" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="1432" y="505" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#97612b">OUTPUT</text>
-  <text x="1432" y="545" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">OutputManager → RootOutput</text>
-  <text x="1432" y="582" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#203047">Explicit booking / filling for each record type</text>
-  <text x="1432" y="624" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#203047">G4AnalysisManager</text>
-  <text x="1432" y="661" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#203047">Native ntuples · per-ntuple file routing</text>
-  <text x="1432" y="697" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#203047">Native thread merging</text>
-  <polyline points="455,332 475,332 475,390 490,390" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="490,390 480.0,386.0 480.0,394.0" fill="#52657b" />
-  <polyline points="455,580 475,580 475,417 490,417" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="490,417 480.0,413.0 480.0,421.0" fill="#52657b" />
-  <polyline points="707,315 707,350" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="707,350 711.0,340.0 703.0,340.0" fill="#52657b" />
-  <polyline points="605,435 605,490" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="605,490 609.0,480.0 601.0,480.0" fill="#52657b" />
-  <polyline points="831,435 831,490" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="831,490 835.0,480.0 827.0,480.0" fill="#52657b" />
-  <polyline points="605,585 605,630" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="605,630 609.0,620.0 601.0,620.0" fill="#52657b" />
-  <polyline points="831,585 831,630" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="831,630 835.0,620.0 827.0,620.0" fill="#52657b" />
-  <polyline points="925,682 960,682" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="960,682 950.0,678.0 950.0,686.0" fill="#52657b" />
-  <polyline points="1370,682 1410,682" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="1410,682 1400.0,678.0 1400.0,686.0" fill="#52657b" />
-  <rect x="50" y="800" width="875" height="160" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="75" y="837" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#203047">RunAction + RunLog</text>
-  <text x="75" y="873" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#203047">Master selects directory / prefix; every thread opens and closes output.</text>
-  <text x="75" y="906" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">Each log contains setup context, this run’s transport and result summary.</text>
-  <text x="75" y="938" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#203047">Names shared across workers; collisions receive _1, _2, …</text>
-  <rect x="960" y="800" width="910" height="160" rx="12" fill="#f3f6fa" stroke="#c4d0dc" stroke-width="1.5" />
-  <text x="983" y="835" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#203047">PER-RUN DIRECTORY</text>
-  <text x="983" y="866" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#203047">./results/runs/&lt;prefix&gt;/</text>
-  <text x="1010" y="897" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#203047">&lt;prefix&gt;_EventEnergy.root    &lt;prefix&gt;_IncidentEnergy.root</text>
-  <text x="1010" y="928" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#203047">run.log    •    Empty runs retain the log; empty ROOT files are removed.</text>
-  <polyline points="1640,730 1640,800" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" />
-  <polygon points="1640,800 1644.0,790.0 1636.0,790.0" fill="#52657b" />
-  <polyline points="925,880 960,880" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" />
-  <polygon points="960,880 950.0,876.0 950.0,884.0" fill="#52657b" />
-  <polyline points="460,800 460,765 1390,765 1390,545 1410,545" fill="none" stroke="#52657b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" />
-  <polygon points="1410,545 1400.0,541.0 1400.0,549.0" fill="#52657b" />
-  <text x="50" y="1007" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#52657b">Scope: deposited energy in LMO; detector response, electronics and waveforms are outside the current implementation.</text>
-  <text x="50" y="1040" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#52657b">Dedicated environmental, copper-frame, cosmic, calibration and double-beta source models remain extension work.</text>
-  <text x="50" y="1070" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#52657b">Snapshot: 03 Nov 2026  |  Assistant test artifacts: ./results/tests/  |  Output parent is configurable via CLI or macro.</text>
-  <text x="50" y="218" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#52657b">main + ActionInitialization connect the geometry, physics and per-thread user actions.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1160" viewBox="0 0 1920 1160" role="img" aria-labelledby="title desc">
+<title id="title">CUPID-CJPL — Framework Data Flow</title><desc id="desc">Geometry supplies LMO box placements to the Mo-100 generator. The gun or one correlated electron pair supplies primaries for transport. EventAction passes detector hits and ancestry to RecordManager, receives typed record vectors, and writes them through OutputManager. RunAction controls the output lifecycle; OutputMessenger binds run naming and directory commands. Solid arrows show data; dashed arrows show configuration or calls.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 Z" fill="#595959"/></marker></defs><rect width="1920" height="1160" fill="white"/>
+<text x="50" y="60" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#0E419C">CUPID-CJPL Simulation Framework</text>
+<text x="50" y="100" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#595959">Data flow | Four modules connected by Geant4 user actions</text>
+<text x="1390" y="100" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#595959">Solid: data    Dashed: calls / control</text>
+<rect x="50" y="130" width="1820" height="90" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="72" y="166" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">CONFIGURATION &amp; INITIALIZATION</text>
+<text x="75" y="199" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#172536">main + ActionInitialization: geometry / physics registration, master RunAction, worker actions and dependencies</text>
+<text x="50" y="247" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#595959">Macros → GeometryMessenger / GeneratorMessenger; /gun/ configures G4ParticleGun. Output commands → OutputMessenger; RunLog captures run context.</text>
+<rect x="50" y="280" width="420" height="195" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="72" y="316" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">01  GEOMETRY</text>
+<text x="72" y="353" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#172536">DetectorConstruction → GeometryManager</text>
+<text x="72" y="383" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Materials; World + selected components</text>
+<text x="72" y="413" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Cryostat · InnerShielding · LMOArray</text>
+<text x="72" y="443" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#172536">Register LMO volumes and World transforms</text>
+<polyline points="80,475 80,535" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="94" y="512" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#595959">Mo-100: center, rotation and box half lengths</text>
+<rect x="50" y="535" width="420" height="230" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="72" y="571" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">02  GENERATOR</text>
+<text x="72" y="608" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#172536">PrimaryGeneratorAction → GeneratorManager</text>
+<text x="72" y="638" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">gun → G4ParticleGun</text>
+<text x="72" y="668" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Mo100TwoNu / Mo100ZeroNu</text>
+<text x="72" y="698" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">DirectVolumeSampler → LMO vertex</text>
+<text x="72" y="728" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Two correlated electrons at one vertex</text>
+<rect x="520" y="280" width="370" height="100" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="542" y="316" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">PhysicsList</text>
+<text x="542" y="353" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">EM · decay · hadronic processes</text>
+<rect x="520" y="420" width="370" height="105" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="542" y="456" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">Geant4 transport</text>
+<text x="542" y="493" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Primary + secondary tracks / steps</text>
+<rect x="520" y="570" width="370" height="105" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="542" y="606" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">LMOSensitiveDetector</text>
+<text x="542" y="643" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#172536">DetectorHit collections: visits + Edep</text>
+<rect x="520" y="720" width="370" height="100" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="542" y="756" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">TrackingAction</text>
+<text x="542" y="793" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#172536">TrackAncestry: parent / birth volume</text>
+<rect x="940" y="280" width="420" height="145" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="962" y="316" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">EventAction</text>
+<text x="962" y="353" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#172536">Clear per-event state; collect hits / ancestry</text>
+<text x="962" y="383" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Build selected records at event end</text>
+<text x="962" y="413" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">Pass typed vectors to output.Write(...)</text>
+<rect x="940" y="530" width="420" height="250" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="962" y="566" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">03  RECORD</text>
+<text x="962" y="603" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">RecordManager → selected recorders</text>
+<text x="962" y="633" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">EventEnergyRecorder</text>
+<text x="962" y="663" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#172536">  Sum both electrons and secondaries per LMO</text>
+<text x="962" y="693" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">IncidentEnergyRecorder</text>
+<text x="962" y="723" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#172536">  Detector-local root + descendant Edep</text>
+<text x="962" y="753" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Return vectors; retain total Edep &gt; 0</text>
+<rect x="1410" y="280" width="460" height="145" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="1432" y="316" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">RunAction + OutputMessenger</text>
+<text x="1432" y="353" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">/cupid/output/fileName  |  directory</text>
+<text x="1432" y="383" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Reserve run paths; open / close output</text>
+<text x="1432" y="413" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Share resolved names across workers</text>
+<rect x="1410" y="530" width="460" height="250" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="1432" y="566" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">04  OUTPUT</text>
+<text x="1432" y="603" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">OutputManager → VOutput → RootOutput</text>
+<text x="1432" y="633" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Explicit typed Write() overloads</text>
+<text x="1432" y="663" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">G4AnalysisManager: book / fill ntuples</text>
+<text x="1432" y="693" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">One ROOT file per recorder</text>
+<text x="1432" y="723" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">One TTree per enabled LMO in each file</text>
+<text x="1432" y="753" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Native Geant4 multithread merging</text>
+<polyline points="470,377 495,377 495,455 520,455" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="470,625 500,625 500,492 520,492" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="705,380 705,420" fill="none" stroke="#595959" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<polyline points="620,525 620,570" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="810,525 905,525 905,700 810,700 810,720" fill="none" stroke="#595959" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<polyline points="890,622 917,622 917,337 940,337" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="890,770 927,770 927,392 940,392" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1015,425 1015,530" fill="none" stroke="#595959" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="1040" y="473" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#595959">Build(hits, ancestry)</text>
+<polyline points="1300,530 1300,425" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1170" y="503" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#595959">typed records</text>
+<polyline points="1360,350 1385,350 1385,608 1410,608" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1640,425 1640,530" fill="none" stroke="#595959" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="1653" y="481" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#595959">Book / Open / Close</text>
+<rect x="50" y="855" width="840" height="190" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="72" y="891" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">GENERATOR TOOLKIT</text>
+<text x="72" y="928" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">PointSampler · DirectVolumeSampler · DirectSurfaceSampler</text>
+<text x="72" y="958" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">RejectionVolumeSampler: registered volume + placement transform</text>
+<text x="72" y="988" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">NuclideEmitter: create a nuclide primary for a concrete generator</text>
+<text x="72" y="1018" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Mo-100 uses SampleBox() for position and samples electron momenta locally.</text>
+<rect x="940" y="855" width="930" height="205" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
+<text x="962" y="891" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">PER-RUN RESULTS  ·  ROOT SCHEMA 4</text>
+<text x="962" y="928" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">./results/runs/&lt;prefix&gt;/  (configurable parent; collisions: _1, _2, …)</text>
+<text x="962" y="958" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">&lt;prefix&gt;_EventEnergy.root     &lt;prefix&gt;_IncidentEnergy.root     run.log</text>
+<text x="962" y="988" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Event branches: RunID, EventID, Edep</text>
+<text x="962" y="1018" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Incident branches: RunID, EventID, TrackID, PDG, Edep</text>
+<text x="962" y="1048" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Edep in keV; detector name is the TTree name, not a branch.</text>
+<polyline points="1640,780 1640,855" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="50" y="1099" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#595959">C++ choices: EventAction::DefaultRecorders() selects recorders; ActionInitialization::CreateRunAction() selects the output backend.</text>
+<text x="50" y="1134" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#595959">Mo-100 ground-state models: allowed two-neutrino phase space and light-Majorana mass exchange. Q = 3034.40 keV.  |  Source 712898d  ·  12 Nov 2026</text>
 </svg>
