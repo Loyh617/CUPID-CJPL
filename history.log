@@ -381,3 +381,13 @@ Document EventEnergyRecorder as the recommended per-crystal calorimetric recorde
 2026-11-12 | Update the framework diagrams for Mo-100 generation
 - Show the unified Mo100DoubleBetaDecayGenerator, selectable modes, LMO placement parameters passed to DirectVolumeSampler, and the correlated electron pair at a common vertex. Preserve the gun, tracking, recorder and ROOT output paths.
 - Checked the source layout, parsed both SVGs, checked label widths and rendered both diagrams at their native sizes in results/tests/docs-figures-20261112.
+
+2026-11-16 | Clean up test artifacts and update retention policy
+- Removed eight test directories under results/tests and verified all files in mo100-20261111 were preserved by SHA-256. AGENTS.md now requires cleanup of assistant-generated artifacts after tests pass unless the user requests retention.
+
+2026-11-17 | Preserve requested analyses and distinguish assistant self-checks in AGENTS.md. Saved plot_spectra.py beside the Th-232 recorder plots. Reproduced both PNGs byte-for-byte from the retained ROOT files and removed the verification copies.
+
+2026-11-17 | Port the incident-energy ROOT analysis into analyse/ParticleTimeInformation.C, PileUp.C and Trigger.C with shared IncidentAnalysis.hh. Read processed parent counts from the matching run result; sample per-LMO Poisson times, reject neighbouring rows within 300 ms before applying a common 200 keV threshold and 100 keV Gaussian trigger noise. Each stage publishes a separate file; prior files are preserved. This is post-processing with ROOT TTree and TRandom3.
+Verified using ROOT 6.36.10 on the 100M Th-232 run with 3.0992 Bq: timed/pile-up/trigger rows 3556/3556/1970 (LMO0), 2163/2163/1103 (LMO1). Independently checked row identity, energy, time, selections, inclusive-window clusters, ties, strict noiseless threshold, duplicate-output rejection and original SHA-256. Removed temporary self-check files.
+
+2026-11-17 | Saved plot_stage_spectra.py and LMO0/LMO1_stage_spectra.png beside the Th-232 100M run. Compared raw incident energies, pile-up survivors and triggered survivors with shared 5 keV bins over 0-3000 keV. Verified all entries included, original and pile-up counts equal in every bin, selected counts bounded by inputs and both PNGs readable.
