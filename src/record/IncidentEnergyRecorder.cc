@@ -24,7 +24,7 @@ std::vector<IncidentEnergyRecord> IncidentEnergyRecorder::Build(
     std::unordered_map<G4int, G4int> roots;
     std::map<G4int, G4double> totals;
 
-    for (const auto& [trackId, edep] : deposits) {
+    for (const auto& [trackId, deposit] : deposits) {
       auto current = trackId;
       G4int root = 0;
       std::vector<G4int> path;
@@ -52,13 +52,16 @@ std::vector<IncidentEnergyRecord> IncidentEnergyRecorder::Build(
       }
       // Cache the entire path, avoiding recursion and repeated traversal of long decay chains.
       for (const auto id : path) roots[id] = root;
-      totals[root] += edep;
+      totals[root] += deposit.edep;
     }
     // Apply the positive-energy policy after summing descendants. Zero-deposit
     // visits must remain available during ancestry reconstruction above.
+    // Kinematics follow the same detector-local root as the summed energy.
     for (const auto& [trackId, edep] : totals) {
       if (edep > 0.)
-        records.push_back({eventId, trackId, ancestry.Get(trackId).pdg, edep, name});
+        records.push_back({eventId, trackId, ancestry.Get(trackId).pdg, edep, name,
+                           deposits.at(trackId).position, deposits.at(trackId).direction,
+                           ancestry.Get(trackId).creatorProcess});
     }
   }
   return records;

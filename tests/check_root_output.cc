@@ -7,6 +7,7 @@
 #include "TDirectory.h"
 #include "TFile.h"
 #include "TLeaf.h"
+#include "TLeafC.h"
 #include "TNamed.h"
 #include "TKey.h"
 #include "TTree.h"
@@ -39,26 +40,43 @@ void CheckTree(TFile& file, const char* name, bool incident, const std::vector<R
   TTree* tree = nullptr;
   file.GetObject(name, tree);
   Require(tree && tree->GetEntries() == static_cast<Long64_t>(rows.size()), "Wrong tree/row count.");
-  Require(tree->GetListOfBranches()->GetEntries() == (incident ? 5 : 3), "Wrong branch count.");
+  Require(tree->GetListOfBranches()->GetEntries() == (incident ? 8 : 3), "Wrong branch count.");
   const std::vector<std::string> columns = incident
-      ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep"}
-      : std::vector<std::string>{"RunID", "EventID", "Edep"};
+      ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep/keV", "IncidentPosition/mm", "IncidentDirection", "CreatorProcess"}
+      : std::vector<std::string>{"RunID", "EventID", "Edep/keV"};
   for (std::size_t i = 0; i < columns.size(); ++i)
     Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Wrong branch order.");
   Require(!tree->GetBranch("DetectorName"), "Redundant detector branch.");
   if (incident) Require(std::string(tree->GetLeaf("PDG")->GetTypeName()) == "Int_t", "Wrong PDG type.");
-  Require(std::string(tree->GetLeaf("Edep")->GetTypeName()) == "Double_t", "Wrong energy type.");
+  Require(std::string(static_cast<TLeaf*>(tree->GetBranch("Edep/keV")->GetListOfLeaves()->At(0))->GetTypeName()) == "Double_t", "Wrong energy type.");
   Require(std::string(tree->GetLeaf("EventID")->GetTypeName()) == "Int_t", "Wrong ID type.");
+  std::vector<double>* position = nullptr;
+  std::vector<double>* direction = nullptr;
+  if (incident) {
+    tree->SetBranchAddress("IncidentPosition/mm", &position);
+    tree->SetBranchAddress("IncidentDirection", &direction);
+  }
   for (std::size_t i = 0; i < rows.size(); ++i) {
     Require(tree->GetEntry(i) > 0, "Cannot read row.");
+      if (incident) {
+        const auto* creator = dynamic_cast<TLeafC*>(tree->GetLeaf("CreatorProcess"));
+        Require(creator && std::string(creator->GetValueString()) == "Primary",
+                "CreatorProcess changed in ROOT output");
+      }
+      if (incident) Require(position && direction &&
+          *position == std::vector<double>({10., -20., 30.}) &&
+          *direction == std::vector<double>({0.6, 0., 0.8}), "Incident vectors changed in ROOT output");
     const auto& expected = rows[i];
     Require(tree->GetLeaf("RunID")->GetValue() == expected.runId &&
             tree->GetLeaf("EventID")->GetValue() == expected.eventId &&
             (!incident || (tree->GetLeaf("TrackID")->GetValue() == expected.trackId &&
                            tree->GetLeaf("PDG")->GetValue() == expected.pdg)) &&
-            std::abs(tree->GetLeaf("Edep")->GetValue() - expected.edep) <= 1.e-9,
+            std::abs(static_cast<TLeaf*>(tree->GetBranch("Edep/keV")->GetListOfLeaves()->At(0))->GetValue() - expected.edep) <= 1.e-9,
             "Round-trip value mismatch.");
   }
+  tree->ResetBranchAddresses();
+  delete position;
+  delete direction;
 }
 
 std::string FileName(const std::string& base, const char* type) {
@@ -100,7 +118,7 @@ void CheckIntegrated(const char* base, long long eventRows, long long incidentRo
         Require(tree->GetEntry(row) > 0, "Cannot read merged row.");
         const int run = tree->GetLeaf("RunID")->GetValue();
         const int event = tree->GetLeaf("EventID")->GetValue();
-        const double energy = tree->GetLeaf("Edep")->GetValue();
+        const double energy = static_cast<TLeaf*>(tree->GetBranch("Edep/keV")->GetListOfLeaves()->At(0))->GetValue();
         Require(run >= 0 && event >= 0 && std::isfinite(energy) && energy > 0., "Invalid merged fields.");
         const Key key{run, event, detector};
         if (!incident) Require(events.emplace(key, energy).second, "Duplicate event row.");
@@ -151,16 +169,16 @@ int main(int argc, char** argv) {
     Reject([&] { output.SetDetectorNames({"New0"}); }, "Late detector catalog change accepted.");
     Reject([&] { output.Write(7, std::vector<cupid::EventEnergyRecord>{{0, 1., "LMO0"}, {0, 1., "Unknown0"}}); }, "Unknown detector accepted.");
     output.Write(7, std::vector<cupid::EventEnergyRecord>{{3, 2.5 * MeV, "LMO0"}, {3, 0., "LMO1"}});
-    output.Write(7, std::vector<cupid::IncidentEnergyRecord>{{3, 9, 22, 1.5 * MeV, "LMO0"}, {3, 11, -11, 1. * MeV, "LMO0"},
-                                    {3, 12, 0, 0., "LMO1"}});
+    output.Write(7, std::vector<cupid::IncidentEnergyRecord>{{3, 9, 22, 1.5 * MeV, "LMO0", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"}, {3, 11, -11, 1. * MeV, "LMO0", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"},
+                                    {3, 12, 0, 0., "LMO1", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"}});
     output.Write(8, std::vector<cupid::EventEnergyRecord>{{3, 0.25 * keV, "LD0"}});
-    output.Write(8, std::vector<cupid::IncidentEnergyRecord>{{3, 1, 1000902320, 0.25 * keV, "LD0"}});
+    output.Write(8, std::vector<cupid::IncidentEnergyRecord>{{3, 1, 1000902320, 0.25 * keV, "LD0", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"}});
     Reject([&] { output.Write(0, std::vector<cupid::EventEnergyRecord>{{4, 1., "NTD0"}, {4, -1., "NTD0"}}); }, "Invalid batch accepted.");
     Reject([&] { output.Write(-1, std::vector<cupid::EventEnergyRecord>{}); }, "Invalid RunID accepted.");
     Reject([&] { output.Write(0, std::vector<cupid::EventEnergyRecord>{{-1, 1., "LMO0"}}); }, "Invalid EventID accepted.");
     Reject([&] { output.Write(0, std::vector<cupid::EventEnergyRecord>{{0, 1., ""}}); }, "Empty detector name accepted.");
     Reject([&] { output.Write(0, std::vector<cupid::EventEnergyRecord>{{0, std::numeric_limits<double>::infinity(), "LMO0"}}); }, "Infinite energy accepted.");
-    Reject([&] { output.Write(0, std::vector<cupid::IncidentEnergyRecord>{{0, 0, 22, 1., "LMO0"}}); }, "Invalid TrackID accepted.");
+    Reject([&] { output.Write(0, std::vector<cupid::IncidentEnergyRecord>{{0, 0, 22, 1., "LMO0", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"}}); }, "Invalid TrackID accepted.");
     output.CloseFile();
     Require(!output.IsOpen(), "File stayed open.");
     output.CloseFile();
@@ -190,7 +208,7 @@ int main(int argc, char** argv) {
       Reject([&] { output.BookEventEnergy(); }, "Late booking accepted.");
       Reject([&] { output.Write(0, std::vector<cupid::EventEnergyRecord>{}); }, "Unbooked write accepted.");
       for (int event = 0; event < 100005; ++event)
-        output.Write(3, std::vector<cupid::IncidentEnergyRecord>{{event, event + 1, event % 2 ? -11 : 1000902320, event * keV, "NTD0"}});
+        output.Write(3, std::vector<cupid::IncidentEnergyRecord>{{event, event + 1, event % 2 ? -11 : 1000902320, event * keV, "NTD0", {10. * mm, -20. * mm, 30. * mm}, {0.6, 0., 0.8}, "Primary"}});
       output.CloseFile();
       TFile file((dir / "large_IncidentEnergy.root").c_str(), "READ");
       std::vector<Row> rows;

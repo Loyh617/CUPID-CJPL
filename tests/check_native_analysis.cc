@@ -24,6 +24,7 @@
 
 #include "TFile.h"
 #include "TLeaf.h"
+#include "TLeafC.h"
 #include "TTree.h"
 
 #include <chrono>
@@ -68,7 +69,7 @@ class Event final : public G4UserEventAction {
     const auto name = "LMO" + std::to_string(id % 2);
     const auto energy = (id + 0.25) * keV;
     if (fEvents && run != 4) fRun->GetOutput().Write(run, std::vector<cupid::EventEnergyRecord>{{id, energy, name}});
-    if (fIncidents && run != 3) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, TestPDG(id), energy, name}});
+    if (fIncidents && run != 3) fRun->GetOutput().Write(run, std::vector<cupid::IncidentEnergyRecord>{{id, id + 1000, TestPDG(id), energy, name, {(id + 10.) * cm, -20. * mm, run * mm}, {0.6, 0., 0.8}, id % 2 ? "compt" : "Primary"}});
   }
  private:
   cupid::RunAction* fRun;
@@ -102,23 +103,40 @@ void Check(TFile& file, int run, int count, bool incident) {
     const int expected = std::string(name) == "LMO0" ? (count + 1) / 2 : std::string(name) == "LMO1" ? count / 2 : 0;
     Require(tree->GetEntries() == expected, "Native merge lost/duplicated/misrouted rows");
     const std::vector<std::string> columns = incident
-        ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep"}
-        : std::vector<std::string>{"RunID", "EventID", "Edep"};
+        ? std::vector<std::string>{"RunID", "EventID", "TrackID", "PDG", "Edep/keV", "IncidentPosition/mm", "IncidentDirection", "CreatorProcess"}
+        : std::vector<std::string>{"RunID", "EventID", "Edep/keV"};
     Require(tree->GetListOfBranches()->GetEntries() == static_cast<int>(columns.size()), "Wrong column count");
     for (std::size_t i = 0; i < columns.size(); ++i)
       Require(columns[i] == tree->GetListOfBranches()->At(i)->GetName(), "Merged column order changed");
+    std::vector<double>* position = nullptr;
+    std::vector<double>* direction = nullptr;
+    if (incident) {
+      tree->SetBranchAddress("IncidentPosition/mm", &position);
+      tree->SetBranchAddress("IncidentDirection", &direction);
+    }
     for (int row = 0; row < expected; ++row) {
       Require(tree->GetEntry(row) > 0, "Cannot read native row");
       const int id = tree->GetLeaf("EventID")->GetValue();
+      if (incident) {
+        const auto* creator = dynamic_cast<TLeafC*>(tree->GetLeaf("CreatorProcess"));
+        Require(creator && std::string(creator->GetValueString()) == (id % 2 ? "compt" : "Primary"),
+                "CreatorProcess changed in ROOT output");
+      }
+      if (incident) Require(position && direction &&
+          *position == std::vector<double>({(id + 10.) * 10., -20., double(run)}) &&
+          *direction == std::vector<double>({0.6, 0., 0.8}), "Incident vectors changed in ROOT output");
       Require(id >= 0 && id < count && ids.insert(id).second, "Event IDs not preserved");
       Require(tree->GetLeaf("RunID")->GetValue() == run, "Run IDs not preserved");
-      Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (id + 0.25)) < 1.e-10, "Column association or energy changed");
+      Require(std::abs(static_cast<TLeaf*>(tree->GetBranch("Edep/keV")->GetListOfLeaves()->At(0))->GetValue() - (id + 0.25)) < 1.e-10, "Column association or energy changed");
       Require(std::string(name) == "LMO" + std::to_string(id % 2), "Detector association changed");
       if (incident) {
         Require(tree->GetLeaf("TrackID")->GetValue() == id + 1000, "Track association changed");
         Require(tree->GetLeaf("PDG")->GetValue() == TestPDG(id), "PDG association changed");
       }
     }
+  tree->ResetBranchAddresses();
+  delete position;
+  delete direction;
   }
   Require(static_cast<int>(ids.size()) == count, "Incomplete merged event coverage");
 }

@@ -46,7 +46,8 @@ G4bool LMOSensitiveDetector::ProcessHits(G4Step* step, G4TouchableHistory*) {
   const auto lmoId = step->GetPreStepPoint()->GetTouchableHandle()->GetCopyNumber();
   if (lmoId < 0 || static_cast<std::size_t>(lmoId) >= fHits->entries())
     throw std::runtime_error("LMO copy number is outside the configured detector list.");
-  (*fHits)[lmoId]->AddEnergyDeposit(step->GetTrack()->GetTrackID(), step->GetTotalEnergyDeposit());
+  (*fHits)[lmoId]->AddEnergyDeposit(step->GetTrack()->GetTrackID(), step->GetTotalEnergyDeposit(),
+      step->GetPreStepPoint()->GetPosition(), step->GetPreStepPoint()->GetMomentumDirection());
   return true;
 }
 

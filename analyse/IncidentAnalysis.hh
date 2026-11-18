@@ -1,6 +1,7 @@
 // Shared ROOT I/O for the three offline LMO incident-energy macros.
 #pragma once
 
+#include "TBranch.h"
 #include "TFile.h"
 #include "TKey.h"
 #include "TLeaf.h"
@@ -24,7 +25,9 @@ inline void Require(bool ok, const std::string& message) {
 }
 
 inline TLeaf& Column(TTree& tree, const char* name, const char* type) {
-  auto* leaf = tree.GetLeaf(name);
+  auto* branch = tree.GetBranch(name);
+  auto* leaf = branch && branch->GetListOfLeaves()->GetEntries() == 1
+      ? dynamic_cast<TLeaf*>(branch->GetListOfLeaves()->At(0)) : nullptr;
   Require(leaf && std::string(leaf->GetTypeName()) == type &&
           !leaf->GetLeafCount() && leaf->GetLenStatic() == 1,
           std::string(tree.GetName()) + ": missing or incompatible column " + name);
@@ -71,7 +74,7 @@ void Process(const fs::path& input, const fs::path& requestedOutput,
       auto* tree = source.Get<TTree>(name.c_str());
       Require(tree, "Missing detector tree " + name);
       for (auto field : {"RunID", "EventID", "TrackID", "PDG"}) Column(*tree, field, "Int_t");
-      Column(*tree, "Edep", "Double_t");
+      Column(*tree, "Edep/keV", "Double_t");
       dest.cd();
       std::unique_ptr<TTree> result(tree->CloneTree(0));
       Require(bool(result), "Cannot copy tree structure for " + name);

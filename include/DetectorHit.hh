@@ -8,6 +8,7 @@
 #pragma once
 
 #include "G4THitsCollection.hh"
+#include "G4ThreeVector.hh"
 #include "G4VHit.hh"
 #include "globals.hh"
 
@@ -15,17 +16,24 @@
 
 namespace cupid {
 
+struct TrackDeposit {
+  G4double edep = 0.;
+  G4ThreeVector position;
+  G4ThreeVector direction;
+};
+
 // One detector's raw per-track deposits in a single event, in Geant4 units.
 class DetectorHit final : public G4VHit {
  public:
   explicit DetectorHit(const G4String& detectorName);
-  void AddEnergyDeposit(G4int trackId, G4double energyDeposit);
+  void AddEnergyDeposit(G4int trackId, G4double energyDeposit,
+                        const G4ThreeVector& position, const G4ThreeVector& direction);
   const G4String& GetDetectorName() const { return fDetectorName; }
-  const std::map<G4int, G4double>& GetTrackDeposits() const { return fTrackDeposits; }
+  const std::map<G4int, TrackDeposit>& GetTrackDeposits() const { return fTrackDeposits; }
 
  private:
   G4String fDetectorName;
-  std::map<G4int, G4double> fTrackDeposits;
+  std::map<G4int, TrackDeposit> fTrackDeposits;
 };
 
 using DetectorHitsCollection = G4THitsCollection<DetectorHit>;

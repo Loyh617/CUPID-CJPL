@@ -51,6 +51,9 @@ class RootOutput final : public VOutput {
   std::vector<G4String> fDetectorNames;
   std::map<G4String, G4int> fEventNtuples;
   std::map<G4String, G4int> fIncidentNtuples;
+  // All incident ntuples use these buffers; each row is copied by AddNtupleRow.
+  std::vector<double> fIncidentPosition{0., 0., 0.};
+  std::vector<double> fIncidentDirection{0., 0., 0.};
   bool fEvents = false;
   bool fIncidents = false;
   bool fDetectorsSet = false;

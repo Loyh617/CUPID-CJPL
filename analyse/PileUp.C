@@ -14,7 +14,7 @@ void PileUp(const char* inputName, double windowMs = 300., const char* outputNam
   settings << std::setprecision(17) << "window_ms=" << windowMs;
   Process(inputName, outputName, "_pileup", "timed", "pileup", settings.str(),
           [&](TTree& tree, TTree& result) {
-    auto& time = Column(tree, "ArrivalTime_ms", "Double_t");
+    auto& time = Column(tree, "ArriveTime/ms", "Double_t");
     const auto n = tree.GetEntries();
     if (!n) return;
     // Read one time ahead; keep the current row only if both neighbours are distant.

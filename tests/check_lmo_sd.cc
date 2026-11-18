@@ -18,6 +18,7 @@
 #include "G4SDManager.hh"
 #include "G4Step.hh"
 #include "G4Track.hh"
+#include "G4VProcess.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4UImanager.hh"
 #include "G4UserEventAction.hh"
@@ -96,6 +97,8 @@ class TestEvent final : public G4UserEventAction {
           "record vectors reset at the start of the event");
     fReference.clear();
     fReferencePDG.clear();
+    fCreatorProcesses.clear();
+    fFirstStates.clear();
     const auto& geometry = fDetector.GetGeometryManager();
     const auto& lmos = geometry.GetLMOLogicalVolumes();
     Check(lmos.size() == static_cast<std::size_t>(fCount), "crystal registry size");
@@ -120,13 +123,18 @@ class TestEvent final : public G4UserEventAction {
   void AddReference(const G4Step* step) {
     const auto* track = step->GetTrack();
     fReferencePDG.emplace(track->GetTrackID(), track->GetDefinition()->GetPDGEncoding());
+    const auto* creator = track->GetCreatorProcess();
+    fCreatorProcesses.emplace(track->GetTrackID(), creator ? creator->GetProcessName() : "Primary");
     const auto energy = step->GetTotalEnergyDeposit();
-    if (energy == 0.) return;
+
     auto* physical = step->GetPreStepPoint()->GetPhysicalVolume();
     const auto& lmos = fDetector.GetGeometryManager().GetLMOLogicalVolumes();
     // Identify the crystal by its registered logical-volume index, independently of copy number.
     const auto found = std::find(lmos.begin(), lmos.end(), physical->GetLogicalVolume());
     if (found != lmos.end()) {
+      fFirstStates.emplace(std::make_pair(physical->GetName(), track->GetTrackID()),
+          std::make_pair(step->GetPreStepPoint()->GetPosition(),
+                         step->GetPreStepPoint()->GetMomentumDirection()));
       fReference[static_cast<int>(std::distance(lmos.begin(), found))] += energy;
       if (step->GetTrack()->GetParentID() > 0) ++secondaryDeposits;
     }
@@ -156,17 +164,21 @@ class TestEvent final : public G4UserEventAction {
 
     std::map<G4String, G4double> incidentTotals;
     for (const auto& row : incidentRows) {
-      Check(row.eventId == event->GetEventID() && row.trackId > 0 && row.edep > 0., "incident fields");
-      Check(fEventAction.GetTrackAncestry().Contains(row.trackId), "root exists in event ancestry");
-      Check(fReferencePDG.count(row.trackId) && fReferencePDG.at(row.trackId) == row.pdg,
+      Check(row.EventID == event->GetEventID() && row.TrackID > 0 && row.Edep > 0., "incident fields");
+      Check(fEventAction.GetTrackAncestry().Contains(row.TrackID), "root exists in event ancestry");
+      Check(fReferencePDG.count(row.TrackID) && fReferencePDG.at(row.TrackID) == row.PDG,
             "incident PDG matches independently observed root track");
-      incidentTotals[row.detectorName] += row.edep;
+      const auto& state = fFirstStates.at({row.DetectorName, row.TrackID});
+      Check(row.IncidentPosition == state.first && row.IncidentDirection == state.second,
+            "incident vectors equal first pre-step state of root in this detector");
+      Check(row.CreatorProcess == fCreatorProcesses.at(row.TrackID), "incident root creation process");
+      incidentTotals[row.DetectorName] += row.Edep;
     }
     G4double total = 0.;
     for (int lmoId = 0; lmoId < fCount; ++lmoId) {
       const G4String name = "LMO" + std::to_string(lmoId);
       const auto found = std::find_if(eventRows.begin(), eventRows.end(), [&](const auto& row) {
-        return row.detectorName == name;
+        return row.DetectorName == name;
       });
       const auto reference = fReference.count(lmoId) ? fReference.at(lmoId) : 0.;
       Check(std::abs(incidentTotals[name] - reference) < 1.e-9 * MeV,
@@ -177,9 +189,9 @@ class TestEvent final : public G4UserEventAction {
       }
       Check(found != eventRows.end(), "positive-energy detector is recorded");
       if (found == eventRows.end()) continue;
-      Check(found->eventId == event->GetEventID() && found->edep > 0., "positive event fields");
-      Check(std::abs(found->edep - reference) < 1.e-9 * MeV, "event record matches independent steps");
-      total += found->edep;
+      Check(found->EventID == event->GetEventID() && found->Edep > 0., "positive event fields");
+      Check(std::abs(found->Edep - reference) < 1.e-9 * MeV, "event record matches independent steps");
+      total += found->Edep;
     }
     const auto mode = event->GetEventID() % 6;
     if (mode == 3) {
@@ -190,13 +202,13 @@ class TestEvent final : public G4UserEventAction {
       Check(total > 0. && total <= primaries * MeV + 1.e-8 * MeV, "no duplicated event energy");
       for (int primary = 1; primary <= primaries; ++primary) {
         Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
-          return row.trackId == primary && row.edep > 0. && row.pdg == 11;
+          return row.TrackID == primary && row.Edep > 0. && row.PDG == 11;
         }), "each in-detector primary has a separate positive root");
       }
     } else if (mode == 5) {
       for (int lmoId = 0; lmoId < fCount; ++lmoId) {
         Check(std::any_of(incidentRows.begin(), incidentRows.end(), [&](const auto& row) {
-          return row.trackId == 1 && row.detectorName == "LMO" + std::to_string(lmoId) && row.edep > 0. && row.pdg == 13;
+          return row.TrackID == 1 && row.DetectorName == "LMO" + std::to_string(lmoId) && row.Edep > 0. && row.PDG == 13;
         }), "same external primary records separate deposits in each traversed LMO");
       }
     }
@@ -207,6 +219,8 @@ class TestEvent final : public G4UserEventAction {
   int fCount;
   std::map<int, G4double> fReference;
   std::map<int, G4int> fReferencePDG;
+  std::map<int, G4String> fCreatorProcesses;
+  std::map<std::pair<G4String, int>, std::pair<G4ThreeVector, G4ThreeVector>> fFirstStates;
   cupid::EventAction fEventAction{{"EventEnergyRecorder", "IncidentEnergyRecorder"}};
 };
 

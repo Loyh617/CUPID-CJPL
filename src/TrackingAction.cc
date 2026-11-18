@@ -11,6 +11,7 @@
 #include "G4ParticleDefinition.hh"
 #include "G4Track.hh"
 #include "G4VPhysicalVolume.hh"
+#include "G4VProcess.hh"
 
 #include <stdexcept>
 
@@ -25,8 +26,11 @@ void TrackingAction::PreUserTrackingAction(const G4Track* track) {
   if (fAncestry.Contains(track->GetTrackID())) return;
   const auto* volume = track->GetVolume();
   if (!volume) throw std::runtime_error("Cannot register a track without its initial volume.");
+  // Geant4 gives generator-created primary tracks a null creator-process pointer.
+  const auto* creator = track->GetCreatorProcess();
+  const G4String creatorName = creator ? creator->GetProcessName() : "Primary";
   fAncestry.RegisterTrack(track->GetTrackID(), track->GetParentID(), volume->GetName(),
-                          track->GetDefinition()->GetPDGEncoding());
+                          track->GetDefinition()->GetPDGEncoding(), creatorName);
 }
 
 void TrackingAction::PostUserTrackingAction(const G4Track*) {

@@ -17,9 +17,9 @@ namespace cupid {
 
 // Energies are unweighted and remain in Geant4 internal units.
 struct EventEnergyRecord {
-  G4int eventId;
-  G4double edep;
-  G4String detectorName;
+  G4int EventID;
+  G4double Edep;
+  G4String DetectorName;
 };
 
 class EventEnergyRecorder {

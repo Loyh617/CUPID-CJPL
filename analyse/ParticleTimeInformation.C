@@ -1,7 +1,7 @@
 /// Assign independent Poisson arrival times per LMO to positive incident-energy rows.
 /// From the repository root: root -l -b -q 'analyse/ParticleTimeInformation.C("run_IncidentEnergy.root",3.0992)'
 /// activityBq is the source parent activity; logName defaults to run.log beside the input.
-/// ArrivalTime_ms starts at zero separately in each detector. Shuffling discards event
+/// ArriveTime/ms starts at zero separately in each detector. Shuffling discards event
 /// and cross-detector timing correlations. This is an accidental-coincidence model.
 #include "IncidentAnalysis.hh"
 
@@ -57,13 +57,13 @@ void ParticleTimeInformation(const char* inputName, double activityBq,
   std::mt19937 shuffle(shuffleSeed);
   TRandom3 clock(timeSeed);
   std::ostringstream settings;
-  settings << std::setprecision(17) << "activity_Bq=" << activityBq << " processed_events=" << parents
+  settings << std::setprecision(17) << "time_unit=ms activity_Bq=" << activityBq << " processed_events=" << parents
            << " shuffle_seed=" << shuffleSeed << " time_seed=" << timeSeed << " log=" << log.string();
   Process(input, outputName, "_timed", "", "timed", settings.str(),
           [&](TTree& tree, TTree& result) {
-    Require(!tree.GetBranch("ArrivalTime_ms"), "Input already contains arrival times");
+    Require(!tree.GetBranch("ArriveTime/ms"), "Input already contains arrival times");
     double timeMs = 0.;
-    auto* branch = result.Branch("ArrivalTime_ms", &timeMs, "ArrivalTime_ms/D");
+    auto* branch = result.Branch("ArriveTime/ms", &timeMs, "ArriveTime/D");
     Require(branch, "Cannot add arrival time");
     const auto n = tree.GetEntries();
     if (n > 0) {

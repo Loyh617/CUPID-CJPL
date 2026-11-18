@@ -16,11 +16,18 @@ DetectorHit::DetectorHit(const G4String& detectorName) : fDetectorName(detectorN
   if (detectorName.empty()) throw std::invalid_argument("A detector hit needs a volume name.");
 }
 
-void DetectorHit::AddEnergyDeposit(G4int trackId, G4double energyDeposit) {
+void DetectorHit::AddEnergyDeposit(G4int trackId, G4double energyDeposit,
+                                   const G4ThreeVector& position, const G4ThreeVector& direction) {
   if (trackId <= 0 || !std::isfinite(energyDeposit) || energyDeposit < 0.)
     throw std::invalid_argument("Invalid track ID or energy deposit.");
   // Zero-deposit visits retain the identity of an incident particle or intermediate ancestor.
-  fTrackDeposits[trackId] += energyDeposit;
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(position[axis]) || !std::isfinite(direction[axis]))
+      throw std::invalid_argument("Invalid incident position or direction.");
+  }
+  // The first pre-step state survives zero-energy visits and later re-entry.
+  auto it = fTrackDeposits.try_emplace(trackId, TrackDeposit{0., position, direction}).first;
+  it->second.edep += energyDeposit;
 }
 
 }  // namespace cupid

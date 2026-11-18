@@ -13,6 +13,7 @@
 #include "G4SystemOfUnits.hh"
 #include "G4Threading.hh"
 
+#include "TBranch.h"
 #include "TDirectory.h"
 #include "TFile.h"
 #include "TKey.h"
@@ -89,23 +90,30 @@ void RootOutput::SetDetectorNames(const std::vector<G4String>& names) {
 
 // Column IDs below must match the corresponding Fill* function and readback tests.
 G4int RootOutput::BookEventNtuple(const G4String& detectorName) {
-  const auto id = fAnalysis->CreateNtuple(detectorName, "EventEnergy; Edep in keV; CUPID schema 4");
+  const auto id = fAnalysis->CreateNtuple(detectorName, "EventEnergy; Edep in keV; CUPID schema 7");
   Require(id >= 0, "create event ntuple");
   Require(fAnalysis->CreateNtupleIColumn(id, "RunID") == 0, "book RunID");
   Require(fAnalysis->CreateNtupleIColumn(id, "EventID") == 1, "book EventID");
-  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == 2, "book Edep");
+  Require(fAnalysis->CreateNtupleDColumn(id, "Edep/keV") == 2, "book Edep");
   fAnalysis->FinishNtuple(id);
   return id;
 }
 
 G4int RootOutput::BookIncidentNtuple(const G4String& detectorName) {
-  const auto id = fAnalysis->CreateNtuple(detectorName, "IncidentEnergy; Edep in keV; CUPID schema 4");
+  const auto id = fAnalysis->CreateNtuple(detectorName,
+      "IncidentEnergy; Edep in keV; IncidentPosition in mm (world); "
+      "IncidentDirection dimensionless (world); CUPID schema 7");
   Require(id >= 0, "create incident ntuple");
   Require(fAnalysis->CreateNtupleIColumn(id, "RunID") == 0, "book RunID");
   Require(fAnalysis->CreateNtupleIColumn(id, "EventID") == 1, "book EventID");
   Require(fAnalysis->CreateNtupleIColumn(id, "TrackID") == 2, "book TrackID");
   Require(fAnalysis->CreateNtupleIColumn(id, "PDG") == 3, "book PDG");
-  Require(fAnalysis->CreateNtupleDColumn(id, "Edep") == 4, "book Edep");
+  Require(fAnalysis->CreateNtupleDColumn(id, "Edep/keV") == 4, "book Edep");
+  Require(fAnalysis->CreateNtupleDColumn(id, "IncidentPosition/mm", fIncidentPosition) == 5,
+          "book IncidentPosition");
+  Require(fAnalysis->CreateNtupleDColumn(id, "IncidentDirection", fIncidentDirection) == 6,
+          "book IncidentDirection");
+  Require(fAnalysis->CreateNtupleSColumn(id, "CreatorProcess") == 7, "book CreatorProcess");
   fAnalysis->FinishNtuple(id);
   return id;
 }
@@ -173,17 +181,22 @@ void RootOutput::RequireWritable(bool selected) const {
 
 void RootOutput::FillEventEnergy(G4int id, G4int runId, const EventEnergyRecord& record) {
   Require(fAnalysis->FillNtupleIColumn(id, 0, runId), "fill RunID");
-  Require(fAnalysis->FillNtupleIColumn(id, 1, record.eventId), "fill EventID");
-  Require(fAnalysis->FillNtupleDColumn(id, 2, record.edep / keV), "fill Edep");
+  Require(fAnalysis->FillNtupleIColumn(id, 1, record.EventID), "fill EventID");
+  Require(fAnalysis->FillNtupleDColumn(id, 2, record.Edep / keV), "fill Edep");
   Require(fAnalysis->AddNtupleRow(id), "append event row");
 }
 
 void RootOutput::FillIncidentEnergy(G4int id, G4int runId, const IncidentEnergyRecord& record) {
   Require(fAnalysis->FillNtupleIColumn(id, 0, runId), "fill RunID");
-  Require(fAnalysis->FillNtupleIColumn(id, 1, record.eventId), "fill EventID");
-  Require(fAnalysis->FillNtupleIColumn(id, 2, record.trackId), "fill TrackID");
-  Require(fAnalysis->FillNtupleIColumn(id, 3, record.pdg), "fill PDG");
-  Require(fAnalysis->FillNtupleDColumn(id, 4, record.edep / keV), "fill Edep");
+  Require(fAnalysis->FillNtupleIColumn(id, 1, record.EventID), "fill EventID");
+  Require(fAnalysis->FillNtupleIColumn(id, 2, record.TrackID), "fill TrackID");
+  Require(fAnalysis->FillNtupleIColumn(id, 3, record.PDG), "fill PDG");
+  Require(fAnalysis->FillNtupleDColumn(id, 4, record.Edep / keV), "fill Edep");
+  for (int axis = 0; axis < 3; ++axis) {
+    fIncidentPosition[axis] = record.IncidentPosition[axis] / mm;
+    fIncidentDirection[axis] = record.IncidentDirection[axis];
+  }
+  Require(fAnalysis->FillNtupleSColumn(id, 7, record.CreatorProcess), "fill CreatorProcess");
   Require(fAnalysis->AddNtupleRow(id), "append incident row");
 }
 
@@ -193,24 +206,33 @@ void RootOutput::Write(G4int runId, const std::vector<EventEnergyRecord>& record
   RequireWritable(fEvents);
   if (runId < 0) throw std::invalid_argument("RootOutput: negative RunID.");
   for (const auto& record : records) {
-    Validate(runId, record.eventId, record.edep, record.detectorName);
-    if (!fEventNtuples.count(record.detectorName))
-      throw std::invalid_argument("RootOutput: unregistered detector: " + record.detectorName);
+    Validate(runId, record.EventID, record.Edep, record.DetectorName);
+    if (!fEventNtuples.count(record.DetectorName))
+      throw std::invalid_argument("RootOutput: unregistered detector: " + record.DetectorName);
   }
   for (const auto& record : records)
-    FillEventEnergy(fEventNtuples.at(record.detectorName), runId, record);
+    FillEventEnergy(fEventNtuples.at(record.DetectorName), runId, record);
 }
 void RootOutput::Write(G4int runId, const std::vector<IncidentEnergyRecord>& records) {
   RequireWritable(fIncidents);
   if (runId < 0) throw std::invalid_argument("RootOutput: negative RunID.");
   for (const auto& record : records) {
-    Validate(runId, record.eventId, record.edep, record.detectorName);
-    if (record.trackId <= 0) throw std::invalid_argument("RootOutput: non-positive TrackID.");
-    if (!fIncidentNtuples.count(record.detectorName))
-      throw std::invalid_argument("RootOutput: unregistered detector: " + record.detectorName);
+    Validate(runId, record.EventID, record.Edep, record.DetectorName);
+    for (int axis = 0; axis < 3; ++axis) {
+      if (!std::isfinite(record.IncidentPosition[axis] / mm) ||
+          !std::isfinite(record.IncidentDirection[axis]))
+        throw std::invalid_argument("RootOutput: invalid incident vector.");
+    }
+    const auto norm = record.IncidentDirection.mag2();
+    if (norm != 0. && std::abs(norm - 1.) > 1.e-8)
+      throw std::invalid_argument("RootOutput: incident direction must be unit length or zero at rest.");
+    if (record.CreatorProcess.empty()) throw std::invalid_argument("RootOutput: empty CreatorProcess.");
+    if (record.TrackID <= 0) throw std::invalid_argument("RootOutput: non-positive TrackID.");
+    if (!fIncidentNtuples.count(record.DetectorName))
+      throw std::invalid_argument("RootOutput: unregistered detector: " + record.DetectorName);
   }
   for (const auto& record : records)
-    FillIncidentEnergy(fIncidentNtuples.at(record.detectorName), runId, record);
+    FillIncidentEnergy(fIncidentNtuples.at(record.DetectorName), runId, record);
 }
 
 void RootOutput::CloseFile() {
@@ -251,9 +273,15 @@ OutputSummary RootOutput::InspectFile(const std::string& fileName) {
     auto* tree = dynamic_cast<TTree*>(file->Get(key->GetName()));
     if (!tree) throw std::runtime_error("RootOutput: unreadable tree.");
     const std::string title = tree->GetTitle();
-    const std::string suffix = "; CUPID schema 4";
-    const bool split = title.size() >= suffix.size() &&
-                       title.compare(title.size() - suffix.size(), suffix.size(), suffix) == 0;
+    const std::string suffix4 = "; CUPID schema 4";
+    const std::string suffix5 = "; CUPID schema 5";
+    const std::string suffix6 = "; CUPID schema 6";
+    const std::string suffix7 = "; CUPID schema 7";
+    const bool split = title.size() >= suffix4.size() &&
+        (title.compare(title.size() - suffix4.size(), suffix4.size(), suffix4) == 0 ||
+         title.compare(title.size() - suffix5.size(), suffix5.size(), suffix5) == 0 ||
+         title.compare(title.size() - suffix6.size(), suffix6.size(), suffix6) == 0 ||
+         title.compare(title.size() - suffix7.size(), suffix7.size(), suffix7) == 0);
     const std::string type = split ? title.substr(0, title.find(';')) : tree->GetName();
     if (!ValidDetectorName(type) || !ValidDetectorName(tree->GetName()))
       throw std::runtime_error("RootOutput: invalid dataset or detector name.");
@@ -267,7 +295,15 @@ OutputSummary RootOutput::InspectFile(const std::string& fileName) {
       std::vector<std::pair<std::string, std::string>> columns;
       TIter branches(tree->GetListOfBranches());
       while (auto* branch = branches()) {
-        const auto* leaf = tree->GetLeaf(branch->GetName());
+        const std::string className = static_cast<TBranch*>(branch)->GetClassName();
+        if (className == "vector<double>" || className == "std::vector<double>") {
+          columns.emplace_back(branch->GetName(), "vector<double>");
+          continue;
+        }
+        // Look up the leaf within the branch; '/' in a branch name is a literal unit separator.
+        auto* leaves = static_cast<TBranch*>(branch)->GetListOfLeaves();
+        const auto* leaf = leaves && leaves->GetEntries() == 1
+            ? dynamic_cast<TLeaf*>(leaves->At(0)) : nullptr;
         if (!leaf) throw std::runtime_error("RootOutput: unsupported column representation.");
         const std::string leafType = leaf->GetTypeName();
         if (leafType != "Int_t" && leafType != "Float_t" && leafType != "Double_t" && leafType != "Char_t")

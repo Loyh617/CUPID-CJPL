@@ -391,3 +391,30 @@ Document EventEnergyRecorder as the recommended per-crystal calorimetric recorde
 Verified using ROOT 6.36.10 on the 100M Th-232 run with 3.0992 Bq: timed/pile-up/trigger rows 3556/3556/1970 (LMO0), 2163/2163/1103 (LMO1). Independently checked row identity, energy, time, selections, inclusive-window clusters, ties, strict noiseless threshold, duplicate-output rejection and original SHA-256. Removed temporary self-check files.
 
 2026-11-17 | Saved plot_stage_spectra.py and LMO0/LMO1_stage_spectra.png beside the Th-232 100M run. Compared raw incident energies, pile-up survivors and triggered survivors with shared 5 keV bins over 0-3000 keV. Verified all entries included, original and pile-up counts equal in every bin, selected counts bounded by inputs and both PNGs readable.
+
+2026-11-18 | Record detector-local incident state and standardize record/time names.
+- DetectorHit captures each track's first pre-step World position and momentum direction, including zero-energy visits. IncidentEnergyRecorder copies the detector-local root state after ancestry aggregation; re-entry retains the first state and internal roots use their initial transport state.
+- Capitalized EventEnergyRecord and IncidentEnergyRecord members. ROOT schema 5 adds IncidentPosition and IncidentDirection as three-double [x,y,z] vector branches, with positions converted to mm and directions dimensionless. Reused Geant4 11.4.1 G4StepPoint::GetPosition/GetMomentumDirection and G4VAnalysisManager::CreateNtupleDColumn(vector<double>&); native MT merging remains in use.
+- ParticleTimeInformation writes ArriveTime in ms. PileUp/Trigger read current and historical time names and write the canonical name. Updated readback, regression checks, README and the data-flow schema annotation.
+- Passed full build, energy-record checks (root/descendant state, zero-deposit root, re-entry, detector-local state), ROOT roundtrip, manager checks, all four native MT recorder selections, serial/MT real-transport checks, and full output integration checks.
+- A 100-event two-worker gamma run verified the first boundary point and direction, event/incident energy consistency, vector preservation through all offline stages, and ArriveTime conversion from retained schema-4 files. Historical 100M-event files passed readback. Temporary self-check scripts, ROOT files, macros and logs were removed after success. Source regression checks remain with the implementation.
+
+2026-11-18 | Qualify dimensional ROOT branch names with units.
+- EventEnergy and IncidentEnergy now write Edep/keV; IncidentEnergy writes IncidentPosition/mm. IncidentDirection and identity fields retain their dimensionless names. C++ identifiers remain EventID/Edep/IncidentPosition etc. Published raw output is schema 6, with legacy inspection support.
+- ParticleTimeInformation writes ArriveTime/ms. Shared analysis readers resolve historical names and publish unit-qualified branch names in every derived file. Scalar access uses the branch's leaf to handle the literal '/' separator; ROOT leaflist syntax remains valid.
+- Updated output readback checks, README analysis example and data-flow diagram. Checked Geant4 11.4.1 native ntuple column creation. Passed full build, ROOT roundtrip, native MT merging, manager dispatch, a 100-event two-worker simulation, all three offline stages with vector/value preservation, historical timed inputs and event/incident readback. Temporary self-check code and outputs removed after success.
+
+2026-11-18 | Define unit-qualified output labels in record structures.
+- EventEnergyRecord and IncidentEnergyRecord declare EdepBranchName; IncidentEnergyRecord also declares IncidentPositionBranchName. RootOutput uses these labels when booking branches. C++ value members keep legal identifiers.
+- Removed the analysis-stage branch rename table. Analysis filtering copies input branch names as supplied; historical-name readers only resolve existing columns. Updated README accordingly.
+- Full build and ROOT roundtrip passed. Existing Th-232 timed input passed PileUp/Trigger with all original branch names preserved and 1970/1103 final rows. Temporary self-check files removed after success.
+
+2026-11-18 | At the user's request, reverted only the immediately preceding record-label-definition change. Restored the record headers, RootOutput booking literals, analysis branch-renaming block and README wording to their prior state. Earlier incident-vector and unit-qualified branch changes are retained. Verified the targeted replacements and git diff --check.
+
+2026-11-18 | Removed historical branch-name compatibility from the offline analysis macros at the user's request. Deleted EnergyColumn/ArrivalColumn wrappers and the branch rename table. Call sites now read Edep/keV and ArriveTime/ms directly. Simplified the existing-time check and updated README. Verified all three macros load in ROOT 6.36.10, removed-symbol scan and git diff --check. No test artifacts generated.
+
+2026-11-18 | Added CreatorProcess to IncidentEnergyRecorder.
+- TrackingAction reads G4Track::GetCreatorProcess()->GetProcessName(); generator-created primary tracks use Primary. TrackAncestry carries the name, and each incident row receives the creation process of its detector-local root, consistent with TrackID and PDG.
+- RootOutput writes a native string column via G4AnalysisManager (schema 7). Updated schema inspection, recorder/output/MT checks, README and the data-flow figure. Consulted the installed Geant4 11.4.1 source interfaces.
+- Passed compilation, recorder ancestry, ROOT roundtrip, manager dispatch, native multithread merging, serial/MT sensitive-detector checks and output integration. A 100-event two-worker gamma run passed event/incident energy agreement; ParticleTimeInformation, PileUp and Trigger preserved CreatorProcess. PyROOT checks read the string via TLeafC::GetValueString.
+- Removed this task's temporary self-test scripts, logs and outputs after successful verification; retained user-requested simulation data.

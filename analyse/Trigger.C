@@ -20,8 +20,8 @@ void Trigger(const char* inputName, double thresholdKeV = 200., double sigmaKeV 
            << " sigma_keV=" << sigmaKeV << " seed=" << seed;
   Process(inputName, outputName, "_trigger", "pileup", "trigger", settings.str(),
           [&](TTree& tree, TTree& result) {
-    auto& energy = Column(tree, "Edep", "Double_t");
-    Column(tree, "ArrivalTime_ms", "Double_t");
+    auto& energy = Column(tree, "Edep/keV", "Double_t");
+    Column(tree, "ArriveTime/ms", "Double_t");
     for (Long64_t i = 0; i < tree.GetEntries(); ++i) {
       Read(tree, i);
       const double edep = energy.GetValue();

@@ -1,6 +1,6 @@
 """Read actual simulation ROOT files and compare event and incident energy totals.
 
-Pass both recorder files for schema 4; historical combined schema 1/2/3 files
+Pass both recorder files for schema 4/5/6/7; historical combined schema 1/2/3 files
 remain supported. Requires PyROOT from the ROOT installation (source thisroot.sh first).
 """
 import argparse
@@ -54,12 +54,12 @@ for path in args.files:
         tree_names.add(name)
         tree = file.Get(name)
         title = str(tree.GetTitle())
-        if 'CUPID schema 4' in title:
+        if 'CUPID schema 4' in title or 'CUPID schema 5' in title or 'CUPID schema 6' in title or 'CUPID schema 7' in title:
             kind = title.split(';')[0]
             assert kind in ('EventEnergy', 'IncidentEnergy'), 'Unknown record type'
-            assert title == f'{kind}; Edep in keV; CUPID schema 4', 'Unexpected units/schema'
+            version = 7 if 'CUPID schema 7' in title else 6 if 'CUPID schema 6' in title else 5 if 'CUPID schema 5' in title else 4
+            assert title.startswith(f'{kind}; Edep in keV;'), 'Unexpected energy unit'
             assert name in args.detectors, f'Unexpected detector tree: {name}'
-            version = 4
             detector = name
         else:
             kind = name
@@ -71,7 +71,11 @@ for path in args.files:
         columns = ['RunID', 'EventID']
         if kind == 'IncidentEnergy' and version >= 3:
             columns += ['TrackID', 'PDG']
-        columns += ['Edep']
+        columns += ['Edep/keV' if version >= 6 else 'Edep']
+        if version >= 5 and kind == 'IncidentEnergy':
+            columns += ['IncidentPosition/mm' if version >= 6 else 'IncidentPosition', 'IncidentDirection']
+        if version >= 7 and kind == 'IncidentEnergy':
+            columns += ['CreatorProcess']
         if version < 4:
             columns += ['DetectorName']
         if kind == 'IncidentEnergy' and version < 3:
@@ -86,7 +90,7 @@ for path in args.files:
     if not tables:
         assert schema and args.allow_empty_files, f'No data trees: {path}'
     assert len(versions) <= 1, 'Mixed schemas in one file'
-    if 4 in versions:
+    if versions.intersection({4, 5, 6, 7}):
         assert len(file_types) == 1, 'Different recorders in the same schema-4 file'
         assert tree_names == set(args.detectors), 'Incomplete detector catalog'
     elif tables:
@@ -98,7 +102,7 @@ for path in args.files:
         counts['event_rows' if kind == 'EventEnergy' else 'incident_rows'] += int(tree.GetEntries())
         for row in tree:
             key = (int(row.RunID), int(row.EventID), detector if detector is not None else detector_name(row))
-            energy = float(row.Edep)
+            energy = float(tree.GetBranch('Edep/keV' if version >= 6 else 'Edep').GetListOfLeaves().At(0).GetValue())
             assert math.isfinite(energy) and energy >= 0., f'Invalid energy: {key}'
             if kind == 'EventEnergy':
                 assert key not in events, f'Duplicate event/detector row: {key}'
@@ -112,6 +116,14 @@ for path in args.files:
                     assert energy > 0., f'Zero-energy incident row: {root_key}'
                     pdg = int(row.PDG)
                     assert -(2**31) <= pdg < 2**31, f'Invalid PDG field: {root_key}'
+                if version >= 5:
+                    position, direction = list(getattr(row, 'IncidentPosition/mm' if version >= 6 else 'IncidentPosition')), list(row.IncidentDirection)
+                    assert len(position) == len(direction) == 3, 'Wrong vector length'
+                    assert all(math.isfinite(x) for x in position + direction), 'Invalid vector'
+                    norm = sum(x*x for x in direction)
+                    assert norm == 0 or abs(norm - 1) < 1.e-8, 'Invalid direction'
+                if version >= 7:
+                    assert tree.GetLeaf('CreatorProcess').GetValueString(), 'Empty creator process'
                 incident_keys.add(root_key)
                 incident_totals[key] += energy
                 incident_rows += 1

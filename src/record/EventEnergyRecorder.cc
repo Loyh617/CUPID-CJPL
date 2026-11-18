@@ -15,7 +15,7 @@ std::vector<EventEnergyRecord> EventEnergyRecorder::Build(
   records.reserve(hits.entries());
   for (const auto* hit : *hits.GetVector()) {
     G4double total = 0.;
-    for (const auto& deposit : hit->GetTrackDeposits()) total += deposit.second;
+    for (const auto& deposit : hit->GetTrackDeposits()) total += deposit.second.edep;
     if (total > 0.) records.push_back({eventId, total, hit->GetDetectorName()});
   }
   return records;

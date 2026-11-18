@@ -159,7 +159,7 @@ These commands configure output only; configure the source separately. The defau
 
 ## 7. Output Format and Minimal Analysis
 
-Each run creates a subdirectory named after its shared ROOT prefix (without `.root` or the recorder suffix). All recorder files and that run's `run.log` are placed inside it; no loose ROOT/log files are written to the parent. The current format remains **schema 4**:
+Each run creates a subdirectory named after its shared ROOT prefix (without `.root` or the recorder suffix). All recorder files and that run's `run.log` are placed inside it; no loose ROOT/log files are written to the parent. The current format remains **schema 7**:
 
 ```text
 results/runs/
@@ -175,8 +175,8 @@ results/runs/
 
 | File | Meaning of one row in a detector tree | Columns, in order |
 | --- | --- | --- |
-| `<prefix>_EventEnergy.root` | Total energy deposited in that detector within one event | `RunID, EventID, Edep` |
-| `<prefix>_IncidentEnergy.root` | Total deposited energy attributed to one incident root and its associated descendants in that detector/event | `RunID, EventID, TrackID, PDG, Edep` |
+| `<prefix>_EventEnergy.root` | Total energy deposited in that detector within one event | `RunID, EventID, Edep/keV` |
+| `<prefix>_IncidentEnergy.root` | Total deposited energy attributed to one incident root and its associated descendants in that detector/event | `RunID, EventID, TrackID, PDG, Edep/keV, IncidentPosition/mm, IncidentDirection, CreatorProcess` |
 
 The **tree name identifies the detector**; there is no `DetectorName` branch. Internal recorder data retain `detectorName` for routing. Detector names come from the constructed scoring geometry, must be unique identifiers (`[A-Za-z_][A-Za-z0-9_]*`), and are booked consistently on master and workers before a run. The current geometry registers LMOs; future detector components must also supply their scoring names. A detector without deposits has an empty tree in a retained recorder file. A recorder file with no rows in any detector is removed; a wholly empty run leaves only the log. Unknown detector names in records are errors, not silently created trees.
 
@@ -186,14 +186,36 @@ Table selections and detector catalogs must match on all threads, including work
 
 Both recorders are enabled by default. Selecting only one recorder creates only its file. Geant4's `SetNtupleFileName` routes trees into the corresponding file, and native ntuple merging combines workers. Rows are not guaranteed to follow EventID order. A custom prefix remains active until changed. For automatic and custom names, a collision adds `_1`, `_2`, etc. before the recorder suffix (for example, `run20261102_153000_1_EventEnergy.root`). The master reserves the run subdirectory with one filesystem directory-creation operation, so every file from one run shares the same suffix. Existing directories (including empty ones) and same-name files are skipped. Empty runs retain their directory and log. Changing the parent allows the same prefix in a different location. The RunID branch continues to identify the Geant4 run independently of its filename.
 
-`Edep` is unweighted deposited energy in keV, not incident energy. TrackID and PDG identify the detector-local incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. Row counts are not simulated event counts: use `processed_events` from the log as the normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
+CreatorProcess stores the creation process of the detector-local incident root, with Primary for generator-created tracks.
+
+Incident vectors contain three doubles in [x, y, z] order in the World frame.
+IncidentPosition/mm is in mm; IncidentDirection is dimensionless. They describe the
+root track's first pre-step state in this detector, retained even if its initial
+deposit is zero or it later re-enters. For roots born inside the detector, this
+is their initial transport state. A zero direction is allowed for a particle at rest.
+
+The standalone analyse/ ROOT macros process IncidentEnergy files in this order:
+ParticleTimeInformation -> PileUp -> Trigger. Each creates a separate file;
+existing destinations cause an error. ArriveTime/ms is an independently sampled
+per-LMO arrival time in ms. The macros read the current Edep/keV and ArriveTime/ms
+branch names directly. Vector columns pass through all three stages unchanged.
+
+`Edep/keV` is unweighted deposited energy in keV, not incident energy. TrackID and PDG identify the detector-local incident root. Re-entry of the same track into the same crystal is grouped together; descendants entering another crystal are attributed separately for that crystal. Only aggregated `Edep > 0` rows are saved. Row counts are not simulated event counts: use `processed_events` from the log as the normalization denominator. Activity, exposure, and detector-response normalization are not implemented.
 
 From the repository root, run `root -l results/quickstart/run*/run*_EventEnergy.root` (after one quick-start run; if several exist, use the explicit path printed as `CUPID_RUN_DIRECTORY`), then enter at the ROOT prompt:
 
 ```cpp
 auto* events = _file0->Get<TTree>("LMO0");
 events->Print();
-events->Draw("Edep>>hLMO0(200,0,1100)");
+TH1D hLMO0("hLMO0", "LMO0;Deposited energy (keV);Entries", 200, 0, 1100);
+double energy;
+events->SetBranchAddress("Edep/keV", &energy);
+for (Long64_t i = 0; i < events->GetEntries(); ++i) {
+  events->GetEntry(i);
+  hLMO0.Fill(energy);
+}
+events->ResetBranchAddresses();
+hLMO0.Draw();
 gPad->SaveAs("results/quickstart/LMO0-spectrum.png");
 ```
 

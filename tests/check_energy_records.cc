@@ -37,18 +37,18 @@ int main() {
     physics->RegisterPhysics(new G4DecayPhysics(0));
     run.SetUserInitialization(physics);
     cupid::TrackAncestry ancestry;
-    ancestry.RegisterTrack(1, 0, "World", 22);
-    ancestry.RegisterTrack(2, 1, "LMO0", 11);
-    ancestry.RegisterTrack(3, 2, "LMO0", 11);
-    ancestry.RegisterTrack(4, 0, "World", -13);
-    ancestry.RegisterTrack(5, 4, "LMO0", 11);
-    ancestry.RegisterTrack(6, 2, "LMO1", 11);
-    ancestry.RegisterTrack(7, 2, "World", 11);
-    ancestry.RegisterTrack(8, 0, "LMO0", 1000902320);
-    ancestry.RegisterTrack(9, 8, "LMO0", 11);
-    ancestry.RegisterTrack(10, 0, "World", 0);
-    ancestry.RegisterTrack(11, 2, "World", 11);
-    ancestry.RegisterTrack(12, 6, "LMO0", 11);
+    ancestry.RegisterTrack(1, 0, "World", 22, "Primary");
+    ancestry.RegisterTrack(2, 1, "LMO0", 11, "testSecondary");
+    ancestry.RegisterTrack(3, 2, "LMO0", 11, "testSecondary");
+    ancestry.RegisterTrack(4, 0, "World", -13, "Primary");
+    ancestry.RegisterTrack(5, 4, "LMO0", 11, "testSecondary");
+    ancestry.RegisterTrack(6, 2, "LMO1", 11, "testSecondary");
+    ancestry.RegisterTrack(7, 2, "World", 11, "testSecondary");
+    ancestry.RegisterTrack(8, 0, "LMO0", 1000902320, "Primary");
+    ancestry.RegisterTrack(9, 8, "LMO0", 11, "testSecondary");
+    ancestry.RegisterTrack(10, 0, "World", 0, "Primary");
+    ancestry.RegisterTrack(11, 2, "World", 11, "testSecondary");
+    ancestry.RegisterTrack(12, 6, "LMO0", 11, "testSecondary");
 
     cupid::DetectorHitsCollection hits("TestSD", "Edep");
     auto* lmo0 = new cupid::DetectorHit("LMO0");
@@ -56,14 +56,14 @@ int main() {
     for (const auto& [id, energy] : std::map<int, double>{
         {1, 0.}, {2, 10.}, {3, 20.}, {4, 5.}, {5, 15.}, {7, 3.},
         {8, 11.}, {9, 12.}, {10, 0.}, {11, 2.}, {12, 7.}})
-      lmo0->AddEnergyDeposit(id, energy);
-    lmo0->AddEnergyDeposit(11, 4.);  // Same track re-enters the same detector.
+      lmo0->AddEnergyDeposit(id, energy, {id == 3 ? 9. : 1., 2., 3.}, {0., 0., 1.});
+    lmo0->AddEnergyDeposit(11, 4., {9., 8., 7.}, {1., 0., 0.});  // Same track re-enters the same detector.
     auto* lmo1 = new cupid::DetectorHit("LMO1");
-    lmo1->AddEnergyDeposit(2, 4.);
-    lmo1->AddEnergyDeposit(6, 6.);
+    lmo1->AddEnergyDeposit(2, 4., {4., 5., 6.}, {1., 0., 0.});
+    lmo1->AddEnergyDeposit(6, 6., {1., 2., 3.}, {0., 0., 1.});
     hits.insert(lmo1);
     auto* ld = new cupid::DetectorHit("LD0");
-    ld->AddEnergyDeposit(2, 1.);
+    ld->AddEnergyDeposit(2, 1., {1., 2., 3.}, {0., 0., 1.});
     hits.insert(ld);
     hits.insert(new cupid::DetectorHit("NTD0"));
 
@@ -73,19 +73,24 @@ int main() {
     Require(eventRows.size() == 3, "omit zero-deposit detectors in event rows");
     std::map<G4String, double> totals;
     for (const auto& row : eventRows) {
-      Require(row.eventId == 42, "event field");
-      totals[row.detectorName] = row.edep;
+      Require(row.EventID == 42, "event field");
+      totals[row.DetectorName] = row.Edep;
     }
     Require(totals == std::map<G4String, double>{{"LMO0", 89.}, {"LMO1", 10.}, {"LD0", 1.}},
             "event totals and generic detector names");
     std::map<Key, double> actual;
     std::map<G4String, double> incidentTotals;
     for (const auto& row : incidentRecorder.Build(42, hits, ancestry)) {
-      Require(row.eventId == 42 && row.edep > 0., "positive incident event field");
-      const auto expectedPDG = row.trackId == 1 ? 22 : row.trackId == 4 ? -13 : row.trackId == 8 ? 1000902320 : 11;
-      Require(row.pdg == expectedPDG, "PDG belongs to incident root, not depositing descendant");
-      Require(actual.emplace(Key{row.detectorName, row.trackId}, row.edep).second, "unique root rows");
-      incidentTotals[row.detectorName] += row.edep;
+      Require(row.EventID == 42 && row.Edep > 0., "positive incident event field");
+      const auto expectedPDG = row.TrackID == 1 ? 22 : row.TrackID == 4 ? -13 : row.TrackID == 8 ? 1000902320 : 11;
+      const bool secondDetector = row.DetectorName == "LMO1";
+      Require(row.IncidentPosition == (secondDetector ? G4ThreeVector(4., 5., 6.) : G4ThreeVector(1., 2., 3.)) &&
+              row.IncidentDirection == (secondDetector ? G4ThreeVector(1., 0., 0.) : G4ThreeVector(0., 0., 1.)),
+              "first root state survives re-entry and descendant deposits");
+      Require(row.CreatorProcess == ancestry.Get(row.TrackID).creatorProcess, "creator process belongs to incident root");
+      Require(row.PDG == expectedPDG, "PDG belongs to incident root, not depositing descendant");
+      Require(actual.emplace(Key{row.DetectorName, row.TrackID}, row.Edep).second, "unique root rows");
+      incidentTotals[row.DetectorName] += row.Edep;
     }
     const std::map<Key, double> expected{
         {{"LMO0", 1}, 30.}, {{"LMO0", 4}, 20.}, {{"LMO0", 7}, 3.},
@@ -99,32 +104,32 @@ int main() {
     cupid::DetectorHitsCollection zeroHits("ZeroSD", "Edep");
     zeroHits.insert(new cupid::DetectorHit("LMO0"));
     auto* zeroVisit = new cupid::DetectorHit("LMO1");
-    zeroVisit->AddEnergyDeposit(1, 0.);
-    zeroVisit->AddEnergyDeposit(2, 0.);
+    zeroVisit->AddEnergyDeposit(1, 0., {1., 2., 3.}, {0., 0., 1.});
+    zeroVisit->AddEnergyDeposit(2, 0., {1., 2., 3.}, {0., 0., 1.});
     zeroHits.insert(zeroVisit);
     Require(eventRecorder.Build(43, zeroHits).empty(), "all-zero event produces no rows");
     Require(incidentRecorder.Build(43, zeroHits, ancestry).empty(), "all-zero roots produce no incident rows");
     const G4double tinyEnergy = 1.e-20;
-    zeroVisit->AddEnergyDeposit(2, tinyEnergy);
+    zeroVisit->AddEnergyDeposit(2, tinyEnergy, {1., 2., 3.}, {0., 0., 1.});
     const auto tinyRows = eventRecorder.Build(44, zeroHits);
-    Require(tinyRows.size() == 1 && tinyRows[0].detectorName == "LMO1" &&
-            tinyRows[0].eventId == 44 && tinyRows[0].edep == tinyEnergy,
+    Require(tinyRows.size() == 1 && tinyRows[0].DetectorName == "LMO1" &&
+            tinyRows[0].EventID == 44 && tinyRows[0].Edep == tinyEnergy,
             "retain arbitrarily small positive deposits without an energy threshold");
 
     const auto tinyIncidents = incidentRecorder.Build(44, zeroHits, ancestry);
-    Require(tinyIncidents.size() == 1 && tinyIncidents[0].trackId == 2 &&
-            tinyIncidents[0].pdg == 11 && tinyIncidents[0].edep == tinyEnergy,
+    Require(tinyIncidents.size() == 1 && tinyIncidents[0].TrackID == 2 &&
+            tinyIncidents[0].PDG == 11 && tinyIncidents[0].Edep == tinyEnergy,
             "retain positive incident totals without a threshold");
     cupid::DetectorHitsCollection splitHits("SplitSD", "Edep");
     auto* split0 = new cupid::DetectorHit("LMO0");
     auto* split1 = new cupid::DetectorHit("LMO1");
-    split0->AddEnergyDeposit(10, 0.);
-    split1->AddEnergyDeposit(10, 3.);
+    split0->AddEnergyDeposit(10, 0., {1., 2., 3.}, {0., 0., 1.});
+    split1->AddEnergyDeposit(10, 3., {1., 2., 3.}, {0., 0., 1.});
     splitHits.insert(split0);
     splitHits.insert(split1);
     const auto splitRows = incidentRecorder.Build(45, splitHits, ancestry);
-    Require(splitRows.size() == 1 && splitRows[0].detectorName == "LMO1" &&
-            splitRows[0].trackId == 10 && splitRows[0].pdg == 0 && splitRows[0].edep == 3.,
+    Require(splitRows.size() == 1 && splitRows[0].DetectorName == "LMO1" &&
+            splitRows[0].TrackID == 10 && splitRows[0].PDG == 0 && splitRows[0].Edep == 3.,
             "filter per detector, retaining exact zero PDG encoding");
 
     // Reverse IDs exercise a long first traversal rather than cached one-link paths.
@@ -133,32 +138,32 @@ int main() {
     auto* deep = new cupid::DetectorHit("LMO0");
     longHits.insert(deep);
     for (int id = 1; id <= 20000; ++id) {
-      longAncestry.RegisterTrack(id, id == 20000 ? 0 : id + 1, id == 20000 ? "World" : "LMO0", id == 20000 ? 1000902320 : 11);
-      deep->AddEnergyDeposit(id, id == 1 ? 5. : 0.);
+      longAncestry.RegisterTrack(id, id == 20000 ? 0 : id + 1, id == 20000 ? "World" : "LMO0", id == 20000 ? 1000902320 : 11, id == 20000 ? "Primary" : "testSecondary");
+      deep->AddEnergyDeposit(id, id == 1 ? 5. : 0., {1., 2., 3.}, {0., 0., 1.});
     }
     const auto longRows = incidentRecorder.Build(0, longHits, longAncestry);
-    Require(longRows.size() == 1 && longRows[0].trackId == 20000 && longRows[0].edep == 5. && longRows[0].pdg == 1000902320,
+    Require(longRows.size() == 1 && longRows[0].TrackID == 20000 && longRows[0].Edep == 5. && longRows[0].PDG == 1000902320,
             "long genealogy without recursion or ordering assumptions");
 
     cupid::TrackAncestry cycle;
-    cycle.RegisterTrack(1, 2, "LMO0", 11);
-    cycle.RegisterTrack(2, 1, "LMO0", 11);
+    cycle.RegisterTrack(1, 2, "LMO0", 11, "testSecondary");
+    cycle.RegisterTrack(2, 1, "LMO0", 11, "testSecondary");
     cupid::DetectorHitsCollection badHits("BadSD", "Edep");
     auto* bad = new cupid::DetectorHit("LMO0");
-    bad->AddEnergyDeposit(1, 1.);
-    bad->AddEnergyDeposit(2, 0.);
+    bad->AddEnergyDeposit(1, 1., {1., 2., 3.}, {0., 0., 1.});
+    bad->AddEnergyDeposit(2, 0., {1., 2., 3.}, {0., 0., 1.});
     badHits.insert(bad);
     Reject([&] { incidentRecorder.Build(0, badHits, cycle); }, "cycle rejected");
     cupid::TrackAncestry missing;
     Reject([&] { incidentRecorder.Build(0, badHits, missing); }, "missing track rejected");
-    missing.RegisterTrack(1, 99, "LMO0", 11);
+    missing.RegisterTrack(1, 99, "LMO0", 11, "testSecondary");
     Reject([&] { incidentRecorder.Build(0, badHits, missing); }, "missing parent rejected");
-    Reject([&] { ancestry.RegisterTrack(1, 0, "LMO1", 11); }, "conflicting ancestry rejected");
-    ancestry.RegisterTrack(1, 0, "World", 22);
-    Reject([&] { ancestry.RegisterTrack(1, 0, "World", 11); }, "conflicting PDG rejected");
-    Reject([&] { lmo0->AddEnergyDeposit(0, 1.); }, "invalid track rejected");
-    Reject([&] { lmo0->AddEnergyDeposit(1, -1.); }, "negative energy rejected");
-    Reject([&] { lmo0->AddEnergyDeposit(1, std::numeric_limits<double>::quiet_NaN()); }, "NaN rejected");
+    Reject([&] { ancestry.RegisterTrack(1, 0, "LMO1", 11, "Primary"); }, "conflicting ancestry rejected");
+    ancestry.RegisterTrack(1, 0, "World", 22, "Primary");
+    Reject([&] { ancestry.RegisterTrack(1, 0, "World", 11, "Primary"); }, "conflicting PDG rejected");
+    Reject([&] { lmo0->AddEnergyDeposit(0, 1., {1., 2., 3.}, {0., 0., 1.}); }, "invalid track rejected");
+    Reject([&] { lmo0->AddEnergyDeposit(1, -1., {1., 2., 3.}, {0., 0., 1.}); }, "negative energy rejected");
+    Reject([&] { lmo0->AddEnergyDeposit(1, std::numeric_limits<double>::quiet_NaN(), {1., 2., 3.}, {0., 0., 1.}); }, "NaN rejected");
 
     // Exercise the production EventAction, including holes in the collection ID table.
     cupid::EventAction action({"EventEnergyRecorder", "IncidentEnergyRecorder"});
@@ -166,12 +171,12 @@ int main() {
     auto* collections = new G4HCofThisEvent(3);
     auto* actionHits = new cupid::DetectorHitsCollection("LMOSD", "Edep");
     auto* actionHit = new cupid::DetectorHit("LMO0");
-    actionHit->AddEnergyDeposit(1, 2.);
+    actionHit->AddEnergyDeposit(1, 2., {1., 2., 3.}, {0., 0., 1.});
     actionHits->insert(actionHit);
     collections->AddHitsCollection(2, actionHits);
     event.SetHCofThisEvent(collections);
     action.BeginOfEventAction(&event);
-    action.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
+    action.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11, "Primary");
     action.EndOfEventAction(&event);
     Require(action.GetEventRecords().size() == 1 && action.GetIncidentRecords().size() == 1,
             "Action handles non-contiguous collection IDs");
@@ -181,12 +186,12 @@ int main() {
     action.EndOfEventAction(&empty);
     Require(action.GetEventRecords().empty() && action.GetIncidentRecords().empty() &&
             !action.GetTrackAncestry().Contains(1), "next event clears ancestry and records");
-    Require(copied[0].eventId == 7 && copied[0].edep == 2., "record values survive independent copying");
+    Require(copied[0].EventID == 7 && copied[0].Edep == 2., "record values survive independent copying");
     // The default EventAction enables both recorders and requires ancestry.
     cupid::EventAction defaultAction;
     Require(defaultAction.RequiresTrackAncestry(), "default selects both recorders");
     defaultAction.BeginOfEventAction(&event);
-    defaultAction.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
+    defaultAction.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11, "Primary");
     defaultAction.EndOfEventAction(&event);
     Require(defaultAction.GetEventRecords().size() == 1 && defaultAction.GetIncidentRecords().size() == 1,
             "default invokes both recorders");
@@ -198,12 +203,12 @@ int main() {
         cupid::EventAction selected(names);
         Require(selected.RequiresTrackAncestry() == incidentEnabled, "selected ancestry requirement");
         selected.BeginOfEventAction(&event);
-        if (incidentEnabled) selected.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11);
+        if (incidentEnabled) selected.GetTrackAncestry().RegisterTrack(1, 0, "LMO0", 11, "Primary");
         selected.EndOfEventAction(&event);
         Require(selected.GetEventRecords().size() == (eventEnabled ? 1u : 0u), "independent event selection");
         Require(selected.GetIncidentRecords().size() == (incidentEnabled ? 1u : 0u), "independent incident selection");
-        if (eventEnabled) Require(selected.GetEventRecords()[0].edep == 2., "selected event energy");
-        if (incidentEnabled) Require(selected.GetIncidentRecords()[0].edep == 2., "selected incident energy");
+        if (eventEnabled) Require(selected.GetEventRecords()[0].Edep == 2., "selected event energy");
+        if (incidentEnabled) Require(selected.GetIncidentRecords()[0].Edep == 2., "selected incident energy");
         selected.BeginOfEventAction(&empty);
         selected.EndOfEventAction(&empty);
         Require(selected.GetEventRecords().empty() && selected.GetIncidentRecords().empty(),

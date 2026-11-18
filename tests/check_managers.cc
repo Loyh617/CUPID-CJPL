@@ -44,7 +44,7 @@ void CheckTree(TFile& file, const char* treeName, bool incident) {
   Require(tree->GetEntry(0) > 0, "cannot read managed output row");
   Require(tree->GetLeaf("RunID")->GetValue() == 3 && tree->GetLeaf("EventID")->GetValue() == 7,
           "record IDs changed in manager dispatch");
-  Require(std::abs(tree->GetLeaf("Edep")->GetValue() - (lmo ? 2500. : 1.)) < 1.e-9, "managed energy changed");
+  Require(std::abs(static_cast<TLeaf*>(tree->GetBranch("Edep/keV")->GetListOfLeaves()->At(0))->GetValue() - (lmo ? 2500. : 1.)) < 1.e-9, "managed energy changed");
   if (incident) {
     Require(tree->GetLeaf("TrackID")->GetValue() == (lmo ? 1 : 2), "managed root changed");
     Require(tree->GetLeaf("PDG")->GetValue() == (lmo ? 22 : 11), "managed root PDG changed");
@@ -61,22 +61,22 @@ int main(int argc, char** argv) {
     physics->RegisterPhysics(new G4DecayPhysics(0));
     run.SetUserInitialization(physics);
     cupid::TrackAncestry ancestry;
-    ancestry.RegisterTrack(1, 0, "World", 22);
-    ancestry.RegisterTrack(2, 1, "LMO0", 11);
-    ancestry.RegisterTrack(3, 0, "World", 11);
+    ancestry.RegisterTrack(1, 0, "World", 22, "Primary");
+    ancestry.RegisterTrack(2, 1, "LMO0", 11, "testSecondary");
+    ancestry.RegisterTrack(3, 0, "World", 11, "Primary");
 
     G4HCofThisEvent collections(4);
-    auto* first = new cupid::DetectorHitsCollection("LMOSD", "Edep");
+    auto* first = new cupid::DetectorHitsCollection("LMOSD", "Edep/keV");
     auto* lmo = new cupid::DetectorHit("LMO0");
-    lmo->AddEnergyDeposit(1, 2. * MeV);
-    lmo->AddEnergyDeposit(2, 0.5 * MeV);
-    lmo->AddEnergyDeposit(3, 0.);
+    lmo->AddEnergyDeposit(1, 2. * MeV, {1., 2., 3.}, {0., 0., 1.});
+    lmo->AddEnergyDeposit(2, 0.5 * MeV, {1., 2., 3.}, {0., 0., 1.});
+    lmo->AddEnergyDeposit(3, 0., {1., 2., 3.}, {0., 0., 1.});
     first->insert(lmo);
     first->insert(new cupid::DetectorHit("LMO1"));
     collections.AddHitsCollection(1, first);
-    auto* second = new cupid::DetectorHitsCollection("LDSD", "Edep");
+    auto* second = new cupid::DetectorHitsCollection("LDSD", "Edep/keV");
     auto* ld = new cupid::DetectorHit("LD0");
-    ld->AddEnergyDeposit(2, 1. * keV);
+    ld->AddEnergyDeposit(2, 1. * keV, {1., 2., 3.}, {0., 0., 1.});
     second->insert(ld);
     collections.AddHitsCollection(3, second);
 
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
 
     G4HCofThisEvent duplicateCollections(3);
     for (int id : {0, 2}) {
-      auto* hits = new cupid::DetectorHitsCollection("DuplicateSD", "Edep");
+      auto* hits = new cupid::DetectorHitsCollection("DuplicateSD", "Edep/keV");
       hits->insert(new cupid::DetectorHit("LMO0"));
       duplicateCollections.AddHitsCollection(id, hits);
     }

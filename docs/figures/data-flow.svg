@@ -82,12 +82,12 @@
 <text x="72" y="988" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">NuclideEmitter: create a nuclide primary for a concrete generator</text>
 <text x="72" y="1018" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#172536">Mo-100 uses SampleBox() for position and samples electron momenta locally.</text>
 <rect x="940" y="855" width="930" height="205" rx="10" fill="#F2F5FA" stroke="#C5CFDF" stroke-width="1.5"/>
-<text x="962" y="891" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">PER-RUN RESULTS  ·  ROOT SCHEMA 4</text>
+<text x="962" y="891" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#0E419C">PER-RUN RESULTS  ·  ROOT SCHEMA 7</text>
 <text x="962" y="928" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">./results/runs/&lt;prefix&gt;/  (configurable parent; collisions: _1, _2, …)</text>
 <text x="962" y="958" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">&lt;prefix&gt;_EventEnergy.root     &lt;prefix&gt;_IncidentEnergy.root     run.log</text>
-<text x="962" y="988" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Event branches: RunID, EventID, Edep</text>
-<text x="962" y="1018" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Incident branches: RunID, EventID, TrackID, PDG, Edep</text>
-<text x="962" y="1048" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Edep in keV; detector name is the TTree name, not a branch.</text>
+<text x="962" y="988" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Event branches: RunID, EventID, Edep/keV</text>
+<text x="962" y="1018" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">Incident: event fields + TrackID, PDG, CreatorProcess</text>
+<text x="962" y="1048" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#172536">IncidentPosition/mm [x,y,z]; IncidentDirection [x,y,z] (World)</text>
 <polyline points="1640,780 1640,855" fill="none" stroke="#595959" stroke-width="2" marker-end="url(#arrow)"/>
 <text x="50" y="1099" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#595959">C++ choices: EventAction::DefaultRecorders() selects recorders; ActionInitialization::CreateRunAction() selects the output backend.</text>
 <text x="50" y="1134" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" fill="#595959">Mo-100 ground-state models: allowed two-neutrino phase space and light-Majorana mass exchange. Q = 3034.40 keV.  |  Source 712898d  ·  12 Nov 2026</text>
