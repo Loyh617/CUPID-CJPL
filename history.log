@@ -418,3 +418,6 @@ Verified using ROOT 6.36.10 on the 100M Th-232 run with 3.0992 Bq: timed/pile-up
 - RootOutput writes a native string column via G4AnalysisManager (schema 7). Updated schema inspection, recorder/output/MT checks, README and the data-flow figure. Consulted the installed Geant4 11.4.1 source interfaces.
 - Passed compilation, recorder ancestry, ROOT roundtrip, manager dispatch, native multithread merging, serial/MT sensitive-detector checks and output integration. A 100-event two-worker gamma run passed event/incident energy agreement; ParticleTimeInformation, PileUp and Trigger preserved CreatorProcess. PyROOT checks read the string via TLeafC::GetValueString.
 - Removed this task's temporary self-test scripts, logs and outputs after successful verification; retained user-requested simulation data.
+
+2026-11-19 | Keep AGENTS.md local only.
+- Added /AGENTS.md to .gitignore and removed it from the Git index while preserving the local file. Verified that the file exists and Git ignores it. Existing commit history is unchanged.
