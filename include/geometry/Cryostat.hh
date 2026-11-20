@@ -6,15 +6,12 @@
 /// and registers their source-volume transforms with GeometryManager.
 
 #pragma once
-class G4VPhysicalVolume;
+#include "geometry/VGeometry.hh"
 namespace cupid {
-class Materials;
-class GeometryManager;
-struct GeometryParameters;
-class Cryostat {
+class Cryostat : public VGeometry {
  public:
   void Build(G4VPhysicalVolume* parent, const Materials& materials,
-             const GeometryParameters& parameters, GeometryManager& geometry) const;
+             const GeometryParameters& parameters, GeometryManager& geometry) const override;
 };
 }
 

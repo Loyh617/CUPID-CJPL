@@ -3,11 +3,13 @@
 > [!WARNING]
 > **Do not commit or push your development work directly to `main`.** Work on a dedicated branch and submit a Pull Request. Merge into `main` only after code review and the required checks have passed.
 
+For module responsibilities, interface contracts, call examples and extension workflows, see the [Developer Manual](DeveloperManual.md) (Chinese).
+
 ## 1. Overview and Scope
 
 A Geant4 framework for collaborative development of CUPID-CJPL simulations, covering radioactive backgrounds, calibration sources, and signals within LMO crystals. The current simulation endpoint is **energy deposition in LMO**.
 
-Implemented features include the cryostat, inner shielding, LMO array, particle gun, local Mo-100 double-beta generators, position-sampling utilities, event-level and incident-particle energy recording, and multithreaded ROOT output. Dedicated environmental, copper-frame, cosmic-ray, and Th-232/Co-56 calibration generators remain to be implemented. The existing Th-232 macro emits a nuclide through the particle gun.
+Implemented features include the cryostat, inner shielding, LMO array, WThWireInCopperCup calibration assembly, particle gun, local Mo-100 double-beta generators, position-sampling utilities, event-level and incident-particle energy recording, and multithreaded ROOT output. Dedicated environmental, copper-frame, cosmic-ray, and Th-232/Co-56 calibration generators remain to be implemented. The existing Th-232 macro emits a nuclide through the particle gun.
 
 Current checks cover gamma transport, radioactive-decay execution, and software behavior; no general claim of physics accuracy or validated energy range has been established. Laboratory rock, NTD/LD detectors, optical transport, dose scoring, detector response, electronics, and waveforms are not implemented. **A successful run does not establish physics validity.**
 
@@ -92,7 +94,7 @@ CUPID-CJPL/
 
 `DetectorConstruction → geometry/materials`; `PhysicsList → physics processes`; `PrimaryGeneratorAction → generator`; `LMOSensitiveDetector/DetectorHit → raw hits`; `EventAction → record → output`. `RunAction` controls output lifetime, `TrackingAction` supplies track ancestry, and `SteppingAction/StackingAction` provide extension points.
 
-To add a detector, extend `geometry/`, `GeometryManager`, and sensitive-detector attachment. Implement `VGenerator` and register it with `GeneratorManager` to add a source. To add a recorder, define its record struct and statistics class, then add its selection, result vector and Build call to `RecordManager`. Add explicit booking and typed Write functions to the output interfaces/backend, connect them in the Actions, and add implementation files to CMake as needed. Select recorders in `EventAction::DefaultRecorders()`. File comments describe the interfaces. There is currently no separate production analysis package.
+To add a geometry component, derive from `VGeometry`, implement `Build(...) const override`, and register its builder in `GeometryManager`. Add sensitive-detector attachment when scoring is needed. Implement `VGenerator` and register it with `GeneratorManager` to add a source. To add a recorder, define its record struct and statistics class, then add its selection, result vector and Build call to `RecordManager`. Add explicit booking and typed Write functions to the output interfaces/backend, connect them in the Actions, and add implementation files to CMake as needed. Select recorders in `EventAction::DefaultRecorders()`. File comments describe the interfaces. There is currently no separate production analysis package.
 
 ## 5. Physics Models and Geometry Configuration
 
@@ -115,6 +117,17 @@ G4IonQMDPhysics
 A Geant4 event currently includes the primary particles and transport of their descendants. Events are not regrouped into detector time windows, and the energy tables do not contain time columns.
 
 The quick-start source is at `(-25,-350,-100) mm`, emitting along `+Z`. The full-geometry `run.mac` example uses `(0,-350,-100) mm`, also emitting 1 MeV gamma rays along `+Z`.
+
+The optional calibration geometry is implemented in `geometry/CalibrationSource/WThWireInCopperCup`.
+Enable `WThWireInCopperCup` together with `LMOArray` before initialization.
+It follows LMO0's local -Z face with a 7.5 mm bare-cup-face gap. The laboratory
+assembly retains its 1.6 mm diameter, 10 mm long wire (98% W + 2% ThO2 by mass,
+18.95 g/cm³), 18 mm diameter, 4.9 mm high copper cup and 3 mm diameter,
+0.005 mm thick copper tape. The tape projects towards LMO0, giving a 7.495 mm
+tape-face gap. `WThWireInCopperCup.Wire`, `.CopperCup` and `.CopperTape`
+are separately registered source volumes. The enclosing volume is named
+`WThWireInCopperCup` and uses the parent material. Enabling this component
+does not generate radioactive decays; sample the Wire volume in a generator.
 
 ## 6. Running and Configuring the Application
 

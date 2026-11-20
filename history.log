@@ -421,3 +421,28 @@ Verified using ROOT 6.36.10 on the 100M Th-232 run with 3.0992 Bq: timed/pile-up
 
 2026-11-19 | Keep AGENTS.md local only.
 - Added /AGENTS.md to .gitignore and removed it from the Git index while preserving the local file. Verified that the file exists and Git ignores it. Existing commit history is unchanged.
+
+2026-11-19 | Added DeveloperManual.md and a README entry point.
+- Documented current geometry/material/physics, generators and samplers, SD/Hit/ancestry, recorders, ROOT output, Actions, offline analysis, extension steps and validation workflows against the checked source. Distinguished implemented interfaces from placeholders and documented known model/schema-log limitations without changing runtime behavior.
+- Cross-checked Geant4 11.4.1 source and ROOT 6.36.10 installed headers; corrected the documented SD/event-start callback order. Verified local links, section anchors, Markdown fences and git diff whitespace. No simulation was run and no test artifacts were generated.
+
+2026-11-19 | Added the WThWireInCopperCup calibration geometry.
+- Added geometry/CalibrationSource.hh/.cc and registered WThWireInCopperCup after LMOArray. The assembly contains individually registered Wire, CopperCup and CopperTape placements inside an invisible envelope with the parent material. No source emission or scoring policy was changed.
+- Ported dimensions and materials from LMO-Th232-sim/src/DetectorConstruction.cc lines 247-302: diameter 1.6 mm x length 10 mm wire, diameter 18 mm x height 4.9 mm copper cup (2 mm rear lid, 14.6 mm cavity diameter, 2 mm hole diameter, 1 mm hole face), and radius 1.5 mm x thickness 0.005 mm copper tape. Materials adds ThO2 (10 g/cm3) and WThWire (18.95 g/cm3; 2% ThO2 + 98% G4_W by mass).
+- Preserved the 7.5 mm bare cup-face gap relative to LMO0 local -Z, with wire along local X. Derived positions from the actual LMO box and transform instead of the old 20 mm crystal's hard-coded centre offset. Tape face gap is 7.495 mm. Added construction-only volume lookup without relaxing initialized source-sampling lookup.
+- Reused Geant4 11.4.1 G4Tubs, G4UnionSolid, G4PVPlacement/G4Transform3D and G4Material::AddMaterial after inspecting their official source headers. Updated all dependent CMake targets, geometry command guidance, commands.mac, README and DeveloperManual.
+- Full build passed. Independent checks passed for one/two LMOs, both counts with cryostat/shielding, a rotated 20 mm reference LMO, and missing-LMO rejection: dimensions, transforms, density/fractions, 100000 overlap samples per volume, 50000 navigation probes against the legacy analytic cross-section per valid layout, and 1000 wire-sampling points per layout. Existing material and vertex-sampler checks passed.
+- Two-worker transport completed 100 gamma and 10 Th232 events in the full geometry. Gamma readback had 64 rows in each recorder with identical per-event energy totals; the small Th232 run had no positive detector deposits. These are geometry/integration checks, not source-spectrum validation.
+- Removed this task's temporary self-check code, build, macros, ROOT files and logs after success; retained existing user-requested data.
+
+2026-11-20 | Reorganized the calibration-source geometry.
+- Moved include/geometry/CalibrationSource.hh and src/geometry/CalibrationSource.cc to the corresponding geometry/CalibrationSource/WThWireInCopperCup.hh/.cc paths; renamed the class and GeometryManager construction call to WThWireInCopperCup. Renamed the local assembly-name variable to sourceName to avoid shadowing the class name.
+- Updated all four CMake source lists, includes, file comments, macros/commands.mac, README.md and DeveloperManual.md references. Preserved the existing component/volume names, geometry parameters and user changes in macros/vis.mac.
+- This is a file/class organization change; existing Geant4 geometry interfaces remain unchanged and no new physics or geometry algorithm was introduced.
+- Validation: CMake regeneration and full build passed; no obsolete source/include/class references remain in source, macros, tests or documentation. No simulation output or temporary self-test files were generated.
+
+2026-11-20 | Added the VGeometry component interface.
+- Added include/geometry/VGeometry.hh with a virtual destructor and pure virtual Build(parent, materials, parameters, geometry) const. Cryostat, InnerShielding, LMOArray and WThWireInCopperCup now inherit it and declare Build with override.
+- GeometryManager owns component builders through std::unique_ptr<VGeometry> and dispatches Build through the interface, replacing function-pointer callbacks. Preserved component ordering, macro names and geometry parameters. Updated README and DeveloperManual extension guidance; no macro command changed.
+- Reviewed Geant4 11.4.1 source/run/include/G4VUserDetectorConstruction.hh and G4VUserParallelWorld.hh: they provide whole-detector/parallel-world initialization, not the project component contract. DetectorConstruction retains the existing native entry point; VGeometry only supplies component-level organization.
+- Validation: full build passed; serial initialization with all four components and two LMOs passed, including calibration-source registration. Removed the successful self-check macro and log from results/tests/vgeometry-20261120. No transport-spectrum or physics validation was required for this interface refactor.

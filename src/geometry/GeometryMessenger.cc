@@ -23,7 +23,7 @@ GeometryMessenger::GeometryMessenger(GeometryManager& manager) : fManager(manage
   fDisable = std::make_unique<G4UIcmdWithAString>("/cupid/geometry/disable", this);
   for (auto* command : {fEnable.get(), fDisable.get()}) {
     command->SetParameterName("component", false);
-    command->SetGuidance("Component: Cryostat, InnerShielding or LMOArray (case sensitive).");
+    command->SetGuidance("Component: Cryostat, InnerShielding, LMOArray or WThWireInCopperCup (requires LMOArray).");
     command->AvailableForStates(G4State_PreInit);
     command->SetToBeBroadcasted(false);
   }

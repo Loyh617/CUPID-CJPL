@@ -53,7 +53,7 @@ add_executable(cupid-sim
   src/geometry/GeometryMessenger.cc
   src/geometry/Cryostat.cc
   src/geometry/InnerShielding.cc
-  src/geometry/LMOArray.cc
+  src/geometry/LMOArray.cc src/geometry/CalibrationSource/WThWireInCopperCup.cc
   src/materials/Materials.cc
 )
 target_compile_features(cupid-sim PRIVATE cxx_std_17)
@@ -96,7 +96,7 @@ if(BUILD_TESTING)
   set_tests_properties(record-output-manager-checks PROPERTIES TIMEOUT 120)
   add_executable(check-th232-source tests/check_th232_source.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
-    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc src/geometry/CalibrationSource/WThWireInCopperCup.cc
     src/materials/Materials.cc)
   target_compile_features(check-th232-source PRIVATE cxx_std_17)
   target_include_directories(check-th232-source PRIVATE include)
@@ -136,7 +136,7 @@ if(BUILD_TESTING)
     src/generator/toolkit/sampler/PointSampler.cc
     src/generator/toolkit/sampler/RejectionVolumeSampler.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
-    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc src/geometry/CalibrationSource/WThWireInCopperCup.cc
     src/materials/Materials.cc)
   target_compile_features(check-vertex-sampler PRIVATE cxx_std_17)
   target_include_directories(check-vertex-sampler PRIVATE include)
@@ -161,7 +161,7 @@ if(BUILD_TESTING)
     src/record/EventEnergyRecorder.cc src/record/IncidentEnergyRecorder.cc
     src/record/TrackAncestry.cc src/record/RecordManager.cc
     src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
-    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc src/geometry/CalibrationSource/WThWireInCopperCup.cc
     src/materials/Materials.cc)
   target_compile_features(check-lmo-sd PRIVATE cxx_std_17)
   target_include_directories(check-lmo-sd PRIVATE include)

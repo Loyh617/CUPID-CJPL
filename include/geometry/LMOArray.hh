@@ -7,15 +7,12 @@
 /// detectors are attached later by DetectorConstruction.
 
 #pragma once
-class G4VPhysicalVolume;
+#include "geometry/VGeometry.hh"
 namespace cupid {
-class Materials;
-class GeometryManager;
-struct GeometryParameters;
-class LMOArray {
+class LMOArray : public VGeometry {
  public:
   void Build(G4VPhysicalVolume* parent, const Materials& materials,
-             const GeometryParameters& parameters, GeometryManager& geometry) const;
+             const GeometryParameters& parameters, GeometryManager& geometry) const override;
 };
 }
 

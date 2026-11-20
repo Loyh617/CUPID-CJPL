@@ -24,6 +24,7 @@ class G4LogicalVolume;
 class G4VPhysicalVolume;
 namespace cupid {
 class GeometryMessenger;
+class VGeometry;
 class Materials;
 
 // Non-owning placement information populated by GeometryManager during construction.
@@ -52,6 +53,8 @@ class GeometryManager {
   void BeginSourceVolumes(G4VPhysicalVolume* world);
   void RegisterSourceVolume(G4VPhysicalVolume* volume, G4VPhysicalVolume* parent);
   void FinishSourceVolumes();
+  // Construction-only lookup of an already registered component; master thread only.
+  const SourceVolumeInfo& FindConstructionVolume(const G4String& name) const;
   // Register crystal placements in contiguous, zero-based copy-number order.
   void RegisterLMOVolume(G4VPhysicalVolume* volume);
   const std::vector<G4LogicalVolume*>& GetLMOLogicalVolumes() const;
@@ -63,13 +66,12 @@ class GeometryManager {
   const GeometryParameters& Parameters() const { return fParameters; }
 
  private:
-  using Builder = void (*)(G4VPhysicalVolume*, const Materials&, const GeometryParameters&, GeometryManager&);
   struct Component {
     const char* name;
     G4bool enabled;
-    Builder build;
+    std::unique_ptr<VGeometry> builder;  // Owns the builder, not its placed volumes.
   };
-  std::array<Component, 3> fComponents;
+  std::array<Component, 4> fComponents;
   GeometryParameters fParameters;
   std::map<G4String, SourceVolumeInfo> fSourceVolumes;
   std::vector<G4LogicalVolume*> fLMOLogicalVolumes;

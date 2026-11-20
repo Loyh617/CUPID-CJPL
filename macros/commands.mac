@@ -28,16 +28,20 @@
 
 # Command: /cupid/geometry/enable <component>
 # Purpose: include a component in the next initial geometry construction.
-# Argument: Cryostat, InnerShielding or LMOArray (required).
+# Argument: Cryostat, InnerShielding, LMOArray or WThWireInCopperCup (required).
 # State: PreInit.
-# Initial setting: all three components are disabled; World is built separately.
+# Initial setting: all four components are disabled; World is built separately.
 # This selects an existing component; it does not create a new component type.
 # Example:
 # /cupid/geometry/enable LMOArray
+# /cupid/geometry/enable WThWireInCopperCup
+# WThWireInCopperCup requires LMOArray and follows LMO0 local -Z.
+# Cup-face gap: 7.5 mm; dimensions are set in WThWireInCopperCup.cc.
+# This enables geometry only; it does not select a radioactive generator.
 
 # Command: /cupid/geometry/disable <component>
 # Purpose: exclude a component from the initial geometry construction.
-# Argument: Cryostat, InnerShielding or LMOArray (required).
+# Argument: Cryostat, InnerShielding, LMOArray or WThWireInCopperCup (required).
 # State: PreInit.
 # Does not remove geometry after initialization. Restart with a different macro
 # to change component selection once geometry has been initialized.

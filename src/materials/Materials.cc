@@ -29,6 +29,7 @@ void Materials::Build() {
   auto* Li = nist->FindOrBuildElement("Li");
   auto* Mo = nist->FindOrBuildElement("Mo");
   auto* Fe = nist->FindOrBuildElement("Fe");
+  auto* Th = nist->FindOrBuildElement("Th");
 
   // 2. Project materials, one recipe per block.
   // Edit densities, temperatures and composition here, then rebuild. Geometry
@@ -91,6 +92,19 @@ void Materials::Build() {
   if (!G4Material::GetMaterial("NTD_Ge", false)) {
     auto* ntd = new G4Material("NTD_Ge", 5.323*g/cm3, 1, kStateSolid);
     ntd->AddElementByNumberOfAtoms(Ge, 1);
+  }
+
+  // Calibration wire: 2% ThO2 and 98% tungsten by mass, not 2% elemental Th.
+  // Keep the specified source density and recipe; radioactivity is set by generators.
+  if (!G4Material::GetMaterial("ThO2", false)) {
+    auto* oxide = new G4Material("ThO2", 10.0*g/cm3, 2);
+    oxide->AddElementByNumberOfAtoms(Th, 1);
+    oxide->AddElementByNumberOfAtoms(O, 2);
+  }
+  if (!G4Material::GetMaterial("WThWire", false)) {
+    auto* wire = new G4Material("WThWire", 18.95*g/cm3, 2);
+    wire->AddMaterial(G4Material::GetMaterial("ThO2"), 2.0*perCent);
+    wire->AddMaterial(nist->FindOrBuildMaterial("G4_W"), 98.0*perCent);
   }
 
   // 3. Standard materials used by the existing geometry.

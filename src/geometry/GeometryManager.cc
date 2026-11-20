@@ -12,6 +12,7 @@
 #include "geometry/Cryostat.hh"
 #include "geometry/InnerShielding.hh"
 #include "geometry/LMOArray.hh"
+#include "geometry/CalibrationSource/WThWireInCopperCup.hh"
 
 #include "G4Box.hh"
 #include "G4LogicalVolume.hh"
@@ -26,11 +27,13 @@
 
 namespace cupid {
 // Components start disabled. Select them with /cupid/geometry/enable before initialization.
+// Build order follows this registry; dependent components must follow their prerequisites.
 GeometryManager::GeometryManager()
     : fComponents{{
-          {"Cryostat", false, [](auto* m, const auto& a, const auto& p, auto& g) { Cryostat{}.Build(m,a,p,g); }},
-          {"InnerShielding", false, [](auto* m, const auto& a, const auto& p, auto& g) { InnerShielding{}.Build(m,a,p,g); }},
-          {"LMOArray", false, [](auto* m, const auto& a, const auto& p, auto& g) { LMOArray{}.Build(m,a,p,g); }}
+          {"Cryostat", false, std::make_unique<Cryostat>()},
+          {"InnerShielding", false, std::make_unique<InnerShielding>()},
+          {"LMOArray", false, std::make_unique<LMOArray>()},
+          {"WThWireInCopperCup", false, std::make_unique<WThWireInCopperCup>()}
       }}, fMessenger(std::make_unique<GeometryMessenger>(*this)) {}
 GeometryManager::~GeometryManager() = default;
 
@@ -39,7 +42,7 @@ void GeometryManager::SetEnabled(const G4String& name, G4bool enabled) {
     if (name == component.name) { component.enabled = enabled; return; }
   }
   throw std::invalid_argument("Unknown geometry component '" + name +
-      "'. Available: Cryostat InnerShielding LMOArray");
+      "'. Available: Cryostat InnerShielding LMOArray WThWireInCopperCup");
 }
 void GeometryManager::SetLMOCount(G4int count) {
   // This bound reflects the checked prototype layout; increasing it requires geometry validation.
@@ -59,13 +62,23 @@ void GeometryManager::Build(G4VPhysicalVolume* world, const Materials& materials
   G4int enabled = 0;
   for (const auto& component : fComponents) {
     if (component.enabled) {
-      component.build(world, materials, fParameters, *this);
+      component.builder->Build(world, materials, fParameters, *this);
       ++enabled;
     }
   }
   FinishSourceVolumes();
   if (!enabled) G4cout << "CUPID_NOTICE: no components enabled; world-only geometry." << G4endl;
 }
+const SourceVolumeInfo& GeometryManager::FindConstructionVolume(const G4String& name) const {
+  if (G4Threading::IsWorkerThread() || !fRegistering)
+    throw std::runtime_error("Construction lookup is only available during master geometry construction.");
+  const auto found = fSourceVolumes.find(name);
+  if (found == fSourceVolumes.end())
+    throw std::runtime_error("Required geometry volume is not built: " + name +
+                             ". Enable its component before initialization.");
+  return found->second;
+}
+
 void GeometryManager::BeginSourceVolumes(G4VPhysicalVolume* world) {
   const auto state = G4StateManager::GetStateManager()->GetCurrentState();
   if (G4Threading::IsWorkerThread() || (state != G4State_PreInit && state != G4State_Init))
