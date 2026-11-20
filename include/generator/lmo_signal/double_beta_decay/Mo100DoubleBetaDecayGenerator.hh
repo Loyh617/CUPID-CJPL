@@ -3,11 +3,8 @@
 #pragma once
 
 #include "generator/VGenerator.hh"
-#include "generator/toolkit/sampler/DirectVolumeSampler.hh"
 
-#include <cstddef>
-#include <optional>
-#include <vector>
+#include "G4ThreeVector.hh"
 
 namespace cupid {
 class GeometryManager;
@@ -20,13 +17,7 @@ class Mo100DoubleBetaDecayGenerator final : public VGenerator {
 
  private:
   G4ThreeVector SamplePosition();
-  struct Source {
-    DirectVolumeSampler sampler;
-    G4ThreeVector halfLengths;
-  };
   const GeometryManager& fGeometry;
   const Mode fMode;
-  std::optional<std::size_t> fGeneration;
-  std::vector<Source> fSources;
 };
 }  // namespace cupid

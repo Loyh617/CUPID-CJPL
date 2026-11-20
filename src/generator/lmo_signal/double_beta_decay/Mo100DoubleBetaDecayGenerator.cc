@@ -3,11 +3,13 @@
 /// baseline energy/angle factors as in DECAY0 modes 4 and 1, with G4 Coulomb weights.
 /// Energies in the sampler are kinetic energies in Geant4 units.
 #include "generator/lmo_signal/double_beta_decay/Mo100DoubleBetaDecayGenerator.hh"
+#include "generator/toolkit/sampler/DirectVolumeSampler.hh"
 #include "geometry/GeometryManager.hh"
 
 #include "G4BetaDecayCorrections.hh"
 #include "G4Electron.hh"
 #include "G4Event.hh"
+#include "G4LogicalVolume.hh"
 #include "G4PhysicalConstants.hh"
 #include "G4PrimaryParticle.hh"
 #include "G4PrimaryVertex.hh"
@@ -88,19 +90,14 @@ Mo100DoubleBetaDecayGenerator::Mo100DoubleBetaDecayGenerator(
     const GeometryManager& geometry, Mode mode) : fGeometry(geometry), fMode(mode) {}
 
 G4ThreeVector Mo100DoubleBetaDecayGenerator::SamplePosition() {
-  const auto generation = fGeometry.GetGeometryGeneration();
-  if (fGeneration != generation) {
-    std::vector<Source> sources;
-    for (const auto& p : fGeometry.GetLMOPlacements())
-      sources.push_back({DirectVolumeSampler(p.center, p.rotation), p.halfLengths});
-    if (sources.empty())
-      throw std::runtime_error("Mo-100 generation requires an enabled LMO crystal.");
-    fSources = std::move(sources);
-    fGeneration = generation;
-  }
+  // LMOArray gives each logical/physical pair the same unique LMO[id] name.
+  // Read the current registry instead of caching dimensions or placement transforms.
+  const auto& sources = fGeometry.GetLMOLogicalVolumes();
+  if (sources.empty())
+    throw std::runtime_error("Mo-100 generation requires an enabled LMO crystal.");
   // All crystals in the current array have identical Mo-100 inventories.
-  const auto& source = fSources.at(static_cast<std::size_t>(G4UniformRand()*fSources.size()));
-  return source.sampler.SampleBox(source.halfLengths);
+  const auto* source = sources.at(static_cast<std::size_t>(G4UniformRand()*sources.size()));
+  return DirectVolumeSampler::SampleBox(source->GetName(), fGeometry);
 }
 
 void Mo100DoubleBetaDecayGenerator::Generate(G4Event* event) {

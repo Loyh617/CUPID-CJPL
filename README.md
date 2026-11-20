@@ -129,6 +129,8 @@ are separately registered source volumes. The enclosing volume is named
 `WThWireInCopperCup` and uses the parent material. Enabling this component
 does not generate radioactive decays; sample the Wire volume in a generator.
 
+Direct volume sampling supports boxes, tubes and spheres (including hollow and angular sections). Generators may provide dimensions and a coordinate frame, or call `DirectVolumeSampler::SampleBox/SampleTubs/SampleSphere(volume, geometry)` for a registered placement. Geometry-based calls validate the solid type and reject daughters. See [DeveloperManual](DeveloperManual.md#62-directvolumesampler) for parameters and examples.
+
 ## 6. Running and Configuring the Application
 
 Supported command line:

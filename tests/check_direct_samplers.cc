@@ -102,7 +102,7 @@ int main() {
 
     const double radius = 4.*mm, halfHeight = 6.*mm;
     G4Tubs cylinder("DirectTestCylinder", 0., radius, halfHeight, 0., twopi);
-    CheckDistribution("cylinder", [&] { return volume.SampleCylinder(radius, halfHeight); },
+    CheckDistribution("cylinder", [&] { return volume.SampleTubs(0., radius, halfHeight); },
         [&](const auto& p) { return cylinder.Inside(p) != kOutside; },
         [&](const auto& p) { return std::array<double,3>{p.perp2()/(radius*radius),
           AzimuthFraction(p), (p.z()/halfHeight+1.)/2.}; },
@@ -111,7 +111,7 @@ int main() {
     const double sphereRadius = 7.*mm;
     const G4ThreeVector sphereScale{sphereRadius,sphereRadius,sphereRadius};
     G4Orb ball("DirectTestBall", sphereRadius);
-    CheckDistribution("ball", [&] { return volume.SampleSphere(sphereRadius); },
+    CheckDistribution("ball", [&] { return volume.SampleSphere(0., sphereRadius); },
         [&](const auto& p) { return ball.Inside(p) != kOutside; },
         [&](const auto& p) { return std::array<double,3>{std::pow(p.mag()/sphereRadius,3),
           (p.z()/p.mag()+1.)/2., AzimuthFraction(p)}; },
@@ -143,8 +143,8 @@ int main() {
               "Hemisphere orientation is reversed");
 
     const auto sequence = [&] {
-      return std::array<G4ThreeVector,6>{volume.SampleBox(half), volume.SampleCylinder(radius,halfHeight),
-          volume.SampleSphere(radius), surface.SampleRectangle(half.x(),half.y()),
+      return std::array<G4ThreeVector,6>{volume.SampleBox(half), volume.SampleTubs(0., radius,halfHeight),
+          volume.SampleSphere(0., radius), surface.SampleRectangle(half.x(),half.y()),
           surface.SampleSphere(radius), surface.SampleHemisphere(radius)};
     };
     G4Random::setTheSeed(987654);
@@ -165,9 +165,9 @@ int main() {
         invalidHalf[axis] = bad;
         Reject([&] { localVolume.SampleBox(invalidHalf); });
       }
-      Reject([&] { localVolume.SampleCylinder(bad, halfHeight); });
-      Reject([&] { localVolume.SampleCylinder(radius, bad); });
-      Reject([&] { localVolume.SampleSphere(bad); });
+      Reject([&] { localVolume.SampleTubs(0., bad, halfHeight); });
+      Reject([&] { localVolume.SampleTubs(0., radius, bad); });
+      Reject([&] { localVolume.SampleSphere(0., bad); });
       Reject([&] { localSurface.SampleRectangle(bad, half.y()); });
       Reject([&] { localSurface.SampleRectangle(half.x(), bad); });
       Reject([&] { localSurface.SampleSphere(bad); });

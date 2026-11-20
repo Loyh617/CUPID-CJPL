@@ -145,7 +145,11 @@ if(BUILD_TESTING)
   add_executable(check-direct-samplers
     tests/check_direct_samplers.cc
     src/generator/toolkit/sampler/DirectVolumeSampler.cc
-    src/generator/toolkit/sampler/DirectSurfaceSampler.cc)
+    src/generator/toolkit/sampler/DirectSurfaceSampler.cc
+    src/geometry/GeometryManager.cc src/geometry/GeometryMessenger.cc
+    src/geometry/Cryostat.cc src/geometry/InnerShielding.cc src/geometry/LMOArray.cc
+    src/geometry/CalibrationSource/WThWireInCopperCup.cc
+    src/materials/Materials.cc)
   target_compile_features(check-direct-samplers PRIVATE cxx_std_17)
   target_include_directories(check-direct-samplers PRIVATE include)
   target_link_libraries(check-direct-samplers PRIVATE ${Geant4_LIBRARIES})

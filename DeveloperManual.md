@@ -354,13 +354,13 @@ void Generate(G4Event* event) override;
 
 当前实现步骤：
 
-1. 从 GetLMOPlacements() 获取中心、旋转和半长。
+1. 从 GetLMOLogicalVolumes() 获取当前已登记的 LMO 列表。
 2. 按相同晶体 Mo100 库存假设等概率选择晶体。
-3. 用 DirectVolumeSampler::SampleBox() 在该晶体内均匀取点。
+3. 用 DirectVolumeSampler::SampleBox(source->GetName(), geometry) 选定同名物理体，由采样器读取形状、尺寸和 World 变换，在该晶体内均匀取点。
 4. 抽取两电子动能和相关方向，建立同位置、同时间零的一个顶点。
 5. 将两个电子作为初级粒子交给 Geant4。
 
-位置缓存随几何代数更新；若无启用 LMO，则报错。若未来晶体质量或富集度不同，须按实际 Mo100 原子数加权选择，不能继续等概率。
+每次生成直接读取当前几何，不再缓存晶体尺寸和变换；若无启用 LMO，则报错。若未来晶体质量或富集度不同，须按实际 Mo100 原子数加权选择，不能继续等概率。
 
 Q = 3034.40 keV，忽略反冲。内部动能以 Geant4 单位表示；计算动量的表达式 sqrt(T(T+2mc²)) 在这里使用能量单位的动量数值，不应额外乘除 SI 制的 c。
 
@@ -392,30 +392,48 @@ const auto position = sampler.Sample();
 
 ### 6.2 DirectVolumeSampler
 
+手动形式：先给出局部原点在 World 的位置与局部到 World 的旋转，再传入尺寸。
+
 ```cpp
 DirectVolumeSampler(const G4ThreeVector& center = {},
                     const G4RotationMatrix& localToWorldRotation = {});
 G4ThreeVector SampleBox(const G4ThreeVector& halfLengths) const;
-G4ThreeVector SampleCylinder(G4double radius, G4double halfLength) const;
-G4ThreeVector SampleSphere(G4double radius) const;
+G4ThreeVector SampleTubs(G4double innerRadius, G4double outerRadius,
+                        G4double halfLength, G4double startPhi = 0.,
+                        G4double deltaPhi = twopi) const;
+G4ThreeVector SampleSphere(G4double innerRadius, G4double outerRadius,
+                          G4double startPhi = 0., G4double deltaPhi = twopi,
+                          G4double startTheta = 0., G4double deltaTheta = pi) const;
 ```
 
-默认中心为零、旋转为单位阵。尺寸必须有限且严格为正。
+默认原点为零、旋转为单位阵。长度使用 Geant4 单位；Box 三个长度与 Tubs 高度均为半长。半径不是直径，要求 0 <= innerRadius < outerRadius；innerRadius=0 表示实心。角度用 rad 或显式 deg，要求 0 < deltaPhi <= 2*pi、0 <= startTheta < pi、0 < deltaTheta <= pi-startTheta。所有参数必须有限。
 
 | 方法 | 均匀测度与参数 |
 | --- | --- |
-| SampleBox | 体积均匀；三个参数为各方向半长 |
-| SampleCylinder | 实心圆柱体积均匀；轴为局部 Z；r=R√U，高度全长为 2h |
-| SampleSphere | 实心球体积均匀；r=R∛U，球面位置方向各向同性 |
+| SampleBox | 体积均匀；三个局部坐标独立均匀 |
+| SampleTubs | 管体或扇形管体；轴为局部 Z；r² 在内外半径的平方之间均匀，phi 与 z 均匀 |
+| SampleSphere | 球体、球壳或部分球壳；r³、phi 与 cos(theta) 分别均匀；完整立体角复用 G4RandomDirection |
 
 ```cpp
-const auto placements = geometry.GetLMOPlacements();
-const auto& lmo = placements.at(0);
-cupid::DirectVolumeSampler sampler(lmo.center, lmo.rotation);
-const auto position = sampler.SampleBox(lmo.halfLengths);
+cupid::DirectVolumeSampler sampler(center, rotation);
+const auto boxPoint = sampler.SampleBox({10.*mm, 20.*mm, 30.*mm});
+const auto tubePoint = sampler.SampleTubs(2.*mm, 5.*mm, 10.*mm);
+const auto shellPoint = sampler.SampleSphere(2.*mm, 5.*mm);
 ```
 
-这些方法不查询几何，也不排除子体。若几何盒内有孔或放入其他材料，应改变采样模型；不能仍把整盒均匀采样称为目标材料内部均匀。
+几何形式：以下静态重载接收已登记的物理体名称和已初始化的 GeometryManager，每次调用读取形状、尺寸、角度范围与完整的局部到 World 变换。无指针缓存，也不遍历 World；几何在采样期间必须保持稳定。
+
+```cpp
+const auto lmoPoint = cupid::DirectVolumeSampler::SampleBox("LMO0", geometry);
+const auto wirePoint = cupid::DirectVolumeSampler::SampleTubs(
+    "WThWireInCopperCup.Wire", geometry);
+const auto spherePoint = cupid::DirectVolumeSampler::SampleSphere(
+    "MySphereSource", geometry);  // Requires a registered sphere placement.
+```
+
+SampleBox 要求 G4Box，SampleTubs 要求 G4Tubs，SampleSphere 接受 G4Sphere 或 G4Orb。未知名称、未完成初始化、类型不匹配或带子体时抛出异常；布尔组合体不按外观近似为简单几何。存在子体或布尔挖孔时，使用 RejectionVolumeSampler。位置变换使用的是实体局部原点，不是部分球壳或扇形管的体积质心。所有返回值为 World 坐标；角度用于采样位置，不是粒子动量方向。
+
+手动形式不查询几何或排除子体，调用者应保证给定解析体与源区域一致。Mo-100 发生器使用按物理体名称调用的 SampleBox(volume, geometry)，保持当前相同晶体等概率选择规则。
 
 ### 6.3 DirectSurfaceSampler
 
