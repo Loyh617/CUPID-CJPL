@@ -118,6 +118,8 @@ A Geant4 event currently includes the primary particles and transport of their d
 
 The quick-start source is at `(-25,-350,-100) mm`, emitting along `+Z`. The full-geometry `run.mac` example uses `(0,-350,-100) mm`, also emitting 1 MeV gamma rays along `+Z`.
 
+The inner copper shield is one stepped `G4Polycone`, registered as `InnerShielding`. Its three axial sections retain their dimensions in `GeometryParameters.hh`. Use rejection volume sampling for this source geometry.
+
 The optional calibration geometry is implemented in `geometry/CalibrationSource/WThWireInCopperCup`.
 Enable `WThWireInCopperCup` together with `LMOArray` before initialization.
 It follows LMO0's local -Z face with a 7.5 mm bare-cup-face gap. The laboratory

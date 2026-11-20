@@ -33,6 +33,8 @@
 # Initial setting: all four components are disabled; World is built separately.
 # This selects an existing component; it does not create a new component type.
 # Example:
+# InnerShielding builds one stepped copper solid and registers the physical volume
+# InnerShielding for source lookup; its three dimension sections are not separate volumes.
 # /cupid/geometry/enable LMOArray
 # /cupid/geometry/enable WThWireInCopperCup
 # WThWireInCopperCup requires LMOArray and follows LMO0 local -Z.

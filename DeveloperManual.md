@@ -169,11 +169,13 @@ parent 是实际母物理体；组件使用其逻辑体放置子体，再向 geo
 | 组件 | 实现 | 参数来源/用途 |
 | --- | --- | --- |
 | Cryostat | [Cryostat.cc](src/geometry/Cryostat.cc) | plates 来自 GeometryParameters；壳体轮廓在 Sections() |
-| InnerShielding | [InnerShielding.cc](src/geometry/InnerShielding.cc) | innerShield 和 shieldOuterRadius |
+| InnerShielding | [InnerShielding.cc](src/geometry/InnerShielding.cc) | innerShield 和 shieldOuterRadius；三段尺寸形成单一 G4Polycone |
 | LMOArray | [LMOArray.cc](src/geometry/LMOArray.cc) | lmoCount、lmoSide、lmoGap、lmoCenter |
 | WThWireInCopperCup | [WThWireInCopperCup.cc](src/geometry/CalibrationSource/WThWireInCopperCup.cc) | 在 LMOArray 后构建；读取已登记 LMO0，源尺寸和间距在组件文件内定义 |
 
 Cryostat 使用圆盘、布尔减法孔和旋转轮廓；局部圆柱轴 Z 旋转到 World 的 Y。MXC 为简化平板，铝壳底部为离散轮廓近似，几何不等于完整工程 CAD。
+
+InnerShielding 以一个 G4Polycone 表示同轴阶梯孔铜屏蔽，实体、逻辑体和物理体均名为 InnerShielding。三段参数仍在 GeometryParameters 中：World Y 范围 -440 至 -420 mm（实心底部）、-420 至 -320 mm（内半径 60 mm）、-320 至 -300 mm（内半径 15 mm），外半径均为 160 mm。局部原点位于 (0,-370,0) mm，局部 +Z 转到 World +Y。原来的 Upper/Body/Lower 不再分别登记物理体。以整个屏蔽为源时使用 RejectionVolumeSampler("InnerShielding", geometry)；它不是 G4Tubs，不适用 DirectVolumeSampler::SampleTubs。
 
 ### 3.3 GeometryManager 接口
 
@@ -218,7 +220,7 @@ WorldPosition = localToWorldTranslation + localToWorldRotation * LocalPosition
 
 当前原点在制冷机轴线上、MXC 盘底面；Y 为轴向。LMO 中心默认 (0,-350,0) mm，边长 45 mm、间隙 5 mm。两晶体中心为 (-25,-350,0) 和 (25,-350,0) mm。尺寸输入必须区别“全长”与 Geant4 实体构造常用的“半长”。
 
-源查询可使用 `Cryostat.Plate.MXC`、`Cryostat.Vessel.InnerLower`、`InnerShielding.Body`、`LMO0` 等已登记物理体名。带点的源体名合法；输出探测器树名称另有约束，只接受字母/下划线开头的字母数字下划线组合。
+源查询可使用 `Cryostat.Plate.MXC`、`Cryostat.Vessel.InnerLower`、`InnerShielding`、`LMO0` 等已登记物理体名。带点的源体名合法；输出探测器树名称另有约束，只接受字母/下划线开头的字母数字下划线组合。
 
 宏示例：
 

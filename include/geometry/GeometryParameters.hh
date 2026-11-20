@@ -50,8 +50,9 @@ struct GeometryParameters {
     G4double height;
     G4double centerY;
   };
-  // All shielding sections share this outer radius; each entry has its own bore,
-  // full axial height and World Y center. Inner radius zero means a solid disk.
+  // Sections define one InnerShielding polycone and must touch axially.
+  // All share this outer radius; each entry gives its bore, full axial height
+  // and World Y center. Inner radius zero closes the bore; names label parameters.
   G4double shieldOuterRadius = 160.*mm;
   const std::array<ShieldPart, 3> innerShield{{
       {"Upper", 15.*mm, 20.*mm, -310.*mm},
